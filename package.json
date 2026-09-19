@@ -20,7 +20,8 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "attachments:cleanup": "bun scripts/cleanup-attachments.ts",
-    "root:create": "bun scripts/create-root.ts"
+    "root:create": "bun scripts/create-root.ts",
+    "db:seed": "bun scripts/seed-demo.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1136.0",

@@ -17,6 +17,34 @@ Open `http://localhost:3000`. Keep `APP_URL` equal to the browser origin; authen
 
 PGlite requires one server process per data directory. Stop the old process before starting another. Use PostgreSQL for multi-process operation and active backend hot-reload work. Do not share a PGlite directory between development, previews, or test runs.
 
+## Demo seed data
+
+Stop the development server first when using PGlite, then run:
+
+```sh
+bun run db:seed
+bun run dev --host 0.0.0.0
+```
+
+Bun reads your local `.env`. The seed uses `DATABASE_URL` for PostgreSQL, or `PGLITE_DATA_DIR` (default `.data/pglite`) otherwise. Keep `APP_URL` set to the exact browser origin as described above.
+
+All demo accounts use **`Portal-demo-only-2026!`**. These are public development credentials; use this command only against a development/demo database. The command refuses `NODE_ENV=production`.
+
+| Email | Access | Sign-in page |
+| --- | --- | --- |
+| `root@demo.example.test` | Government root; manages staff and integration credentials | `/government/login` |
+| `staff@demo.example.test` | Government staff assigned to Demo Funding Agency | `/government/login` |
+| `owner@demo.example.test` | Organization owner/admin; manager for applications, claims, forecasts and standalone forms | `/login` |
+| `contributor@demo.example.test` | Organization contributor for all four subjects; edits drafts | `/login` |
+| `viewer@demo.example.test` | Organization viewer for all four subjects; read-only | `/login` |
+| `user@demo.example.test` | Organization member with base user access only | `/login` |
+
+The migration also creates **Demo Community Organization**, a bilingual agency/program/stream hierarchy, a three-question bilingual application form, and a published **Demo community funding call** open through 2099. Attachments are disabled on this sample form so it works without S3. Staff can enable them in a new form revision after configuring storage, and create cases, budgets, claims/forecasts and additional forms through the government workspace.
+
+Try the flow: sign in as the contributor, open the organization and **Apply for funding**, start the demo application, answer the questions and save. Sign in as the owner in another browser session to review and submit the shared draft. Sign in as staff, open the demo agency's **Cases and submissions**, and review the received application. The viewer can read; the base user cannot access funding. Owners can create further invitation links through the organization's invitations screen; the seed does not manufacture invitation tokens or send email.
+
+This is an explicit, transactional data migration with its own `portal_demo_migration` history. Normal schema migrations and app startup never seed accounts. Repeated runs are no-ops: they preserve edited demo data, changed passwords and submissions. Existing email conflicts or an existing government root abort the first seed and roll back its data instead of modifying existing identities. To try it alongside an existing root, use a separate database, for example `PGLITE_DATA_DIR=.data/demo bun run db:seed`, then run the app with that same directory. Do not remove migration history to rerun it; use a fresh demo database. Future seed changes belong in new numbered migrations.
+
 ## Build and run
 
 ```sh

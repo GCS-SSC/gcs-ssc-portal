@@ -14,7 +14,7 @@ The application uses Kysely with PostgreSQL when `DATABASE_URL` is provided. Oth
 
 All portal writes that affect an existing organization lock that organization's row first. Permissions and ownership are reread under the lock. Invitation acceptance uses the same order to serialize against revocation, replacement, and concurrent acceptance. Organization creation atomically creates ownership, membership, and admin. Membership and permission uniqueness are also enforced by database constraints. No public route deletes users or memberships, so the owner's membership remains stable; future deletion functionality must enforce this invariant.
 
-API mappings expose ISO date strings, numeric member counts, and allowlisted fields. Invitation token hashes and auth credentials never appear in these mappings. There is no automatic seeding and no production reset operation.
+API mappings expose ISO date strings, numeric member counts, and allowlisted fields. Invitation token hashes and auth credentials never appear in these mappings. There is no automatic seeding and no production reset operation. The explicit `bun run db:seed` command applies development-only data migrations using separate `portal_demo_migration` and `portal_demo_migration_lock` tables. It refuses production mode, hashes demo credentials through Better Auth, rejects existing roots/email conflicts, and preserves edits on reruns. Seed data and its history commit atomically; see the README for public demo accounts.
 
 ## Government migration
 
