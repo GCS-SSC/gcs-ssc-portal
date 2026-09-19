@@ -2,13 +2,15 @@ import { Migrator, type Kysely } from 'kysely'
 import type { Database } from './schema'
 import { demoMigration } from './seeds/001-demo'
 
-export const requireDevelopmentSeed = () => {
-  if (process.env.NODE_ENV === 'production')
-    throw new Error('Demo seed is disabled in production. Use a development database.')
+export const requireSeedEnvironment = () => {
+  if (process.env.NODE_ENV === 'production' && process.env.PORTAL_ENVIRONMENT !== 'demo')
+    throw new Error(
+      'Demo seed is disabled in production mode. Use a development database or an explicit demo image.'
+    )
 }
 
 export const seedDemo = async (db: Kysely<Database>) => {
-  requireDevelopmentSeed()
+  requireSeedEnvironment()
   const migrator = new Migrator({
     db,
     migrationTableName: 'portal_demo_migration',

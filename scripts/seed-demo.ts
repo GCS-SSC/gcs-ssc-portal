@@ -1,8 +1,8 @@
-import { requireDevelopmentSeed, seedDemo } from '../server/db/seed-migrations'
+import { requireSeedEnvironment, seedDemo } from '../server/db/seed-migrations'
 import { closeDatabase, useDatabase } from '../server/utils/database'
 
 try {
-  requireDevelopmentSeed()
+  requireSeedEnvironment()
   const applied = await seedDemo(await useDatabase())
   console.log(
     applied

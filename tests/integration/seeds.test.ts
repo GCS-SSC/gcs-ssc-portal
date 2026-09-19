@@ -38,6 +38,7 @@ afterAll(async () => {
 
 it('rejects production before creating seed history or users', async () => {
   vi.stubEnv('NODE_ENV', 'production')
+  vi.stubEnv('PORTAL_ENVIRONMENT', 'production')
   try {
     await expect(seedDemo(db)).rejects.toThrow('disabled in production')
   } finally {
@@ -72,7 +73,13 @@ it('rolls back a conflicting email without adopting or modifying existing accoun
 })
 
 it('creates usable credentials and scoped sample data once, preserving edits on rerun', async () => {
-  expect(await seedDemo(db)).toBe(true)
+  vi.stubEnv('NODE_ENV', 'production')
+  vi.stubEnv('PORTAL_ENVIRONMENT', 'demo')
+  try {
+    expect(await seedDemo(db)).toBe(true)
+  } finally {
+    vi.unstubAllEnvs()
+  }
   const auth = betterAuth({
     database: kyselyAdapter(db, { type: 'postgres' }),
     baseURL: 'http://localhost:3000',

@@ -11,3 +11,6 @@ test-results/
 .playwright-cli/
 .agent/
 *.log
+railway-plan*.json
+image-nuxtui.json
+image-gcdesign.json

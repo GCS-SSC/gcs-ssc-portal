@@ -28,7 +28,7 @@ bun run dev --host 0.0.0.0
 
 Bun reads your local `.env`. The seed uses `DATABASE_URL` for PostgreSQL, or `PGLITE_DATA_DIR` (default `.data/pglite`) otherwise. Keep `APP_URL` set to the exact browser origin as described above.
 
-All demo accounts use **`Portal-demo-only-2026!`**. These are public development credentials; use this command only against a development/demo database. The command refuses `NODE_ENV=production`.
+All demo accounts use **`Portal-demo-only-2026!`**. These are public development credentials; use this command only against a development/demo database. The command refuses `NODE_ENV=production` unless `PORTAL_ENVIRONMENT=demo` explicitly opts into a demo deployment.
 
 | Email | Access | Sign-in page |
 | --- | --- | --- |
@@ -43,7 +43,11 @@ The migration also creates **Demo Community Organization**, a bilingual agency/p
 
 Try the flow: sign in as the contributor, open the organization and **Apply for funding**, start the demo application, answer the questions and save. Sign in as the owner in another browser session to review and submit the shared draft. Sign in as staff, open the demo agency's **Cases and submissions**, and review the received application. The viewer can read; the base user cannot access funding. Owners can create further invitation links through the organization's invitations screen; the seed does not manufacture invitation tokens or send email.
 
-This is an explicit, transactional data migration with its own `portal_demo_migration` history. Normal schema migrations and app startup never seed accounts. Repeated runs are no-ops: they preserve edited demo data, changed passwords and submissions. Existing email conflicts or an existing government root abort the first seed and roll back its data instead of modifying existing identities. To try it alongside an existing root, use a separate database, for example `PGLITE_DATA_DIR=.data/demo bun run db:seed`, then run the app with that same directory. Do not remove migration history to rerun it; use a fresh demo database. Future seed changes belong in new numbered migrations.
+This is an explicit, transactional data migration with its own `portal_demo_migration` history. Normal schema migrations and `bun run dev` never seed accounts; demo container startup explicitly runs this seed command. Repeated runs are no-ops: they preserve edited demo data, changed passwords and submissions. Existing email conflicts or an existing government root abort the first seed and roll back its data instead of modifying existing identities. To try it alongside an existing root, use a separate database, for example `PGLITE_DATA_DIR=.data/demo bun run db:seed`, then run the app with that same directory. Do not remove migration history to rerun it; use a fresh demo database. Future seed changes belong in new numbered migrations.
+
+## Container images and Railway
+
+GitHub Actions builds and tests separate demo images for both themes, publishes them to private GHCR packages, and produces digest artifacts. Railway uses the selected digest in `deployment/demo-images.json`; it never builds from source or follows a mutable tag. Demo images migrate and seed before listening, preserving data on restart. See [the Railway/image runbook](docs/deployment-railway.md) for release promotion, credentials and IaC setup. Committing this setup does not deploy to Railway.
 
 ## Build and run
 
