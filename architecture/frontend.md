@@ -8,9 +8,9 @@ Initialize absent form or selected-record state explicitly, usually with `null`.
 
 Each request needs a clear owner. Use cancellation or request generations so a superseded response cannot populate the current screen. Preserve accepted content during a background refresh where appropriate, but clear old-resource content immediately when the identity changes.
 
-## Conditional Vue/Nuxt conventions
+## Vue/Nuxt conventions
 
-If Vue/Nuxt is adopted:
+The portal uses Vue/Nuxt:
 
 - Use Composition API and `<script setup lang="ts">` with standard SFC templates.
 - Resolve `MaybeRefOrGetter` inputs with `toValue()` before comparison, Boolean coercion, or URL construction. Test changes after initialization when reactivity is promised.

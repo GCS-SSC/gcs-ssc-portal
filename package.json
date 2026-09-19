@@ -1,0 +1,62 @@
+{
+  "name": "gcs-ssc-portal",
+  "private": true,
+  "type": "module",
+  "packageManager": "bun@1.3.13",
+  "scripts": {
+    "dev": "nuxt dev",
+    "build": "nuxt build",
+    "build:nuxtui": "PORTAL_THEME=nuxtui nuxt build",
+    "build:gcdesign": "PORTAL_THEME=gcdesign nuxt build",
+    "preview": "node .output/server/index.mjs",
+    "postinstall": "nuxt prepare",
+    "typecheck": "nuxt typecheck",
+    "lint": "eslint .",
+    "test:unit": "vitest run",
+    "test:e2e": "bun run build && playwright test",
+    "test": "bun run test:unit && bun run test:e2e",
+    "test:themes": "PORTAL_THEME=nuxtui bun run test:e2e && PORTAL_THEME=gcdesign bun run test:e2e",
+    "test:postgres": "bun scripts/test-postgres.ts",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "root:create": "bun scripts/create-root.ts"
+  },
+  "dependencies": {
+    "@better-auth/kysely-adapter": "^1.7.5",
+    "@electric-sql/pglite": "^0.5.8",
+    "@gcds-core/components": "^1.6.0",
+    "@gcds-core/components-vue": "^1.6.0",
+    "@nuxt/kit": "^4",
+    "@nuxt/ui": "^4",
+    "better-auth": "^1.7.5",
+    "h3": "^1",
+    "kysely": "^0.28.8",
+    "kysely-pglite": "^0.6.1",
+    "nuxt": "^4",
+    "pg": "^8.23.0",
+    "tailwindcss": "^4",
+    "uuid": "^14.0.2",
+    "vue": "^3",
+    "zod": "^4.6.5",
+    "@gcs-ssc/survey": "github:GCS-SSC/survey#2de052302983bb8258cdfa3fc32148d352cdc7f0"
+  },
+  "devDependencies": {
+    "@nuxt/eslint": "^1.17.0",
+    "@playwright/test": "^1.63.0",
+    "@types/node": "^26.6.2",
+    "@types/pg": "^8.23.1",
+    "eslint": "^10.11.0",
+    "prettier": "^3",
+    "typescript": "5.9.3",
+    "vitest": "^5.0.1",
+    "vue-tsc": "^3.3.11"
+  },
+  "overrides": {
+    "kysely": "0.28.17",
+    "esbuild": "0.28.1"
+  },
+  "engines": {
+    "node": ">=22.12.0",
+    "bun": ">=1.3.13"
+  }
+}

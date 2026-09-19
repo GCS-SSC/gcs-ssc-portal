@@ -1,26 +1,27 @@
-# Testing and tooling
+# Verification
 
-No package scripts or test runners are configured yet. Add and document commands when the application stack is initialized; copied command names are not working tooling.
+`package.json` defines the supported commands. Bun installs the locked dependencies; TypeScript and Nuxt typecheck both client and server. ESLint covers authored code.
 
-## Verification layers
+```sh
+bun run lint
+bun run typecheck
+bun run test:unit
+bunx playwright install chromium
+bun run test:themes
+```
 
-- Unit tests cover pure rules, schemas, response mapping, and isolated component behavior.
-- Database integration tests cover real constraints, transactions, migrations, and concurrent operations.
-- Browser tests cover important user journeys, rendered accessibility, request recovery, and locale behavior when enabled.
-- Framework type and build checks verify generated aliases, bundling boundaries, and target compatibility.
+Vitest covers government staff provisioning, agency isolation, call publication, explicit application access, credential expiry/revocation, upgrading populated databases, configuration validation, real authentication, body limits, database-backed organization/permission/invitation behavior, concurrent invitation acceptance, build-time theme discovery and translation contracts. The PGlite adapter leases its single connection for a complete transaction so parallel operations cannot interleave transactional state.
 
-Select checks based on the changed behavior and its risks. Preserve configured coverage thresholds, but treat coverage as a signal rather than proof. Report unavailable dependencies and skipped checks explicitly.
+Playwright runs the same user journeys against both themes' production artifacts. `test:e2e` first builds the selected theme; `test:themes` invokes it sequentially with both selections. Do not run simultaneous builds or rebuild `.output` while a verification server is using it.
 
-## Ownership and isolation
+Browser tests use a dedicated local server and disposable database. The runner bootstraps a test-only root before starting the server. Government journeys exercise staff invitation acceptance, hierarchy creation, publication/unpublication, applicant access, machine credentials, English/French content, and mobile overflow in both themes. Separate organization journeys pause across the production authentication rate-limit window because all test clients share the loopback peer address. Existing app databases and generic `DATABASE_URL` values must never be reused for destructive verification. Integration tests own their data and cleanup. Test runner artifacts and traces are ignored.
 
-Packages own their implementation tests. Application integration tests verify public package contracts. Avoid duplicate suite discovery across workspaces.
+Check the running production artifact, not just the development server: dependency tracing, vendor control registration, shadow-DOM events, native form submission and secure-cookie behavior differ from isolated unit tests. Shared-control changes warrant rendered required/label/error assertions and representative browser recovery.
 
-Use explicitly designated disposable databases for destructive tests. An ordinary application database URL is not permission to reset its contents. Keep test resources isolated and clean up only resources owned by the runner.
+Graphs and static analysis are navigation aids. Inspect callers and runtime behavior before concluding that code is unused or a boundary is safe. Preserve meaningful assertions; coverage alone is not completion evidence.
 
-When browser tests depend on build artifacts, ensure they exercise current code and coordinate shared artifact writers. Respect embedded database single-owner requirements if such a database is selected; mocks cannot prove production locking behavior.
+## Dependency compatibility
 
-## Analysis and evidence
+The lockfile and package overrides keep Kysely at 0.28.17: the embedded adapter imports the migration API exported by that series. A mixed 0.28/0.29 dependency tree can otherwise produce a production artifact with the wrong exported API. Production browser startup verifies the packaged dependency.
 
-Use source search and direct reads first. Structural graphs and static analyzers help locate callers and dependencies, but generated routes, auto-imports, templates, dynamic registration, and string-based relationships can hide edges. Missing graph edges are not proof of unused code.
-
-Keep regenerable reports and local indexes out of architectural ground truth. Record verification for the actual change and environment, rather than carrying over results from the source repository.
+The esbuild override uses 0.28.1 to include the [Windows development-server traversal fix](https://github.com/evanw/esbuild/releases/tag/v0.28.1). Both theme builds and the full verification suite must pass after updating either override.

@@ -1,6 +1,6 @@
 # Agent guide
 
-This is a new, independent project. These instructions preserve reusable engineering conventions from the sibling repository; they do not establish its business model, permissions, integrations, or infrastructure here.
+This is the GCS–SSC companion organization portal. It owns its accounts, organizations, invitations, organization-scoped permissions, and a separate government funding administration area. Read [government access](architecture/government.md) before changing staff grants, agency scoping or call publication. The main GCS–SSC application remains a separate system.
 
 ## Before working
 
@@ -12,7 +12,9 @@ This is a new, independent project. These instructions preserve reusable enginee
 ## Repository and tooling
 
 - `AGENTS.md` and `architecture/` are maintained directly in this repository. No private tooling checkout, submodule, compatibility symlink, or sibling-specific skill is required.
-- The application stack and commands have not been configured. Read the actual package manifest and configuration before choosing commands; do not assume scripts from the source repository exist here.
+- Stack: Bun, Nuxt 4/Vue 3, Better Auth, Kysely, PostgreSQL or single-process PGlite, and Zod. Read `package.json` for commands.
+- Themes are selected at build time with `PORTAL_THEME`; read [architecture/themes.md](architecture/themes.md). Host pages must use the shared `Theme*` adapters, never vendor components. Every adapter change must work in both themes.
+- Run `bun run lint`, `bun run typecheck`, `bun run test:unit`, and `bun run test:themes` for relevant implementation changes. Browser tests build each theme sequentially; never rebuild `.output` while another verification server owns it.
 - Keep dependencies, build outputs, caches, generated reports, local databases, and secrets out of authored source. Change generators rather than their generated outputs.
 - Keep tests with the application or package that owns the behavior. Shared integration tests should verify public boundaries rather than another package's implementation details.
 

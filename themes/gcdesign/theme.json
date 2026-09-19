@@ -1,0 +1,7 @@
+{
+  "name": "GC Design System",
+  "css": ["theme.css"],
+  "modules": [],
+  "plugins": ["plugins/gcds.client.ts"],
+  "customElementPrefixes": ["gcds-"]
+}

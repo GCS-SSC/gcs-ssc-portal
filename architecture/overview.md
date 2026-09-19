@@ -1,34 +1,38 @@
-# Architectural baseline
+# System overview
 
-## Current state
+The GCS–SSC organization portal is an independent companion application. It currently handles accounts, organizations, people, permissions, invitations, and government funding administration. No application submission workflow or main-system extension is imported from GCS–SSC.
 
-No application code, package manifest, database, or runtime has been initialized. The baseline separates presentation, server enforcement, shared contracts, and persistence without prescribing a business domain.
+## Runtime
 
-## Boundaries
+The application uses Nuxt 4/Vue 3 with client rendering and same-origin Nitro/H3 endpoints. Bun manages dependencies and tooling; the production artifact runs on Node.js. Better Auth owns email/password authentication and cookie sessions. Zod validates portal inputs. Kysely accesses PostgreSQL when `DATABASE_URL` is configured or a persistent single-process PGlite database otherwise.
 
-- The client owns rendering, interaction, and local state. It treats server responses as the authority for accepted writes and access decisions.
-- The server owns input validation, authorization, business operations, integrations, and persistence.
-- Shared modules contain browser-safe types, schemas, and pure utilities. They must not expose server credentials or depend on server runtime wiring.
-- The database enforces structural integrity. Application checks provide useful failures but do not replace constraints and transactions.
-- Separately owned packages expose explicit public contracts and own their tests. Introduce packages only when an actual boundary warrants them.
+The client renders one set of pages through vendor-neutral `Theme*` components. `PORTAL_THEME` selects `themes/nuxtui` or `themes/gcdesign` during build; only the selected theme is registered. New complete theme directories can be selected without changing host pages. See [themes.md](themes.md).
 
-The reference request flow is: client interaction → API validation and access checks → business operation → transactional persistence where needed → explicit response → client state update. Exact ordering must preserve the chosen information-disclosure policy.
+## Boundaries and request flow
 
-## Optional source-stack layout
+A page submits through the same-origin API. The server checks origin and body size for mutations, resolves the Better Auth session, validates input, resolves organization membership/permissions, then performs the operation. Sensitive organization mutations lock the organization and recheck authority in the transaction. Responses contain explicit projections; invitation tokens are returned only when a link is created and stored only as hashes.
 
-If this project adopts the source repository's Nuxt/Vue architecture, the following organization can be reused. These paths are proposed, not existing directories.
+Client permission checks control presentation only. The server enforces access independently for every operation. Owner status is separate from additive membership permissions; see [auth.md](auth.md).
 
-| Path | Responsibility |
-| --- | --- |
-| `app/` | Pages, layouts, components, composables, and client utilities |
-| `server/api/` | Nitro/H3 HTTP handlers |
-| `server/utils/` | Server operations and infrastructure adapters |
-| `server/database/` | Ordered migrations and database setup |
-| `shared/` | Cross-runtime schemas, types, and pure utilities |
-| `tests/` | Application unit, integration, and browser tests |
-| `i18n/locales/` | Interface catalogs if localization is required |
-| `architecture/` | Architectural decisions and verified contracts |
+Government staff have a separate `/government` entrypoint and authorization model. Root provisions staff; agency-scoped credentials provide the future integration boundary. Published calls reach organization members only through the explicit `application` permission. See [government administration](government.md).
 
-## Decisions to establish
+## Source map
 
-Record the project's purpose and modules; framework, runtime, package manager and rendering mode; authentication and authorization model; database and identifier/deletion policies; supported locales and multilingual content requirements; integration boundaries; and verification commands. Do not treat a source-project choice as an approved requirement here.
+| Path               | Responsibility                                                                |
+| ------------------ | ----------------------------------------------------------------------------- |
+| `app/pages/`       | Registration, login, organization workspace and invitation acceptance         |
+| `app/composables/` | Session, API recovery and bilingual messages                                  |
+| `app/locales/`     | English/French interface catalogs                                             |
+| `themes/`          | Complete build-time presentation adapters and vendor styles                   |
+| `tooling/theme.ts` | Theme manifest resolution and contract completeness                           |
+| `shared/types/`    | Vendor-neutral component and API contracts                                    |
+| `shared/schemas/`  | Strict request schemas                                                        |
+| `server/api/`      | Better Auth route and portal HTTP dispatcher                                  |
+| `server/utils/`    | Authentication, organization operations, request boundaries and configuration |
+| `server/db/`       | Database types, ordered migration and embedded-database transaction leases    |
+| `tests/`           | Unit, database integration, theme contract and browser verification           |
+| `architecture/`    | Maintained architectural contracts                                            |
+
+## Current limits
+
+There is no email sender, password-recovery service, account deletion, file storage, background job system, or main GCS–SSC integration. Organization invitations are explicitly shared by administrators. Interface language is switchable; theme is not. Organization names/descriptions are user-entered content and do not require two-language variants.

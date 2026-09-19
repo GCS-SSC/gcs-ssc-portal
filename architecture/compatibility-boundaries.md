@@ -2,11 +2,11 @@
 
 Validation serves different purposes at different boundaries.
 
-| Boundary | Required behavior |
-| --- | --- |
-| New request or authoring save | Apply the current strict schema and return the defined field-level failure contract. |
-| Supported persisted data | Normalize only documented older shapes whose meaning is unambiguous, then validate. |
-| Corrupt persisted data | Return an explicit safe failure; never silently replace authored content with an empty value. |
+| Boundary                      | Required behavior                                                                             |
+| ----------------------------- | --------------------------------------------------------------------------------------------- |
+| New request or authoring save | Apply the current strict schema and return the defined field-level failure contract.          |
+| Supported persisted data      | Normalize only documented older shapes whose meaning is unambiguous, then validate.           |
+| Corrupt persisted data        | Return an explicit safe failure; never silently replace authored content with an empty value. |
 
 Before tightening a persisted-data parser, inventory shapes produced by supported migrations, seeds, and writers. Distinguish valid current data, unambiguously normalizable older shapes, intentionally unauthored values, and corruption. Preserve immutable snapshots according to their versioned contract.
 

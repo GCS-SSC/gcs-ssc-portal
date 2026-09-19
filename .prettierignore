@@ -1,0 +1,11 @@
+node_modules
+.nuxt
+.output
+.data
+.agent
+.playwright-cli
+bun.lock
+coverage
+playwright-report
+test-results
+themes/nuxtui/assets

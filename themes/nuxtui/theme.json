@@ -1,0 +1,12 @@
+{
+  "name": "Nuxt UI",
+  "css": ["theme.css"],
+  "modules": ["@nuxt/ui"],
+  "plugins": [],
+  "moduleOptions": {
+    "ui": {
+      "colorMode": false,
+      "fonts": false
+    }
+  }
+}
