@@ -1,3 +1,4 @@
+import { caseMigration } from './case-migration'
 import { surveyMigration } from './survey-migration'
 import { governmentMigration } from './government-migration'
 import { Migrator, sql } from 'kysely'
@@ -10,6 +11,7 @@ export const migrate = async (db: Kysely<Database>, target?: string) => {
       getMigrations: async () => ({
         '002_government': governmentMigration,
         '003_surveys': surveyMigration,
+        '004_cases': caseMigration,
         '001_initial': {
           up: async (connection: Kysely<unknown>) => {
             const statements = `CREATE TABLE "user" (id text PRIMARY KEY, name text NOT NULL, email text UNIQUE NOT NULL, "emailVerified" boolean NOT NULL DEFAULT false, image text, "createdAt" timestamptz NOT NULL, "updatedAt" timestamptz NOT NULL);

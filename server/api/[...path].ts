@@ -1,3 +1,6 @@
+import { organizationCases } from '../utils/cases'
+import { organizationSets, organizationSet } from '../utils/submission-sets'
+import * as responses from '../utils/set-responses'
 import { applicantSurvey } from '../utils/surveys'
 import { createError, defineEventHandler, getHeader, getRequestURL, setHeader } from 'h3'
 import { ZodError } from 'zod'
@@ -27,7 +30,10 @@ export default defineEventHandler(async (event) => {
   }
   const request = toBoundedRequest(event)
   const body = !['GET', 'HEAD', 'OPTIONS'].includes(method)
-    ? await readBoundedBody(request)
+    ? await readBoundedBody(
+        request,
+        /\/responses(?:\/|$)/.test(getRequestURL(event).pathname) ? 3 * 1024 * 1024 : undefined
+      )
     : undefined
   const path = getRequestURL(event)
     .pathname.replace(/^\/api\//, '')
@@ -58,6 +64,55 @@ export default defineEventHandler(async (event) => {
           return await portal.createOrganization(db, user.id, parseJsonBody(body))
       } else {
         const id = organizationId.parse(path[1])
+        if (path.length === 3 && method === 'GET') {
+          if (path[2] === 'cases') return await organizationCases(db, id, user.id)
+          if (path[2] === 'sets') return await organizationSets(db, id, user.id)
+          if (path[2] === 'responses') return await responses.listResponses(db, id, user.id)
+        }
+        if (path.length === 4 && path[2] === 'sets' && method === 'GET')
+          return await organizationSet(db, id, user.id, organizationId.parse(path[3]))
+        if (path.length === 5 && path[2] === 'sets' && path[4] === 'responses' && method === 'POST')
+          return await responses.startResponse(
+            db,
+            id,
+            user.id,
+            organizationId.parse(path[3]),
+            parseJsonBody(body)
+          )
+        if (path.length >= 4 && path[2] === 'responses') {
+          const responseId = organizationId.parse(path[3])
+          if (path.length === 4 && method === 'GET')
+            return await responses.getResponse(db, id, user.id, responseId)
+          if (path.length === 4 && method === 'PUT')
+            return await responses.mutateResponse(
+              db,
+              id,
+              user.id,
+              responseId,
+              'save',
+              parseJsonBody(body)
+            )
+          if (path.length === 4 && method === 'DELETE')
+            return await responses.mutateResponse(
+              db,
+              id,
+              user.id,
+              responseId,
+              'delete',
+              parseJsonBody(body)
+            )
+          if (path.length === 5 && path[4] === 'check' && method === 'POST')
+            return await responses.checkResponse(db, id, user.id, responseId, parseJsonBody(body))
+          if (path.length === 5 && path[4] === 'submit' && method === 'POST')
+            return await responses.mutateResponse(
+              db,
+              id,
+              user.id,
+              responseId,
+              'submit',
+              parseJsonBody(body)
+            )
+        }
         if (path.length === 2) {
           if (method === 'GET') return await portal.getOrganization(db, id, user.id)
           if (method === 'PATCH')

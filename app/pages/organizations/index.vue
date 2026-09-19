@@ -1,5 +1,7 @@
 <script setup lang="ts">
+import { hasAccess } from '~~/shared/utils/permissions'
 import type { Organization } from '~~/shared/types/api'
+const { permissionLabel } = useCaseLocale()
 const { t } = useLocale()
 const { g } = useGovernmentLocale()
 const message = useApiMessage()
@@ -47,12 +49,12 @@ useHead(() => ({ title: t('organizations') }))
         </div>
         <div class="organization-access">
           <ThemeLink
-            v-if="organization.permissions.includes('application')"
+            v-if="hasAccess(organization.permissions, 'application')"
             :to="`/funding/${organization.id}`"
             >{{ g('apply') }}</ThemeLink
           >
           <ThemeBadge v-for="permission in organization.permissions" :key="permission">{{
-            permission === 'application' ? g('application') : t(permission)
+            permissionLabel(permission)
           }}</ThemeBadge
           ><ThemeLink
             :to="`/organizations/${organization.id}`"

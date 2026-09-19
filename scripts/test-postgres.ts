@@ -51,7 +51,7 @@ try {
     'Running portal lifecycle, migrations, authorization, and concurrency tests against disposable PostgreSQL 17.'
   )
   exitCode = 0
-  for (const suite of ['portal', 'government', 'surveys']) {
+  for (const suite of ['portal', 'government', 'surveys', 'cases']) {
     const suiteDatabase = `${suite}_test`
     execFileSync('docker', ['exec', container, 'createdb', '-U', 'postgres', suiteDatabase])
     const result = spawnSync('bun', ['x', 'vitest', 'run', `tests/integration/${suite}.test.ts`], {

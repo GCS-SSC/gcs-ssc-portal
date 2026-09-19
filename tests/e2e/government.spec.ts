@@ -123,10 +123,7 @@ test('root invites staff; staff publish funding; applicants need an explicit gra
         applicant.getByRole('link', { name: 'Government staff', exact: true })
       ).toHaveCount(0)
       await applicant.getByRole('button', { name: 'People', exact: true }).click()
-      await applicant
-        .getByRole('button', { name: 'Grant application permission', exact: true })
-        .click()
-      await applicant.getByRole('button', { name: 'Confirm', exact: true }).click()
+      await select(applicant, /^Applications$/, 'Viewer')
       await applicant.getByRole('link', { name: 'Apply for funding', exact: true }).click()
       await expect(
         applicant.getByText('There are no published calls for proposals yet.')

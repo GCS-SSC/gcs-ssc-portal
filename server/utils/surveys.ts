@@ -1,3 +1,4 @@
+import { hasAccess } from '../../shared/utils/permissions'
 import { sql, type Kysely } from 'kysely'
 import { v7 as uuid } from 'uuid'
 import { z } from 'zod'
@@ -166,7 +167,7 @@ export const applicantSurvey = async (
     .where('userId', '=', userId)
     .executeTakeFirst()
   if (!member) return fail(404, 'ORGANIZATION_NOT_FOUND')
-  if (!(await getPermissions(db, organizationId, userId)).includes('application'))
+  if (!hasAccess(await getPermissions(db, organizationId, userId), 'application'))
     return fail(403, 'APPLICATION_PERMISSION_REQUIRED')
   const row = await db
     .selectFrom('funding_call as c')

@@ -20,13 +20,13 @@ A call stores only its bilingual name, stream reference, start date, end date, p
 
 New calls are drafts. Staff explicitly publish or unpublish them. Published calls must be unpublished before editing. Publication controls visibility; dates label a published call as upcoming, open, or closed, rather than automatically hiding it. Ancestor names are live, so renaming a program updates its displayed name on published calls. Published calls can also expose a pinned survey revision for an interactive application-form preview. Response storage and application submission are not implemented in this step. See [surveys](surveys.md).
 
-An organization's explicit `application` grant exposes **Apply for funding** on its list entry and workspace. Neither `admin` nor ownership implies this grant. Organization administrators can add/remove it independently of `admin`; every member retains implicit `user`. The catalogue endpoint requires both membership and `application`, and returns published calls only. No government-management metadata or drafts appear in that endpoint.
+An organization's explicit `application:viewer` (or higher) grant exposes **Apply for funding** on its list entry and workspace. Neither `admin` nor ownership implies this grant. Organization administrators can add/remove it independently of `admin`; every member retains implicit `user`. The catalogue endpoint requires both membership and an application subject level, and returns published calls only. No government-management metadata or drafts appear in that endpoint.
 
 ## Machine API
 
 Root creates/revokes agency-specific integration credentials at `/government/integrations`. Each has a name and expiry of 1–365 days (default 90). The random secret is displayed once; only its SHA-256 hash is stored. Pass it as `Authorization: Bearer gcs_…`. Invalid, expired and revoked credentials return 401 without falling back to cookie authentication. A credential may read/update its agency and manage that agency's programs, streams and calls. It cannot create agencies, provision users, manage tokens, or access organization APIs. Every request resolves its current scope; write transactions recheck and lock authority.
 
-Cookie-authenticated writes require the canonical `Origin`. Machine requests without an Origin use explicit bearer authentication; a supplied foreign browser Origin is rejected. Request bodies are bounded at 16 KiB, with a 256 KiB envelope for survey create/update requests. Responses are marked `no-store`. The API is ready for a future GCS–SSC extension; that separate extension is not implemented here.
+Cookie-authenticated writes require the canonical `Origin`. Machine requests without an Origin use explicit bearer authentication; a supplied foreign browser Origin is rejected. Request bodies are bounded at 16 KiB, with a 256 KiB envelope for survey, case and set writes. Responses are marked `no-store`. The API is ready for a future GCS–SSC extension; that separate extension is not implemented here.
 
 All paths below start with `/api/government`. Names mean `{nameEn,nameFr}`. Schema errors return 400 with `data.code = INVALID_INPUT`; forbidden identities return 403; inaccessible agencies return 404.
 
@@ -71,3 +71,5 @@ Use returned IDs to create streams, then calls; publish with a separate explicit
 ## Survey authoring and import
 
 Agency staff and agency-scoped integration credentials can create and update surveys through the [survey API](surveys.md). Call attachments pin immutable revisions; editing a reusable survey never changes a published call. The portal supplies its own themed designer and preview over the public headless provider. The GCS–SSC sibling app and extension remain untouched.
+
+Case configuration, ordered form sets, balance reconciliation and immutable submission exports are documented in [cases](cases.md).

@@ -1,5 +1,14 @@
 <script setup lang="ts">
+import {
+  hasAccess,
+  permissionLevel,
+  subjects,
+  accessLevels,
+  type PermissionSubject,
+  type AccessLevel
+} from '~~/shared/utils/permissions'
 import type { Organization, Member, Invitation } from '~~/shared/types/api'
+const { c, permissionLabel } = useCaseLocale()
 definePageMeta({ key: (route) => route.params.id as string })
 const route = useRoute()
 const { t, date } = useLocale()
@@ -107,13 +116,10 @@ const copy = async () => {
     document.getElementById('invitation-link')?.focus()
   }
 }
-const requestPermission = (member: Member, permission: 'admin' | 'application' = 'admin') => {
-  const hasAdmin = member.permissions.includes(permission)
+const requestPermission = (member: Member) => {
+  const hasAdmin = member.permissions.includes('admin')
   confirmation.value = {
-    text:
-      permission === 'application'
-        ? g('applicationConfirm')
-        : t(hasAdmin ? 'removeAdminConfirm' : 'adminConfirm'),
+    text: t(hasAdmin ? 'removeAdminConfirm' : 'adminConfirm'),
     action: () =>
       perform(
         () =>
@@ -121,13 +127,27 @@ const requestPermission = (member: Member, permission: 'admin' | 'application' =
             method: 'PATCH',
             body: {
               permissions: hasAdmin
-                ? member.permissions.filter((p) => p !== permission)
-                : [...member.permissions, permission]
+                ? member.permissions.filter((permission) => permission !== 'admin')
+                : [...member.permissions, 'admin']
             }
           }),
         t('permissionsSaved')
       )
   }
+}
+const setPermission = (member: Member, subject: PermissionSubject, level: string) => {
+  const permissions = member.permissions.filter(
+    (permission) => !permission.startsWith(`${subject}:`)
+  )
+  if (level) permissions.push(`${subject}:${level as AccessLevel}`)
+  return perform(
+    () =>
+      api<unknown>(`${base}/members/${encodeURIComponent(member.userId)}`, {
+        method: 'PATCH',
+        body: { permissions }
+      }),
+    t('permissionsSaved')
+  )
 }
 const revoke = (invitation: Invitation) => {
   confirmation.value = {
@@ -183,6 +203,18 @@ await load()
       <div class="entity-heading">
         <p class="eyebrow">{{ t('portal') }}</p>
         <h1>{{ organization.name }}</h1>
+        <ThemeLink
+          v-if="
+            subjects.some(
+              (subject) =>
+                subject !== 'application' && hasAccess(organization?.permissions ?? [], subject)
+            )
+          "
+          :to="`/organizations/${id}/work`"
+          >{{ c('cases') }}</ThemeLink
+        >
+        <p class="metadata">{{ c('organizationId') }}: {{ id }}</p>
+        <p v-if="canAdmin">{{ c('permissionsHint') }}</p>
         <p v-if="organization.description" class="lead">
           {{ organization.description }}
         </p>
@@ -190,14 +222,14 @@ await load()
           <span>{{ members.length }} {{ members.length === 1 ? t('onePerson') : t('people') }}</span
           ><ThemeBadge v-if="isOwner" tone="success">{{ t('owner') }}</ThemeBadge
           ><ThemeBadge v-for="permission in organization.permissions" :key="permission">{{
-            permission === 'application' ? g('application') : t(permission)
+            permissionLabel(permission)
           }}</ThemeBadge>
         </div>
       </div>
       <div class="workspace">
         <nav class="workspace-nav" :aria-label="t('manageOrganization')">
           <ThemeLink
-            v-if="organization.permissions.includes('application')"
+            v-if="hasAccess(organization.permissions, 'application')"
             :to="`/funding/${id}`"
             >{{ g('apply') }}</ThemeLink
           >
@@ -294,7 +326,7 @@ await load()
                           t('owner')
                         }}</ThemeBadge
                         ><ThemeBadge v-for="permission in member.permissions" :key="permission">{{
-                          permission === 'application' ? g('application') : t(permission)
+                          permissionLabel(permission)
                         }}</ThemeBadge>
                       </div>
                     </td>
@@ -309,18 +341,19 @@ await load()
                           t(member.permissions.includes('admin') ? 'removeAdmin' : 'grantAdmin')
                         }}</ThemeButton
                       >
-                      <ThemeButton
-                        variant="link"
+                      <ThemeSelect
+                        v-for="subject in subjects"
+                        :id="`permission-${member.userId}-${subject}`"
+                        :key="subject"
+                        :label="c(subject)"
+                        :model-value="permissionLevel(member.permissions, subject)"
+                        :options="[
+                          { value: '', label: c('none') },
+                          ...accessLevels.map((value) => ({ value, label: c(value) }))
+                        ]"
                         :disabled="busy"
-                        @click="requestPermission(member, 'application')"
-                        >{{
-                          g(
-                            member.permissions.includes('application')
-                              ? 'removeApplication'
-                              : 'grantApplication'
-                          )
-                        }}</ThemeButton
-                      >
+                        @update:model-value="setPermission(member, subject, $event)"
+                      />
                     </td>
                   </tr>
                 </tbody>

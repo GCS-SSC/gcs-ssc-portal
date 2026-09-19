@@ -31,3 +31,5 @@ Update the relevant document whenever a change alters a runtime boundary, reques
 - [Government administration and funding API](government.md)
 
 - [Headless surveys, form authoring and import API](surveys.md)
+
+- [Cases, claims, forecasts and form sets](cases.md)

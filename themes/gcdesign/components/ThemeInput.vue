@@ -13,14 +13,16 @@ const updateValue = (event: Event) => {
 </script>
 
 <template>
+  <!-- Recreate on disabled transitions: GCDS watches disabled before required and otherwise re-enables the control. -->
   <GcdsInput
+    :key="disabled ? 'disabled' : 'enabled'"
     :lang="locale"
     :input-id="id"
     :name="id"
     :value="modelValue"
     :label="label"
     :type="type ?? 'text'"
-    :required="required"
+    :required="required && !disabled"
     :disabled="disabled"
     :readonly="readonly"
     :autocomplete="autocomplete"

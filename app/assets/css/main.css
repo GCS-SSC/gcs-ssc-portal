@@ -440,3 +440,15 @@ td {
     animation-duration: 0s !important;
   }
 }
+
+/* Semantic groups remain open sections in both government themes. */
+fieldset.portal-form {
+  border: 0;
+  padding: 0;
+  margin-inline: 0;
+  min-width: 0;
+}
+fieldset.portal-form > legend {
+  font-weight: 700;
+  margin-bottom: 1rem;
+}

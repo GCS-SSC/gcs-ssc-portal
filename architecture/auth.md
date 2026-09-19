@@ -41,4 +41,6 @@ Better Auth rate limiting reads only the internal `x-portal-client-ip` header. T
 
 ## Government and application permissions
 
-Government grants are independent of organization membership and permissions. Root explicitly bootstraps via CLI and invites staff. `application` is an additive organization permission required to read the published funding catalogue; `admin` and owner status do not imply it. See [government administration](government.md) for provisioning, agency scoping and bearer credential rules.
+Government grants are independent of organization membership and permissions. Root explicitly bootstraps via CLI and invites staff. An `application:viewer`, `application:contributor` or `application:manager` grant is required to read the published funding catalogue; `admin` and owner status do not imply it. See [government administration](government.md) for provisioning, agency scoping and bearer credential rules.
+
+Business subjects use viewer/contributor/manager levels independently of base user/admin types. Contributors edit drafts; managers submit or delete. See [case permissions and submission rules](cases.md).

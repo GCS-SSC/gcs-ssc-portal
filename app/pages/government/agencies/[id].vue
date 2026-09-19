@@ -7,6 +7,7 @@ const id = String(useRoute().params.id)
 const { g, localized } = useGovernmentLocale()
 const { t } = useLocale()
 const { s } = useSurveyLocale()
+const { c } = useCaseLocale()
 const api = usePortalApi(),
   message = useApiMessage()
 const { busy, error, success, perform } = useGovernmentAction()
@@ -132,6 +133,7 @@ useHead(() => ({ title: data.value ? localized(data.value.agency) : g('agency') 
       <h1>{{ localized(data.agency) }}</h1>
       <div class="workspace">
         <nav class="workspace-nav" :aria-label="g('agency')">
+          <ThemeLink :to="`/government/cases?agencyId=${id}`">{{ c('cases') }}</ThemeLink>
           <ThemeLink :to="`/government/surveys?agencyId=${id}`">{{ s('surveys') }}</ThemeLink>
           <ThemeButton
             v-for="item in ['programs', 'streams', 'calls', 'agency'] as const"

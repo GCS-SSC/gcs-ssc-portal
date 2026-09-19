@@ -14,12 +14,28 @@ export const invitationInput = z
 export const permissionsInput = z
   .object({
     permissions: z
-      .array(z.enum(['user', 'admin', 'application']))
+      .array(z.string())
       .min(1)
-      .max(3)
+      .max(6)
+      .transform((values) =>
+        values.map((value) => (value === 'application' ? 'application:viewer' : value))
+      )
+      .pipe(
+        z.array(
+          z.custom<import('../utils/permissions').OrganizationPermission>(
+            (value) =>
+              typeof value === 'string' &&
+              /^(user|admin|(?:application|claim|forecast|form):(?:viewer|contributor|manager))$/.test(
+                value
+              )
+          )
+        )
+      )
       .refine(
-        (values) => values.includes('user') && new Set(values).size === values.length,
-        'User permission is required; permissions must be unique'
+        (values) =>
+          values.includes('user') &&
+          new Set(values.map((value) => value.split(':')[0])).size === values.length,
+        'User membership and unique subjects are required'
       )
   })
   .strict()

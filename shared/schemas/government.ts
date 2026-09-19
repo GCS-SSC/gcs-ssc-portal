@@ -1,9 +1,11 @@
+import { foreignFields } from './external'
 import { z } from 'zod'
 export const bilingualName = z
   .object({ nameEn: z.string().trim().min(1).max(200), nameFr: z.string().trim().min(1).max(200) })
   .strict()
-export const programInput = bilingualName.extend({ agencyId: z.uuid() })
-export const streamInput = bilingualName.extend({ programId: z.uuid() })
+export const structureInput = bilingualName.extend(foreignFields)
+export const programInput = structureInput.extend({ agencyId: z.uuid() })
+export const streamInput = structureInput.extend({ programId: z.uuid() })
 // Validate calendar dates without permitting Date's rollover (e.g. February 31).
 export const calendarDate = z
   .string()
@@ -16,7 +18,7 @@ export const calendarDate = z
       date.toISOString().slice(0, 10) === value
     )
   }, 'Invalid calendar date')
-export const callInput = bilingualName
+export const callInput = structureInput
   .extend({ streamId: z.uuid(), startDate: calendarDate, endDate: calendarDate })
   .refine((value) => value.endDate >= value.startDate, {
     path: ['endDate'],

@@ -1,8 +1,9 @@
+import { hasAccess } from '../../shared/utils/permissions'
 import { sql, type Kysely } from 'kysely'
 import { v7 as uuidv7 } from 'uuid'
 import type { Database } from '../db/schema'
 import {
-  bilingualName,
+  structureInput,
   programInput,
   streamInput,
   callInput,
@@ -37,6 +38,8 @@ const callQuery = (db: GovernmentDb) =>
     .innerJoin('agency as a', 'a.id', 'p.agencyId')
     .select([
       'c.id',
+      'c.sourceSystem',
+      'c.foreignSystemId',
       'c.nameEn',
       'c.nameFr',
       'c.streamId',
@@ -67,7 +70,7 @@ export const listAgencies = async (db: GovernmentDb, actor: GovernmentActor) => 
   }
 }
 export const createAgency = async (db: Kysely<Database>, actor: GovernmentActor, body: unknown) => {
-  const input = bilingualName.parse(body)
+  const input = structureInput.parse(body)
   return db.transaction().execute(async (tx) => {
     const access = await requireGovernment(tx, actor, { lock: true })
     if (actor.kind !== 'user' || access.role === 'integration')
@@ -87,7 +90,7 @@ export const updateAgency = async (
   id: string,
   body: unknown
 ) => {
-  const input = bilingualName.parse(body)
+  const input = structureInput.parse(body)
   return db.transaction().execute(async (tx) => {
     await requireGovernment(tx, actor, { agencyId: id, lock: true })
     const row = await tx
@@ -158,7 +161,10 @@ export const createStream = async (db: Kysely<Database>, actor: GovernmentActor,
     const program = await programOwner(tx, input.programId)
     await requireGovernment(tx, actor, { agencyId: program.agencyId, lock: true })
     const row = { id: uuidv7(), ...input, createdAt: new Date() }
-    await tx.insertInto('stream').values(row).execute()
+    await tx
+      .insertInto('stream')
+      .values({ ...row, agencyId: program.agencyId })
+      .execute()
     return { stream: { ...row, agencyId: program.agencyId, createdAt: iso(row.createdAt) } }
   })
 }
@@ -169,7 +175,7 @@ export const updateStructureName = async (
   id: string,
   body: unknown
 ) => {
-  const input = bilingualName.parse(body)
+  const input = structureInput.parse(body)
   return db.transaction().execute(async (tx) => {
     const parent = kind === 'program' ? await programOwner(tx, id) : await streamOwner(tx, id)
     await requireGovernment(tx, actor, { agencyId: parent.agencyId, lock: true })
@@ -242,7 +248,7 @@ export const fundingCatalogue = async (
     .where('userId', '=', userId)
     .executeTakeFirst()
   if (!membership) return fail(404, 'ORGANIZATION_NOT_FOUND')
-  if (!(await getPermissions(db, organizationId, userId)).includes('application'))
+  if (!hasAccess(await getPermissions(db, organizationId, userId), 'application'))
     return fail(403, 'APPLICATION_PERMISSION_REQUIRED')
   const calls = await callQuery(db)
     .where('c.published', '=', true)

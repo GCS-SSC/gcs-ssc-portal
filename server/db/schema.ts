@@ -1,6 +1,11 @@
+import type { CaseConfig, SetItem, SetSnapshot, ResponseItem } from '../../shared/schemas/cases'
 import type { SurveyDefinition } from '@gcs-ssc/survey'
 import type { ColumnType, Generated } from 'kysely'
 type Timestamp = ColumnType<Date, Date, Date>
+interface ForeignIdentity {
+  sourceSystem: Generated<string>
+  foreignSystemId: Generated<string | null>
+}
 export interface Database {
   user: {
     id: string
@@ -52,13 +57,30 @@ export interface Database {
     createdAt: Timestamp
   }
   membership: { organizationId: string; userId: string; joinedAt: Timestamp }
-  permission: { organizationId: string; userId: string; permission: 'admin' | 'application' }
+  permission: {
+    organizationId: string
+    userId: string
+    permission: Exclude<import('../../shared/utils/permissions').OrganizationPermission, 'user'>
+  }
   government_user: { userId: string; role: 'root' | 'staff'; active: boolean; createdAt: Timestamp }
-  agency: { id: string; nameEn: string; nameFr: string; createdAt: Timestamp }
+  agency: ForeignIdentity & { id: string; nameEn: string; nameFr: string; createdAt: Timestamp }
   agency_staff: { agencyId: string; userId: string }
-  program: { id: string; agencyId: string; nameEn: string; nameFr: string; createdAt: Timestamp }
-  stream: { id: string; programId: string; nameEn: string; nameFr: string; createdAt: Timestamp }
-  funding_call: {
+  program: ForeignIdentity & {
+    id: string
+    agencyId: string
+    nameEn: string
+    nameFr: string
+    createdAt: Timestamp
+  }
+  stream: ForeignIdentity & {
+    id: string
+    programId: string
+    agencyId: string
+    nameEn: string
+    nameFr: string
+    createdAt: Timestamp
+  }
+  funding_call: ForeignIdentity & {
     id: string
     streamId: string
     nameEn: string
@@ -76,6 +98,58 @@ export interface Database {
     revision: number
     definition: ColumnType<SurveyDefinition, SurveyDefinition, never>
     createdAt: Timestamp
+  }
+  funding_case: {
+    id: string
+    organizationId: string
+    agencyId: string
+    streamId: string
+    nameEn: string
+    nameFr: string
+    agreementNumber: string
+    config: ColumnType<CaseConfig, CaseConfig, CaseConfig>
+    sourceSystem: string
+    foreignSystemId: string | null
+    revision: number
+    createdAt: Timestamp
+  }
+  submission_set: {
+    id: string
+    organizationId: string
+    agencyId: string
+    caseId: string | null
+    nameEn: string
+    nameFr: string
+    sourceSystem: string
+    foreignSystemId: string | null
+    items: ColumnType<SetItem[], SetItem[], SetItem[]>
+    snapshot: ColumnType<SetSnapshot | null, SetSnapshot | null, SetSnapshot | null>
+    revision: number
+    published: boolean
+    createdAt: Timestamp
+  }
+  set_response: {
+    id: string
+    setId: string
+    organizationId: string
+    setRevision: number
+    snapshot: ColumnType<SetSnapshot, SetSnapshot, never>
+    items: ColumnType<ResponseItem[], ResponseItem[], ResponseItem[]>
+    locale: 'en' | 'fr'
+    revision: number
+    status: 'draft' | 'submitted'
+    createdBy: string
+    updatedBy: string
+    submittedBy: string | null
+    createdAt: Timestamp
+    updatedAt: Timestamp
+    submittedAt: ColumnType<Date | null, Date | null, Date | null>
+    submissionId: string | null
+    export: ColumnType<
+      Record<string, unknown> | null,
+      Record<string, unknown> | null,
+      Record<string, unknown> | null
+    >
   }
   government_invitation: {
     id: string

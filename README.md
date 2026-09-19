@@ -90,3 +90,5 @@ The tests cover server authorization, UUIDv7 creation, ownership, permission iso
 ## Design sources
 
 The GC theme uses the official [GC Design System Vue components](https://github.com/cds-snc/gcds-components/tree/main/packages/vue). Its layout follows the [GC basic page template](https://design-system.canada.ca/en/page-templates/basic/). The Nuxt UI theme uses [Nuxt UI](https://ui.nuxt.com/) controls with a similar government service layout. Official signature assets retain their source attribution in the theme directory. GC vendor styles reference external fonts; system-font fallbacks keep content usable when those hosts are unavailable.
+
+Government staff can configure cases, budget lines and ordered sets of designed forms, claims and forecasts. Organizations use subject-specific viewer/contributor/manager permissions; managers review current balances and can submit with acknowledged warnings. See [case workflows and integration contracts](architecture/cases.md).

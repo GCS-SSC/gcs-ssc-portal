@@ -176,7 +176,7 @@ export const updatePermissions = async (
       .where('userId', '=', targetId)
       .execute()
     const grants = input.permissions.filter(
-      (permission): permission is 'admin' | 'application' => permission !== 'user'
+      (permission): permission is Exclude<Permission, 'user'> => permission !== 'user'
     )
     if (grants.length)
       await tx

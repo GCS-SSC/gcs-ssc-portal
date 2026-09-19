@@ -1,4 +1,5 @@
-export type Permission = 'user' | 'admin' | 'application'
+import type { OrganizationPermission } from '../utils/permissions'
+export type Permission = OrganizationPermission
 export interface PortalUser {
   id: string
   name: string

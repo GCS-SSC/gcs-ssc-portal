@@ -341,7 +341,7 @@ describe('government identity and agency boundaries', () => {
       })
       expect(
         (await portal.getOrganization(old, id, applicant.id)).organization.permissions
-      ).toEqual(['user', 'admin', 'application'])
+      ).toEqual(['user', 'admin', 'application:viewer'])
       await migrate(old)
     } finally {
       await old.destroy()

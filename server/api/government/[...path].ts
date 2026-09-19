@@ -1,4 +1,7 @@
-import { createError, defineEventHandler, getHeader, getRequestURL, setHeader } from 'h3'
+import { getQuery, createError, defineEventHandler, getHeader, getRequestURL, setHeader } from 'h3'
+import * as cases from '../../utils/cases'
+import * as sets from '../../utils/submission-sets'
+import * as responses from '../../utils/set-responses'
 import { ZodError, z } from 'zod'
 import { useAuth } from '../../utils/auth'
 import { useDatabase } from '../../utils/database'
@@ -39,7 +42,10 @@ export default defineEventHandler(async (event) => {
     fail(403, 'ORIGIN_FORBIDDEN')
   const request = toBoundedRequest(event)
   const body = mutation
-    ? await readBoundedBody(request, path[0] === 'surveys' ? 256 * 1024 : undefined)
+    ? await readBoundedBody(
+        request,
+        ['surveys', 'cases', 'sets'].includes(path[0] ?? '') ? 256 * 1024 : undefined
+      )
     : undefined
   const db = await useDatabase()
   try {
@@ -66,6 +72,47 @@ export default defineEventHandler(async (event) => {
     const id = path[1]
       ? (path[0] === 'staff' ? z.string().min(1).max(128) : z.uuid()).parse(path[1])
       : undefined
+    if (id && path.length === 3 && path[0] === 'agencies' && method === 'GET') {
+      if (path[2] === 'cases') return await cases.listCases(db, actor, id)
+      if (path[2] === 'sets') return await sets.listSets(db, actor, id)
+      if (path[2] === 'submissions')
+        return await responses.listSubmissions(
+          db,
+          actor,
+          id,
+          z.coerce.number().int().min(0).max(1000000).default(0).parse(getQuery(event).offset)
+        )
+    }
+    if (path.length === 1 && method === 'POST') {
+      if (path[0] === 'cases') return await cases.saveCase(db, actor, parseJsonBody(body))
+      if (path[0] === 'sets') return await sets.saveSet(db, actor, parseJsonBody(body))
+    }
+    if (id && path.length === 2) {
+      if (path[0] === 'cases' && method === 'GET') return await cases.getCase(db, actor, id)
+      if (path[0] === 'cases' && method === 'PUT')
+        return await cases.saveCase(db, actor, parseJsonBody(body), id)
+      if (path[0] === 'sets' && method === 'GET') return await sets.getSet(db, actor, id)
+      if (path[0] === 'sets' && method === 'PUT')
+        return await sets.saveSet(db, actor, parseJsonBody(body), id)
+      if (path[0] === 'submissions' && method === 'GET')
+        return await responses.exportSubmission(db, actor, id)
+    }
+    if (
+      id &&
+      path.length === 3 &&
+      path[0] === 'cases' &&
+      path[2] === 'balances' &&
+      method === 'PUT'
+    )
+      return await cases.updateBalances(db, actor, id, parseJsonBody(body))
+    if (
+      id &&
+      path.length === 3 &&
+      path[0] === 'sets' &&
+      method === 'POST' &&
+      ['publish', 'withdraw'].includes(path[2]!)
+    )
+      return await sets.publishSet(db, actor, id, parseJsonBody(body), path[2] === 'publish')
     if (path.length === 1) {
       if (method === 'GET') {
         if (path[0] === 'agencies') return await structure.listAgencies(db, actor)

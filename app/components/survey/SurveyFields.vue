@@ -14,6 +14,7 @@ const change = (field: SurveyField, value: string) => field.setValue(value)
         :label="field.label"
         :hint="field.hint"
         :required="field.required"
+        :disabled="field.disabled"
         :options="[{ value: '', label: s('choose') }, ...field.options]"
         :error="surveyError(field.error)"
         @update:model-value="change(field, $event)"
@@ -37,6 +38,7 @@ const change = (field: SurveyField, value: string) => field.setValue(value)
             .join(' ')
         "
         :required="field.required"
+        :disabled="field.disabled"
         :maxlength="field.question.type === 'text' ? field.question.maxLength : 5000"
         :error="surveyError(field.error)"
         @update:model-value="change(field, $event)"
