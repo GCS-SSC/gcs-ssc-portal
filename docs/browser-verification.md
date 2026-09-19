@@ -26,3 +26,9 @@ Performed on 2026-09-19 against the user's HTTP LAN address with Nuxt developmen
 Automated verification additionally covers both production theme builds, required-field accessibility, bilingual branching, ownership transfer, expired/wrong-account invitations, agency isolation, API credentials, balance changes, attachment conflict recovery, immutable submissions, PGlite migrations and disposable PostgreSQL. Survey and financial browser tests explicitly remove native `randomUUID` to protect the HTTP-LAN regression.
 
 Test credentials, invitation tokens, local database files, downloads and screenshots stay in ignored test directories; they are not shipped as application data or secrets.
+
+## Repeatable full-flow regression
+
+`tests/e2e/full-flow.spec.ts` automates the connected journey using four isolated browser sessions and natural browser Origin headers. Business setup and submission use UI controls, including invitations and permission grants, government hierarchy and bilingual form publication, contributor drafts, manager submissions, private evidence download, an ordered survey/claim/forecast/survey package with an over-balance warning, and a standalone organization form. The root account is bootstrapped by the existing isolated test server. The test runs in both themes through `bun run test:themes`.
+
+A delayed real upload checks that Previous/Next item navigation stays disabled until attachment completion. This caught an enabled-navigation path that could unmount the upload component before it reported its final revision and cleared the busy state. Navigation now remains on the current item during uploads and response mutations.

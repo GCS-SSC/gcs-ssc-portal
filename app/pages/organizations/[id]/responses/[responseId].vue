@@ -160,6 +160,7 @@ onMounted(() => window.addEventListener('beforeunload', leave))
 onBeforeUnmount(() => window.removeEventListener('beforeunload', leave))
 onBeforeRouteLeave(() => !uploading.value && (!dirty.value || window.confirm(c('dirty'))))
 const changePosition = async (next: number) => {
+  if (uploading.value || busy.value) return
   position.value = next
   await nextTick()
   document.getElementById('response-item')?.focus()
@@ -255,11 +256,13 @@ const changePosition = async (next: number) => {
         <ThemeButton
           v-if="position > 0"
           variant="secondary"
+          :disabled="uploading || busy"
           @click="changePosition(position - 1)"
           >{{ c('previousItem') }}</ThemeButton
         ><ThemeButton
           v-if="position < response.items.length - 1"
           variant="secondary"
+          :disabled="uploading || busy"
           @click="changePosition(position + 1)"
           >{{ c('nextItem') }}</ThemeButton
         >
