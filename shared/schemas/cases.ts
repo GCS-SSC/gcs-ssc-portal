@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { answersSchema, type SurveyDefinition } from '@gcs-ssc/survey'
+import { answersSchema, attachmentPolicySchema, type SurveyDefinition } from '@gcs-ssc/survey'
 import { bilingualName } from './government'
 import { currencyCodes } from '../utils/currencies'
 import type { PermissionSubject } from '../utils/permissions'
@@ -80,7 +80,9 @@ export const caseInput = bilingualName.extend({
 export const caseUpdateInput = z
   .object({ expectedRevision: z.number().int().positive(), value: caseInput })
   .strict()
-const financialItem = z.object({ id: key, fiscalYearId: key }).strict()
+const financialItem = z
+  .object({ id: key, fiscalYearId: key, attachments: attachmentPolicySchema.optional() })
+  .strict()
 export const setItemSchema = z.discriminatedUnion('kind', [
   z
     .object({
@@ -164,6 +166,18 @@ export interface PublishedItem {
   survey?: SurveyDefinition
 }
 export interface SetSnapshot {
+  application?: {
+    callId: string
+    callRevision: number
+    agencyId: string
+    programId: string
+    streamId: string
+    startDate: string
+    endDate: string
+    sourceSystem: string
+    foreignSystemId: string | null
+    externalStreamId: string | null
+  }
   schemaVersion: 1
   publicationId: string
   caseReference: {
@@ -213,3 +227,10 @@ export const submitResponseInput = versionInput.extend({
   balanceRevision: z.number().int().positive().nullable(),
   warningsAcknowledged: z.boolean()
 })
+
+export const responseSubjects = (snapshot: SetSnapshot): PermissionSubject[] =>
+  snapshot.application ? ['application'] : setSubjects(snapshot.items.map((entry) => entry.item))
+export const attachmentsAllowed = (entry: PublishedItem) =>
+  (entry.item.kind === 'survey'
+    ? entry.survey?.attachments?.enabled
+    : entry.item.attachments?.enabled) === true

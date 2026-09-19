@@ -41,3 +41,5 @@ The same browser suite must pass against each selected theme's production artifa
 Adding a shared component requires updating the contract, required component inventory and every maintained theme together. Theme styles are trusted code and may use ordinary CSS; keep vendor-specific CSS in its owning directory.
 
 `ThemeShell` also accepts optional `navigation: {to,label}[]` and `portalTitle` so the host can render separate government navigation. The host supplies authorized destinations and translated titles; adapters render the same contract in both themes.
+
+`ThemeFile` supplies an optional file selector (`id`, `label`, `hint`, `disabled`) and emits `change(File | null)`. Host components own upload actions, policy, limits and network state. Both built-in themes use their vendor file control.

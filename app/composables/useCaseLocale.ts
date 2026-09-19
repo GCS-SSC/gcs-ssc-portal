@@ -1,6 +1,7 @@
 import { casesEn, casesFr } from '~/locales/cases'
 import type { Permission } from '~~/shared/types/api'
 export const useCaseLocale = () => {
+  const { a } = useAttachmentLocale()
   const { locale, t } = useLocale(),
     apiMessage = useApiMessage()
   const c = (key: keyof typeof casesEn) => (locale.value === 'fr' ? casesFr : casesEn)[key]
@@ -15,6 +16,13 @@ export const useCaseLocale = () => {
       statusCode?: number
     }
     const code = failure.data?.data?.code ?? failure.data?.code ?? ''
+    if (code === 'CALL_NOT_OPEN') return a('closed')
+    if (code === 'ATTACHMENT_TOO_LARGE') return a('tooLarge')
+    if (code === 'ATTACHMENT_LIMIT') return a('capacity')
+    if (code === 'ATTACHMENTS_NOT_ALLOWED') return a('notAllowed')
+    if (code === 'ATTACHMENTS_PENDING') return a('pendingError')
+    if (code === 'ATTACHMENT_STORAGE_UNAVAILABLE') return a('unavailable')
+    if (code === 'ATTACHMENT_STORAGE_ERROR') return a('storageError')
     if (['REVISION_CONFLICT', 'BALANCE_CHANGED'].includes(code)) return c('conflict')
     if (code === 'SET_WITHDRAWN') return c('withdrawn')
     if (failure.statusCode === 403) return c('noAccess')

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { createLocalId } from '~/utils/local-id'
 import type {
   StructuredSurvey,
   SurveyDestination,
@@ -10,7 +11,7 @@ import SurveyConditionEditor from './SurveyConditionEditor.vue'
 const model = defineModel<StructuredSurvey>({ required: true })
 const { s } = useSurveyLocale(),
   { locale } = useLocale()
-const id = () => `g_${crypto.randomUUID().replaceAll('-', '')}`
+const id = () => `g_${createLocalId()}`
 const sources = (containerId: string, include = false): SurveyQuestion[] => {
   const ids: string[] = []
   for (const page of model.value.pages) {

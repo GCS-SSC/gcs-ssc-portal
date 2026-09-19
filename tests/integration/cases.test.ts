@@ -538,7 +538,18 @@ describe('case submissions and reconciliation', () => {
       await sql`INSERT INTO stream (id, "programId", "nameEn", "nameFr", "createdAt") VALUES (${stream}, ${program}, 'Existing stream', 'Volet existant', ${now})`.execute(
         old
       )
+      const existingCall = uuid()
+      await sql`INSERT INTO funding_call (id, "streamId", "nameEn", "nameFr", "startDate", "endDate", published, "createdAt") VALUES (${existingCall}, ${stream}, 'Existing call', 'Appel existant', '2020-01-01', '2099-12-31', false, ${now})`.execute(
+        old
+      )
       await migrate(old)
+      expect(
+        await old
+          .selectFrom('funding_call')
+          .select(['id', 'agencyId', 'revision', 'nameEn'])
+          .where('id', '=', existingCall)
+          .executeTakeFirstOrThrow()
+      ).toEqual({ id: existingCall, agencyId: agency, revision: 1, nameEn: 'Existing call' })
       expect(
         await old
           .selectFrom('stream')

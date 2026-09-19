@@ -1,3 +1,5 @@
+import { governmentAttachment } from '../../utils/attachments'
+import { sendAttachment } from '../../utils/attachment-download'
 import { getQuery, createError, defineEventHandler, getHeader, getRequestURL, setHeader } from 'h3'
 import * as cases from '../../utils/cases'
 import * as sets from '../../utils/submission-sets'
@@ -72,6 +74,25 @@ export default defineEventHandler(async (event) => {
     const id = path[1]
       ? (path[0] === 'staff' ? z.string().min(1).max(128) : z.uuid()).parse(path[1])
       : undefined
+    if (
+      id &&
+      path[0] === 'submissions' &&
+      path.length === 4 &&
+      path[2] === 'attachments' &&
+      method === 'GET'
+    )
+      return sendAttachment(
+        event,
+        await governmentAttachment(db, actor, id, z.uuid().parse(path[3]))
+      )
+    if (
+      id &&
+      path[0] === 'submissions' &&
+      path.length === 3 &&
+      path[2] === 'response' &&
+      method === 'GET'
+    )
+      return await responses.governmentResponse(db, actor, id)
     if (id && path.length === 3 && path[0] === 'agencies' && method === 'GET') {
       if (path[2] === 'cases') return await cases.listCases(db, actor, id)
       if (path[2] === 'sets') return await sets.listSets(db, actor, id)

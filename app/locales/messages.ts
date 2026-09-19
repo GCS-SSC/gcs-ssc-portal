@@ -127,6 +127,8 @@ export const en = {
   genericError: 'We could not complete your request. Please try again.',
   authError: 'Check your email address and password and try again.',
   emailExists: 'An account with this email address already exists. Please sign in.',
+  addressNotConfigured:
+    'This website address is not configured for the portal. Contact the portal administrator.',
   notAuthorized: 'You do not have permission to perform this action.',
   notFound: 'This organization is unavailable.',
   conflict: 'This information has changed or already exists. Refresh the page and try again.',
@@ -282,6 +284,8 @@ export const fr: Record<MessageKey, string> = {
   genericError: 'Impossible de traiter votre demande. Veuillez réessayer.',
   authError: 'Vérifiez votre adresse courriel et votre mot de passe, puis réessayez.',
   emailExists: 'Un compte utilise déjà cette adresse courriel. Veuillez vous connecter.',
+  addressNotConfigured:
+    'Cette adresse Web n’est pas configurée pour le portail. Communiquez avec l’administrateur du portail.',
   notAuthorized: 'Vous n’avez pas la permission d’effectuer cette action.',
   notFound: 'Cette organisation est indisponible.',
   conflict: 'Ces informations ont changé ou existent déjà. Actualisez la page et réessayez.',

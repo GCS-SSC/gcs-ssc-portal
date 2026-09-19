@@ -22,6 +22,7 @@ export const buildSubmissionExport = (options: {
   submittedAt: options.submittedAt,
   sourceSystem: options.snapshot.sourceSystem,
   foreignSystemId: options.snapshot.foreignSystemId,
+  application: options.snapshot.application ?? null,
   case: options.snapshot.case,
   caseReference: options.snapshot.caseReference,
   publicationId: options.snapshot.publicationId,

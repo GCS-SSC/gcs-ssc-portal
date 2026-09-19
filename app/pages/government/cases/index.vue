@@ -11,7 +11,14 @@ const { data, error, refresh } = await useAsyncData(`cases-${agencyId}`, async (
     api<{ cases: FundingCase[] }>(`/api/government/agencies/${agencyId}/cases`),
     api<{ sets: SubmissionSet[] }>(`/api/government/agencies/${agencyId}/sets`),
     api<{
-      submissions: { submissionId: string; submittedAt: string; organizationId: string }[]
+      submissions: {
+        submissionId: string
+        submittedAt: string
+        organizationId: string
+        organizationName: string
+        nameEn: string
+        nameFr: string
+      }[]
       nextOffset: number | null
     }>(`/api/government/agencies/${agencyId}/submissions?offset=${offset.value}`)
   ])
@@ -59,7 +66,10 @@ const next = async () => {
         <p v-if="!data.submissions.length">{{ c('empty') }}</p>
         <ul class="service-list">
           <li v-for="entry in data.submissions" :key="entry.submissionId">
-            <span>{{ entry.submittedAt }} · {{ entry.organizationId }}</span
+            <ThemeLink :to="`/government/submissions/${entry.submissionId}`">{{
+              localized(entry)
+            }}</ThemeLink>
+            <span>{{ entry.organizationName }} · {{ entry.submittedAt }}</span
             ><a
               :href="`/api/government/submissions/${entry.submissionId}`"
               :download="`${entry.submissionId}.json`"

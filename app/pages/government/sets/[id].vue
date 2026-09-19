@@ -1,9 +1,11 @@
 <script setup lang="ts">
+import { createLocalId } from '~/utils/local-id'
 import type { FundingCase, SubmissionSet } from '~~/shared/types/cases'
 import type { SetInput, SetItem } from '~~/shared/schemas/cases'
 import { setInput } from '~~/shared/schemas/cases'
 import type { SurveySummary } from '~~/shared/types/survey'
 definePageMeta({ key: (route) => route.fullPath })
+const { a } = useAttachmentLocale()
 const route = useRoute(),
   id = String(route.params.id),
   agencyId = String(route.query.agencyId ?? '')
@@ -73,7 +75,7 @@ const selectCase = (caseId: string) => {
 }
 const addItem = () =>
   value.value.items.push({
-    id: crypto.randomUUID(),
+    id: createLocalId(),
     kind: 'survey',
     surveyId: '',
     surveyRevision: 1
@@ -261,6 +263,18 @@ const dirty = computed(() => {
             :label="c('fiscalYear')"
             :options="years"
             required
+          />
+          <ThemeSelect
+            v-if="item.kind !== 'survey'"
+            :id="`item-attachments-${index}`"
+            :label="a('allow')"
+            :disabled="busy || published"
+            :model-value="item.attachments?.enabled ? 'yes' : 'no'"
+            :options="[
+              { value: 'no', label: a('no') },
+              { value: 'yes', label: a('yes') }
+            ]"
+            @update:model-value="item.attachments = { enabled: $event === 'yes' }"
           />
           <div class="form-actions">
             <ThemeButton

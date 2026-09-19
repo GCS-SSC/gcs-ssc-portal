@@ -17,6 +17,10 @@ test('headless designer, preview validation, pinned call revisions and extension
   baseURL
 }) => {
   test.setTimeout(120000)
+  // HTTP LAN development exposes getRandomValues but not randomUUID.
+  await page.addInitScript(() =>
+    Object.defineProperty(globalThis.crypto, 'randomUUID', { value: undefined, configurable: true })
+  )
   const errors: string[] = []
   page.on('pageerror', (error) => errors.push(error.message))
   await page.goto('/government/login')
@@ -243,7 +247,7 @@ test('headless designer, preview validation, pinned call revisions and extension
     })
     expect((await (await applicant.request.get(url)).json()).survey.revision).toBe(1)
     await applicant.goto(`/funding/${org.id}`)
-    await applicant.getByRole('link', { name: 'View application form', exact: true }).click()
+    await applicant.locator(`a[href="/forms/${org.id}/${call}"]`).click()
     await expect(
       applicant.getByRole('heading', { name: 'Project application', exact: true })
     ).toBeVisible()

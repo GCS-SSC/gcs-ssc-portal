@@ -15,6 +15,10 @@ test('government configures a case and ordered set; contributors save; managers 
   baseURL
 }) => {
   test.setTimeout(120000)
+  // HTTP LAN development exposes getRandomValues but not randomUUID.
+  await page.addInitScript(() =>
+    Object.defineProperty(globalThis.crypto, 'randomUUID', { value: undefined, configurable: true })
+  )
   const errors: string[] = []
   page.on('pageerror', (error) => errors.push(error.message))
   expect(
@@ -111,11 +115,17 @@ test('government configures a case and ordered set; contributors save; managers 
     await page.getByLabel(/^Name in French/).fill('Réclamation annuelle')
     await page.getByRole('button', { name: 'Add item', exact: true }).click()
     await select(page, /^Item type/, 'Claims')
+    await select(page, /^Allow attachments/, 'Yes')
     await page.getByRole('button', { name: 'Add item', exact: true }).click()
     await select(
       page.getByRole('group', { name: 'Item 2', exact: true }),
       /^Item type/,
       'Forecasts'
+    )
+    await select(
+      page.getByRole('group', { name: 'Item 2', exact: true }),
+      /^Allow attachments/,
+      'Yes'
     )
     await page.getByRole('button', { name: 'Save', exact: true }).click()
     await expect(page).toHaveURL(/\/government\/sets\/[0-9a-f-]{36}\?/)
@@ -130,11 +140,25 @@ test('government configures a case and ordered set; contributors save; managers 
     const responseId = applicant.url().split('/').at(-1)!
     await expect(applicant.getByText('100.00', { exact: true })).toBeVisible()
     await applicant.getByLabel(/^Amount/).fill('125.50')
+    await applicant.getByLabel(/^Choose a file/).setInputFiles({
+      name: 'claim-receipt.txt',
+      mimeType: 'text/plain',
+      buffer: Buffer.from('Claim evidence')
+    })
+    await applicant.getByRole('button', { name: 'Upload file', exact: true }).click()
+    await expect(applicant.getByRole('link', { name: /^claim-receipt\.txt/ })).toBeVisible()
     await applicant.getByRole('button', { name: 'Next item', exact: true }).click()
     await applicant
       .getByRole('button', { name: 'Fill blank amounts with zero', exact: true })
       .click()
     await applicant.getByLabel(/^April/).fill('25.00')
+    await applicant.getByLabel(/^Choose a file/).setInputFiles({
+      name: 'forecast-notes.txt',
+      mimeType: 'text/plain',
+      buffer: Buffer.from('Forecast evidence')
+    })
+    await applicant.getByRole('button', { name: 'Upload file', exact: true }).click()
+    await expect(applicant.getByRole('link', { name: /^forecast-notes\.txt/ })).toBeVisible()
     await applicant.getByRole('button', { name: 'Save draft', exact: true }).click()
     await expect(applicant.getByText('Changes saved.', { exact: true })).toBeVisible()
     await expect(
@@ -189,6 +213,10 @@ test('government configures a case and ordered set; contributors save; managers 
     const exported = await (
       await page.request.get(`/api/government/submissions/${result.response.submissionId}`)
     ).json()
+    expect(exported.submission.attachments).toHaveLength(2)
+    expect(
+      exported.submission.attachments.map((file: { filename: string }) => file.filename)
+    ).toEqual(['claim-receipt.txt', 'forecast-notes.txt'])
     expect(exported.submission).toMatchObject({
       balancesAtSubmission: [{ balance: '50.00', balanceAsOf: '2026-09-02T00:00:00Z' }],
       items: [

@@ -147,7 +147,11 @@ export const attachSurvey = async (
     }
     await tx
       .updateTable('funding_call')
-      .set({ surveyId: input.surveyId, surveyRevision: input.revision })
+      .set({
+        surveyId: input.surveyId,
+        surveyRevision: input.revision,
+        revision: call.revision + 1
+      })
       .where('id', '=', callId)
       .execute()
     return { success: true }

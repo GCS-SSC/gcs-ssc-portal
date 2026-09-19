@@ -206,12 +206,22 @@ export const saveCall = async (
       // Parent links are immutable: API callers cannot move a call between agency hierarchies.
       if (previous.streamId !== input.streamId) return fail(409, 'CALL_STREAM_IMMUTABLE')
       if (previous.published) return fail(409, 'UNPUBLISH_BEFORE_EDITING')
-      await tx.updateTable('funding_call').set(input).where('id', '=', id).execute()
+      await tx
+        .updateTable('funding_call')
+        .set({ ...input, revision: previous.revision + 1 })
+        .where('id', '=', id)
+        .execute()
     } else {
       id = uuidv7()
       await tx
         .insertInto('funding_call')
-        .values({ id, ...input, published: false, createdAt: new Date() })
+        .values({
+          id,
+          ...input,
+          agencyId: stream.agencyId,
+          published: false,
+          createdAt: new Date()
+        })
         .execute()
     }
     return { id }

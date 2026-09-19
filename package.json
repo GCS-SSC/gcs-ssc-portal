@@ -19,26 +19,29 @@
     "test:postgres": "bun scripts/test-postgres.ts",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
+    "attachments:cleanup": "bun scripts/cleanup-attachments.ts",
     "root:create": "bun scripts/create-root.ts"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1136.0",
     "@better-auth/kysely-adapter": "^1.7.5",
     "@electric-sql/pglite": "^0.5.8",
     "@gcds-core/components": "^1.6.0",
     "@gcds-core/components-vue": "^1.6.0",
+    "@gcs-ssc/survey": "github:GCS-SSC/survey#af07a2b3db93cd0c7afac90d4d740dd8422646af",
     "@nuxt/kit": "^4",
     "@nuxt/ui": "^4",
     "better-auth": "^1.7.5",
     "h3": "^1",
     "kysely": "^0.28.8",
     "kysely-pglite": "^0.6.1",
+    "nanoid": "^6.0.1",
     "nuxt": "^4",
     "pg": "^8.23.0",
     "tailwindcss": "^4",
     "uuid": "^14.0.2",
     "vue": "^3",
-    "zod": "^4.6.5",
-    "@gcs-ssc/survey": "github:GCS-SSC/survey#2de052302983bb8258cdfa3fc32148d352cdc7f0"
+    "zod": "^4.6.5"
   },
   "devDependencies": {
     "@nuxt/eslint": "^1.17.0",

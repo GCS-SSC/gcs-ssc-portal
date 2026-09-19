@@ -10,7 +10,7 @@ The provider has no Nuxt, theme, CSS, database or authentication dependency. Ren
 
 Version 1 supports text, email, number, calendar date and single choice. It requires English/French titles and question labels. Single-choice options also require both languages and stable values. There are 1–50 saved questions, 2–30 options per choice question, 1–200 characters per label, up to 500 per help text, and up to 5000 per text response. Question IDs and option values must be unique in their respective scopes. Content is plain text, not HTML or executable expressions. Unknown schema versions, properties and controls are rejected.
 
-Answers are string values keyed by stable question IDs. Numbers intentionally retain entered text so clearing a field never becomes zero. Required validation, email, finite decimal notation, real YYYY-MM-DD dates, allowed choices and maximum lengths use the same validator in every host. The package exposes draft and final validation modes. This step provides authoring and interactive preview; no applicant response storage or submission endpoint is introduced. Preview screens explicitly state that responses are not saved or submitted.
+Answers are string values keyed by stable question IDs. Numbers intentionally retain entered text so clearing a field never becomes zero. Required validation, email, finite decimal notation, real YYYY-MM-DD dates, allowed choices and maximum lengths use the same validator in every host. The package exposes draft and final validation modes. The portal persists shared application and case-form drafts, and managers submit immutable responses through the [application](applications.md) and [case](cases.md) APIs. Preview screens explicitly state that responses are not saved or submitted.
 
 ## Structured forms and flow (version 2)
 
@@ -30,7 +30,7 @@ Agency staff open **Application forms** from the agency workspace. They create/e
 
 Calls can attach a saved form revision through the call workspace. The survey must belong to the call's agency. Published calls must be unpublished before attaching, replacing or removing a form. Updating a survey creates a new immutable revision; it never changes a call's current attachment. The assignment UI explicitly shows the attached revision and offers the latest saved revision for a deliberate update. Existing calls without forms remain valid.
 
-Organization members with the explicit `application` grant can open a published call's application form preview. The server returns only its pinned revision, and rechecks membership, permission and publication. Draft calls and other survey revisions are not exposed. Organization users never gain government survey editing authority.
+Organization members with application viewer access can open a published call’s form preview and read saved applications. Contributors start and edit shared drafts; managers submit or delete them. The server returns only its pinned revision, and rechecks membership, permission and publication. Draft calls and other survey revisions are not exposed. Organization users never gain government survey editing authority.
 
 ## Persistence and API
 
@@ -53,3 +53,5 @@ The optional package import helper validates definitions and response envelopes,
 ## Verification
 
 The package owns model, headless Vue, designer and transport tests. The portal owns database lifecycle/access tests and both-theme browser journeys covering direct design, required fields, all initial controls, bilingual preview, reload/edit, imported surveys, body limits, call attachment, revision conflicts and applicant visibility. PostgreSQL tests use an isolated disposable database, alongside the PGlite lane.
+
+See [private attachments](attachments.md) for app-wide S3 configuration, per-form opt-in and download/cleanup contracts.

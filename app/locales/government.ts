@@ -86,7 +86,8 @@ export const governmentEn = {
   open: 'Open',
   closed: 'Closed',
   dates: 'Application period',
-  fundingScope: 'Application submission will be added in a future release.',
+  fundingScope:
+    'Contributors prepare shared drafts. Managers review and submit applications during the call dates.',
   grantApplication: 'Grant application permission',
   removeApplication: 'Remove application permission',
   applicationConfirm: 'Change this person’s permission to browse funding opportunities?',
@@ -190,7 +191,8 @@ export const governmentFr: Record<keyof typeof governmentEn, string> = {
   open: 'Ouvert',
   closed: 'Fermé',
   dates: 'Période de demande',
-  fundingScope: 'La soumission de demandes sera ajoutée dans une version ultérieure.',
+  fundingScope:
+    'Les contributeurs préparent les brouillons partagés. Les gestionnaires examinent et soumettent les demandes pendant la période de l’appel.',
   grantApplication: 'Accorder la permission de demande',
   removeApplication: 'Retirer la permission de demande',
   applicationConfirm:

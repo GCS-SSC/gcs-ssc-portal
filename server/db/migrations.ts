@@ -1,3 +1,4 @@
+import { applicationMigration } from './application-migration'
 import { caseMigration } from './case-migration'
 import { surveyMigration } from './survey-migration'
 import { governmentMigration } from './government-migration'
@@ -12,6 +13,7 @@ export const migrate = async (db: Kysely<Database>, target?: string) => {
         '002_government': governmentMigration,
         '003_surveys': surveyMigration,
         '004_cases': caseMigration,
+        '005_applications_attachments': applicationMigration,
         '001_initial': {
           up: async (connection: Kysely<unknown>) => {
             const statements = `CREATE TABLE "user" (id text PRIMARY KEY, name text NOT NULL, email text UNIQUE NOT NULL, "emailVerified" boolean NOT NULL DEFAULT false, image text, "createdAt" timestamptz NOT NULL, "updatedAt" timestamptz NOT NULL);

@@ -1,11 +1,12 @@
 <script setup lang="ts">
+import { createLocalId } from '~/utils/local-id'
 import { questionV2Schema, questionTypes, type SurveyQuestion } from '@gcs-ssc/survey'
 import SurveyDescriptionEditor from './SurveyDescriptionEditor.vue'
 import SurveyConditionEditor from './SurveyConditionEditor.vue'
 const props = defineProps<{ question?: SurveyQuestion; sources: SurveyQuestion[] }>()
 const emit = defineEmits<{ save: [question: SurveyQuestion]; cancel: [] }>()
 const { s } = useSurveyLocale()
-const id = props.question?.id ?? `q_${crypto.randomUUID().replaceAll('-', '')}`
+const id = props.question?.id ?? `q_${createLocalId()}`
 const type = ref<SurveyQuestion['type']>(props.question?.type ?? 'text')
 const labelEn = ref(props.question?.label.en ?? ''),
   labelFr = ref(props.question?.label.fr ?? '')
@@ -30,7 +31,7 @@ const choices = ref(
 const error = ref('')
 const addChoice = () =>
   choices.value.push({
-    value: `c_${crypto.randomUUID().replaceAll('-', '')}`,
+    value: `c_${createLocalId()}`,
     label: { en: '', fr: '' }
   })
 const save = () => {

@@ -46,27 +46,42 @@ export default defineConfig({
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure'
   },
-  webServer: {
-    command: 'bun scripts/create-root.ts && node .output/server/index.mjs',
-    url: `${baseURL}/api/session`,
-    timeout: 60_000,
-    reuseExistingServer: false,
-    ignoreHTTPSErrors: true,
-    env: {
-      NODE_ENV: 'production',
-      ROOT_NAME: 'Portal Root',
-      ROOT_EMAIL: 'root@example.test',
-      ROOT_PASSWORD: 'Root-test-only-2026!',
-      PORTAL_THEME: 'runtime-theme-switch-is-not-supported',
-      NITRO_SSL_CERT: readFileSync(certificatePath, 'utf8'),
-      NITRO_SSL_KEY: readFileSync(keyPath, 'utf8'),
-      APP_URL: baseURL,
-      PORT: '3100',
-      HOST: '127.0.0.1',
-      DATABASE_URL: '',
-      PGLITE_DATA_DIR: join(dataDirectory, 'database'),
-      BETTER_AUTH_SECRET: 'e2e-only-not-a-production-secret-0123456789',
-      INVITATION_EXPIRY_DAYS: '3'
+  webServer: [
+    {
+      command: 'bun tests/fixtures/s3-server.ts',
+      gracefulShutdown: { signal: 'SIGTERM', timeout: 10000 },
+      url: 'http://127.0.0.1:3198',
+      timeout: 60000,
+      reuseExistingServer: false
+    },
+    {
+      command: 'bun scripts/create-root.ts && node .output/server/index.mjs',
+      url: `${baseURL}/api/session`,
+      timeout: 60_000,
+      reuseExistingServer: false,
+      ignoreHTTPSErrors: true,
+      env: {
+        NODE_ENV: 'production',
+        S3_BUCKET: 'portal-test',
+        S3_REGION: 'ca-central-1',
+        S3_ENDPOINT: 'http://127.0.0.1:3199',
+        S3_FORCE_PATH_STYLE: 'true',
+        AWS_ACCESS_KEY_ID: 'portal-test-only',
+        AWS_SECRET_ACCESS_KEY: 'portal-test-only-secret',
+        ROOT_NAME: 'Portal Root',
+        ROOT_EMAIL: 'root@example.test',
+        ROOT_PASSWORD: 'Root-test-only-2026!',
+        PORTAL_THEME: 'runtime-theme-switch-is-not-supported',
+        NITRO_SSL_CERT: readFileSync(certificatePath, 'utf8'),
+        NITRO_SSL_KEY: readFileSync(keyPath, 'utf8'),
+        APP_URL: baseURL,
+        PORT: '3100',
+        HOST: '127.0.0.1',
+        DATABASE_URL: '',
+        PGLITE_DATA_DIR: join(dataDirectory, 'database'),
+        BETTER_AUTH_SECRET: 'e2e-only-not-a-production-secret-0123456789',
+        INVITATION_EXPIRY_DAYS: '3'
+      }
     }
-  }
+  ]
 })

@@ -1,8 +1,12 @@
+import { startApplication } from '../utils/applications'
+import * as attachments from '../utils/attachments'
+import { attachmentConfig } from '../utils/attachment-config'
+import { sendAttachment } from '../utils/attachment-download'
 import { organizationCases } from '../utils/cases'
 import { organizationSets, organizationSet } from '../utils/submission-sets'
 import * as responses from '../utils/set-responses'
 import { applicantSurvey } from '../utils/surveys'
-import { createError, defineEventHandler, getHeader, getRequestURL, setHeader } from 'h3'
+import { createError, defineEventHandler, getHeader, getQuery, getRequestURL, setHeader } from 'h3'
 import { ZodError } from 'zod'
 import { organizationId } from '../../shared/schemas/portal'
 import { useAuth } from '../utils/auth'
@@ -29,12 +33,18 @@ export default defineEventHandler(async (event) => {
       })
   }
   const request = toBoundedRequest(event)
-  const body = !['GET', 'HEAD', 'OPTIONS'].includes(method)
-    ? await readBoundedBody(
-        request,
-        /\/responses(?:\/|$)/.test(getRequestURL(event).pathname) ? 3 * 1024 * 1024 : undefined
-      )
-    : undefined
+  const upload =
+    method === 'POST' &&
+    /^\/api\/organizations\/[^/]+\/responses\/[^/]+\/items\/[^/]+\/attachments$/.test(
+      getRequestURL(event).pathname
+    )
+  const body =
+    !upload && !['GET', 'HEAD', 'OPTIONS'].includes(method)
+      ? await readBoundedBody(
+          request,
+          /\/responses(?:\/|$)/.test(getRequestURL(event).pathname) ? 3 * 1024 * 1024 : undefined
+        )
+      : undefined
   const path = getRequestURL(event)
     .pathname.replace(/^\/api\//, '')
     .split('/')
@@ -81,6 +91,42 @@ export default defineEventHandler(async (event) => {
           )
         if (path.length >= 4 && path[2] === 'responses') {
           const responseId = organizationId.parse(path[3])
+          if (upload && path.length === 7) {
+            const metadata = await attachments.authorizeAttachmentUpload(
+              db,
+              id,
+              user.id,
+              responseId,
+              { ...getQuery<Record<string, string>>(event), itemId: path[5] }
+            )
+            const bytes = await readBoundedBody(request, attachmentConfig().maxBytes)
+            return await attachments.uploadAttachment(
+              db,
+              id,
+              user.id,
+              responseId,
+              metadata,
+              bytes ?? new Uint8Array()
+            )
+          }
+          if (path.length === 6 && path[4] === 'attachments') {
+            const attachmentId = organizationId.parse(path[5])
+            if (method === 'GET')
+              return sendAttachment(
+                event,
+                await attachments.organizationAttachment(db, id, user.id, responseId, attachmentId)
+              )
+            if (method === 'DELETE')
+              return await attachments.removeAttachment(
+                db,
+                id,
+                user.id,
+                responseId,
+                attachmentId,
+                parseJsonBody(body)
+              )
+          }
+
           if (path.length === 4 && method === 'GET')
             return await responses.getResponse(db, id, user.id, responseId)
           if (path.length === 4 && method === 'PUT')
@@ -125,6 +171,19 @@ export default defineEventHandler(async (event) => {
           method === 'GET'
         )
           return await applicantSurvey(db, id, user.id, organizationId.parse(path[3]))
+        if (
+          path.length === 5 &&
+          path[2] === 'funding-calls' &&
+          path[4] === 'applications' &&
+          method === 'POST'
+        )
+          return await startApplication(
+            db,
+            id,
+            user.id,
+            organizationId.parse(path[3]),
+            parseJsonBody(body)
+          )
         if (path.length === 3 && path[2] === 'funding-calls' && method === 'GET')
           return await fundingCatalogue(db, id, user.id)
         if (path.length === 3 && path[2] === 'members' && method === 'GET')

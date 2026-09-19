@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { createLocalId } from '~/utils/local-id'
 import type { FundingCase } from '~~/shared/types/cases'
 import type { CaseInput } from '~~/shared/schemas/cases'
 import { caseInput } from '~~/shared/schemas/cases'
@@ -71,13 +72,13 @@ const streams = computed(() => [
 ])
 const addYear = () =>
   value.value.config.fiscalYears.push({
-    id: crypto.randomUUID(),
+    id: createLocalId(),
     startYear: new Date().getFullYear(),
     foreignSystemId: null
   })
 const addLine = () =>
   value.value.config.budgetLines.push({
-    id: crypto.randomUUID(),
+    id: createLocalId(),
     fiscalYearId: value.value.config.fiscalYears[0]?.id ?? '',
     foreignSystemId: null,
     nameEn: '',

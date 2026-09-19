@@ -1,3 +1,7 @@
+import { attachmentConfig } from './attachment-config'
+import { attachmentMetadata } from './attachment-records'
+import { responseRow, createResponseDraft } from './response-records'
+import { requireResponsePublication } from './response-publication'
 import type { LineBalance } from '../../shared/types/cases'
 import { caseRow } from './cases'
 import { currentBalances, balanceWarnings } from './case-balances'
@@ -8,7 +12,7 @@ import {
   startResponseInput,
   versionInput,
   submitResponseInput,
-  setSubjects
+  responseSubjects
 } from '../../shared/schemas/cases'
 import type { Database } from '../db/schema'
 import {
@@ -20,15 +24,8 @@ import {
 import { lockOrganization, requireBusinessAccess } from './case-access'
 import { hasAccess, type AccessLevel } from '../../shared/utils/permissions'
 import { setRow } from './submission-sets'
-import { validateResponseItems, initialResponseItems } from './response-validation'
+import { validateResponseItems } from './response-validation'
 import { buildSubmissionExport } from './submission-export'
-const responseRow = async (db: GovernmentDb, organizationId: string, id: string) =>
-  (await db
-    .selectFrom('set_response')
-    .selectAll()
-    .where('id', '=', id)
-    .where('organizationId', '=', organizationId)
-    .executeTakeFirst()) ?? fail(404, 'RESPONSE_NOT_FOUND')
 const map = (row: Selectable<Database['set_response']>) => ({
   id: row.id,
   setId: row.setId,
@@ -51,15 +48,11 @@ export const getResponse = async (
   id: string
 ) => {
   const row = await responseRow(db, organizationId, id)
-  await requireBusinessAccess(
-    db,
-    organizationId,
-    userId,
-    setSubjects(row.snapshot.items.map((entry) => entry.item)),
-    'viewer'
-  )
+  await requireBusinessAccess(db, organizationId, userId, responseSubjects(row.snapshot), 'viewer')
   return {
     response: map(row),
+    attachments: await attachmentMetadata(db, row.id),
+    attachmentLimits: attachmentConfig(),
     balances: await currentBalances(db, row.snapshot),
     submittedBalances:
       row.status === 'submitted' ? (row.export!.balancesAtSubmission as LineBalance[]) : null
@@ -76,13 +69,12 @@ export const listResponses = async (db: GovernmentDb, organizationId: string, us
   return {
     responses: rows
       .filter((row) =>
-        setSubjects(row.snapshot.items.map((entry) => entry.item)).every((subject) =>
-          hasAccess(permissions, subject)
-        )
+        responseSubjects(row.snapshot).every((subject) => hasAccess(permissions, subject))
       )
       .map((row) => ({
         id: row.id,
         setId: row.setId,
+        callId: row.snapshot.application?.callId ?? null,
         nameEn: row.snapshot.nameEn,
         nameFr: row.snapshot.nameFr,
         status: row.status,
@@ -104,38 +96,15 @@ export const startResponse = async (
     const set = await setRow(tx, setId)
     if (set.organizationId !== organizationId || !set.published || !set.snapshot)
       return fail(404, 'SET_NOT_FOUND')
-    await requireBusinessAccess(tx, organizationId, userId, setSubjects(set.items), 'contributor')
-    const existing = await tx
-      .selectFrom('set_response')
-      .selectAll()
-      .where('setId', '=', setId)
-      .where('status', '=', 'draft')
-      .executeTakeFirst()
-    if (existing) return getResponse(tx, organizationId, userId, existing.id)
-    const id = uuid(),
-      now = new Date()
-    await tx
-      .insertInto('set_response')
-      .values({
-        id,
-        setId,
-        organizationId,
-        setRevision: set.revision,
-        snapshot: sql`${JSON.stringify(set.snapshot)}::jsonb`,
-        items: sql`${JSON.stringify(initialResponseItems(set.snapshot, input.locale))}::jsonb`,
-        locale: input.locale,
-        revision: 1,
-        status: 'draft',
-        createdBy: userId,
-        updatedBy: userId,
-        submittedBy: null,
-        createdAt: now,
-        updatedAt: now,
-        submittedAt: null,
-        submissionId: null,
-        export: null
-      })
-      .execute()
+    await requireBusinessAccess(
+      tx,
+      organizationId,
+      userId,
+      responseSubjects(set.snapshot),
+      'contributor'
+    )
+    await requireResponsePublication(tx, set.id, set.snapshot)
+    const id = await createResponseDraft(tx, set, userId, input.locale)
     return getResponse(tx, organizationId, userId, id)
   })
 }
@@ -161,27 +130,24 @@ export const mutateResponse = async (
       .executeTakeFirst()
     if (!row) return fail(404, 'RESPONSE_NOT_FOUND')
     const level: AccessLevel = mode === 'save' ? 'contributor' : 'manager'
-    await requireBusinessAccess(
-      tx,
-      organizationId,
-      userId,
-      setSubjects(row.snapshot.items.map((entry) => entry.item)),
-      level
-    )
+    await requireBusinessAccess(tx, organizationId, userId, responseSubjects(row.snapshot), level)
     if (row.status !== 'draft') return fail(409, 'RESPONSE_FINAL')
     if (row.revision !== input.expectedRevision) return fail(409, 'REVISION_CONFLICT')
     if (mode === 'delete') {
       await tx.deleteFrom('set_response').where('id', '=', id).execute()
       return { success: true }
     }
-    const set = await setRow(tx, row.setId)
-    if (!set.published || set.snapshot?.publicationId !== row.snapshot.publicationId)
-      return fail(409, 'SET_WITHDRAWN')
+    await requireResponsePublication(tx, row.setId, row.snapshot)
     const items = validateResponseItems(
       row.snapshot,
       savedInput?.items ?? row.items,
       mode === 'save' ? 'draft' : 'submit'
     )
+    if (
+      mode === 'submit' &&
+      (await attachmentMetadata(tx, row.id)).some((file) => file.status !== 'ready')
+    )
+      return fail(409, 'ATTACHMENTS_PENDING')
     const now = new Date()
     if (mode === 'save')
       await tx
@@ -216,6 +182,7 @@ export const mutateResponse = async (
           snapshot: row.snapshot,
           items
         }),
+        attachments: await attachmentMetadata(tx, row.id),
         balanceRevision,
         balancesAtSubmission: balances,
         balanceWarnings: warnings
@@ -249,11 +216,16 @@ export const listSubmissions = async (
   const rows = await db
     .selectFrom('set_response as r')
     .innerJoin('submission_set as s', 's.id', 'r.setId')
+    .innerJoin('organization as o', 'o.id', 'r.organizationId')
     .select([
+      sql<string>`r.snapshot->>'nameEn'`.as('nameEn'),
+      sql<string>`r.snapshot->>'nameFr'`.as('nameFr'),
+      'o.name as organizationName',
       'r.submissionId',
       'r.id as responseId',
       'r.setId',
       's.caseId',
+      's.callId',
       'r.organizationId',
       'r.submittedAt'
     ])
@@ -303,15 +275,15 @@ export const checkResponse = async (
       tx,
       organizationId,
       userId,
-      setSubjects(row.snapshot.items.map((entry) => entry.item)),
+      responseSubjects(row.snapshot),
       'manager'
     )
     if (row.status !== 'draft' || row.revision !== input.expectedRevision)
       return fail(409, 'REVISION_CONFLICT')
-    const active = await setRow(tx, row.setId)
-    if (!active.published || active.snapshot?.publicationId !== row.snapshot.publicationId)
-      return fail(409, 'SET_WITHDRAWN')
+    await requireResponsePublication(tx, row.setId, row.snapshot)
     const items = validateResponseItems(row.snapshot, row.items, 'submit')
+    if ((await attachmentMetadata(tx, row.id)).some((file) => file.status !== 'ready'))
+      return fail(409, 'ATTACHMENTS_PENDING')
     const balances = await currentBalances(tx, row.snapshot)
     return {
       balanceRevision: row.snapshot.case
@@ -321,4 +293,34 @@ export const checkResponse = async (
       warnings: balanceWarnings(items, balances)
     }
   })
+}
+
+export const governmentResponse = async (
+  db: GovernmentDb,
+  actor: GovernmentActor,
+  submissionId: string
+) => {
+  const parent = await db
+    .selectFrom('set_response as r')
+    .innerJoin('submission_set as s', 's.id', 'r.setId')
+    .innerJoin('organization as o', 'o.id', 'r.organizationId')
+    .select(['r.id', 's.agencyId', 'o.id as organizationId', 'o.name as organizationName'])
+    .where('r.submissionId', '=', submissionId)
+    .where('r.status', '=', 'submitted')
+    .executeTakeFirst()
+  if (!parent) return fail(404, 'RESPONSE_NOT_FOUND')
+  await requireGovernment(db, actor, { agencyId: parent.agencyId })
+  const row = await db
+    .selectFrom('set_response')
+    .selectAll()
+    .where('id', '=', parent.id)
+    .executeTakeFirstOrThrow()
+  return {
+    organization: { id: parent.organizationId, name: parent.organizationName },
+    response: map(row),
+    attachments: await attachmentMetadata(db, row.id),
+    attachmentLimits: attachmentConfig(),
+    balances: row.export!.balancesAtSubmission as LineBalance[],
+    submittedBalances: row.export!.balancesAtSubmission as LineBalance[]
+  }
 }

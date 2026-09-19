@@ -18,7 +18,7 @@ The hierarchy is `agency → program → stream → funding_call`. Each entity h
 
 A call stores only its bilingual name, stream reference, start date, end date, publication state, ID and creation time. Agency and program derive from the stream, avoiding contradictory selections. Dates are calendar values `YYYY-MM-DD`; real dates and end ≥ start are required. The application period includes both boundary dates, using the current UTC calendar date for the Upcoming/Open/Closed label. There is no timestamp conversion or time-of-day deadline.
 
-New calls are drafts. Staff explicitly publish or unpublish them. Published calls must be unpublished before editing. Publication controls visibility; dates label a published call as upcoming, open, or closed, rather than automatically hiding it. Ancestor names are live, so renaming a program updates its displayed name on published calls. Published calls can also expose a pinned survey revision for an interactive application-form preview. Response storage and application submission are not implemented in this step. See [surveys](surveys.md).
+New calls are drafts. Staff explicitly publish or unpublish them. Published calls must be unpublished before editing. Publication controls visibility; dates label a published call as upcoming, open, or closed, rather than automatically hiding it. Ancestor names are live, so renaming a program updates its displayed name on published calls. Published calls can also expose a pinned survey revision for an interactive application-form preview. Contributors save shared application drafts and managers submit during the call dates; see [applications](applications.md). See [surveys](surveys.md).
 
 An organization's explicit `application:viewer` (or higher) grant exposes **Apply for funding** on its list entry and workspace. Neither `admin` nor ownership implies this grant. Organization administrators can add/remove it independently of `admin`; every member retains implicit `user`. The catalogue endpoint requires both membership and an application subject level, and returns published calls only. No government-management metadata or drafts appear in that endpoint.
 
@@ -73,3 +73,5 @@ Use returned IDs to create streams, then calls; publish with a separate explicit
 Agency staff and agency-scoped integration credentials can create and update surveys through the [survey API](surveys.md). Call attachments pin immutable revisions; editing a reusable survey never changes a published call. The portal supplies its own themed designer and preview over the public headless provider. The GCS–SSC sibling app and extension remain untouched.
 
 Case configuration, ordered form sets, balance reconciliation and immutable submission exports are documented in [cases](cases.md).
+
+See [private attachments](attachments.md) for app-wide S3 configuration, per-form opt-in and download/cleanup contracts.

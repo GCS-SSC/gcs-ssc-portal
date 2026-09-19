@@ -51,3 +51,11 @@ export interface ThemeShellProps {
 // Shell emits signout and locale ('en' | 'fr'), and renders its default slot.
 // Input/Select emit update:modelValue (string); Button forwards click events.
 // ThemeRoot renders its default slot and provides vendor context if needed.
+
+export interface ThemeFileProps {
+  id: string
+  label: string
+  hint?: string
+  disabled?: boolean
+}
+// ThemeFile emits change (File | null). It is optional; an Upload action requires a selected file.

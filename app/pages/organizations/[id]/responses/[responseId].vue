@@ -6,9 +6,10 @@ import type {
   ResponseResult
 } from '~~/shared/types/cases'
 import type { Organization } from '~~/shared/types/api'
-import { setSubjects } from '~~/shared/schemas/cases'
+import { responseSubjects, attachmentsAllowed } from '~~/shared/schemas/cases'
 import { hasAccess } from '~~/shared/utils/permissions'
 import FinancialResponse from '~/components/cases/FinancialResponse.vue'
+import ResponseAttachments from '~/components/cases/ResponseAttachments.vue'
 import ResponseSurvey from '~/components/cases/ResponseSurvey.vue'
 definePageMeta({ key: (route) => route.fullPath })
 const route = useRoute(),
@@ -31,6 +32,9 @@ const {
   ])
   return { ...result, ...org }
 })
+const { a } = useAttachmentLocale()
+const attachmentGeneration = ref(0)
+const uploading = ref(false)
 const response = ref<SetResponse | null>(null),
   balances = ref<LineBalance[]>([]),
   recorded = ref(false),
@@ -54,15 +58,40 @@ watch(
   { immediate: true }
 )
 const dirty = computed(() => response.value && JSON.stringify(response.value.items) !== saved.value)
+const reload = async () => {
+  if (uploading.value || (dirty.value && !window.confirm(a('discard')))) return
+  await refresh()
+  if (!loadError.value) attachmentGeneration.value++
+}
 const allowed = (level: 'contributor' | 'manager') =>
   !!response.value &&
-  setSubjects(response.value.snapshot.items.map((entry) => entry.item)).every((subject) =>
+  responseSubjects(response.value.snapshot).every((subject) =>
     hasAccess(data.value?.organization.permissions ?? [], subject, level)
   )
 const editable = computed(
-  () => response.value?.status === 'draft' && allowed('contributor') && !review.value && !busy.value
+  () =>
+    response.value?.status === 'draft' &&
+    allowed('contributor') &&
+    !review.value &&
+    !busy.value &&
+    !uploading.value
 )
 const manager = computed(() => response.value?.status === 'draft' && allowed('manager'))
+const back = computed(() =>
+  response.value?.snapshot.application
+    ? `/funding/${organizationId}`
+    : `/organizations/${organizationId}/work`
+)
+const attachmentChange = (result: {
+  revision: number
+  attachments: ResponseResult['attachments']
+}) => {
+  if (response.value && data.value) {
+    response.value.revision = result.revision
+    data.value.attachments = result.attachments
+    review.value = null
+  }
+}
 const current = computed(() => response.value?.items[position.value])
 const published = computed(() => response.value?.snapshot.items[position.value])
 const save = () =>
@@ -109,7 +138,7 @@ const remove = () =>
       body: { expectedRevision: response.value!.revision }
     })
     saved.value = JSON.stringify(response.value!.items)
-    await navigateTo(`/organizations/${organizationId}/work`)
+    await navigateTo(back.value)
   })
 const showRecorded = () => {
   if (submittedBalances.value) {
@@ -125,11 +154,11 @@ const updateBalances = () =>
     review.value = null
   })
 const leave = (event: BeforeUnloadEvent) => {
-  if (dirty.value) event.preventDefault()
+  if (dirty.value || uploading.value) event.preventDefault()
 }
 onMounted(() => window.addEventListener('beforeunload', leave))
 onBeforeUnmount(() => window.removeEventListener('beforeunload', leave))
-onBeforeRouteLeave(() => !dirty.value || window.confirm(c('dirty')))
+onBeforeRouteLeave(() => !uploading.value && (!dirty.value || window.confirm(c('dirty'))))
 const changePosition = async (next: number) => {
   position.value = next
   await nextTick()
@@ -138,10 +167,10 @@ const changePosition = async (next: number) => {
 </script>
 <template>
   <section>
-    <ThemeLink :to="`/organizations/${organizationId}/work`">{{ c('back') }}</ThemeLink>
+    <ThemeLink :to="back">{{ c('back') }}</ThemeLink>
     <ThemeNotice v-if="loadError" variant="error"
       >{{ errorMessage(loadError) }}
-      <ThemeButton @click="refresh()">{{ c('reload') }}</ThemeButton></ThemeNotice
+      <ThemeButton @click="reload">{{ c('reload') }}</ThemeButton></ThemeNotice
     >
     <template v-if="response">
       <h1>{{ localized(response.snapshot) }}</h1>
@@ -149,7 +178,7 @@ const changePosition = async (next: number) => {
       <p>{{ c(response.status === 'submitted' ? 'finalNotice' : 'sharedDraft') }}</p>
       <ThemeNotice v-if="error" variant="error"
         >{{ error }}
-        <ThemeButton variant="link" @click="refresh()">{{ c('reload') }}</ThemeButton></ThemeNotice
+        <ThemeButton variant="link" @click="reload">{{ c('reload') }}</ThemeButton></ThemeNotice
       >
       <ThemeNotice v-if="success" variant="success">{{ success }}</ThemeNotice>
       <section v-if="review" class="confirmation" aria-labelledby="review-heading">
@@ -173,8 +202,8 @@ const changePosition = async (next: number) => {
         </ThemeNotice>
         <p v-if="review.warnings.length">{{ c('warningHint') }}</p>
         <div class="form-actions">
-          <ThemeButton :disabled="busy" @click="submit">{{ c('submit') }}</ThemeButton
-          ><ThemeButton variant="secondary" :disabled="busy" @click="review = null">{{
+          <ThemeButton :disabled="uploading || busy" @click="submit">{{ c('submit') }}</ThemeButton
+          ><ThemeButton variant="secondary" :disabled="uploading || busy" @click="review = null">{{
             c('cancel')
           }}</ThemeButton>
         </div>
@@ -207,6 +236,19 @@ const changePosition = async (next: number) => {
             :readonly="!editable"
             @update:model-value="response!.items[position] = $event"
           />
+          <ResponseAttachments
+            v-if="data && attachmentsAllowed(published)"
+            :key="`${current.id}-${response.id}-${attachmentGeneration}`"
+            :endpoint="endpoint"
+            :item-id="current.id"
+            :revision="response.revision"
+            :files="data.attachments"
+            :limits="data.attachmentLimits"
+            :readonly="!editable && !uploading"
+            @busy="uploading = $event"
+            @change="attachmentChange"
+            @reload="reload"
+          />
         </template>
       </div>
       <div class="form-actions">
@@ -224,23 +266,26 @@ const changePosition = async (next: number) => {
       </div>
       <p v-if="dirty">{{ c('dirty') }}</p>
       <div class="form-actions">
-        <ThemeButton v-if="editable" :disabled="busy" @click="save">{{
+        <ThemeButton v-if="editable" :disabled="uploading || busy" @click="save">{{
           c('saveDraft')
         }}</ThemeButton>
-        <ThemeButton v-if="manager && !review" :disabled="busy || !!dirty" @click="prepare">{{
-          c('reviewSubmit')
-        }}</ThemeButton>
+        <ThemeButton
+          v-if="manager && !review"
+          :disabled="uploading || busy || !!dirty"
+          @click="prepare"
+          >{{ c('reviewSubmit') }}</ThemeButton
+        >
         <ThemeButton
           v-if="response.snapshot.case"
           variant="secondary"
-          :disabled="busy"
+          :disabled="uploading || busy"
           @click="updateBalances"
           >{{ c('refreshBalances') }}</ThemeButton
         >
         <ThemeButton
           v-if="manager && !review"
           variant="secondary"
-          :disabled="busy"
+          :disabled="uploading || busy"
           @click="deleting = true"
           >{{ c('deleteDraft') }}</ThemeButton
         >
@@ -248,10 +293,15 @@ const changePosition = async (next: number) => {
       <section v-if="deleting" class="confirmation">
         <p>{{ c('deleteConfirm') }}</p>
         <div class="form-actions">
-          <ThemeButton :disabled="busy" @click="remove">{{ c('deleteDraft') }}</ThemeButton
-          ><ThemeButton variant="secondary" :disabled="busy" @click="deleting = false">{{
-            c('cancel')
-          }}</ThemeButton>
+          <ThemeButton :disabled="uploading || busy" @click="remove">{{
+            c('deleteDraft')
+          }}</ThemeButton
+          ><ThemeButton
+            variant="secondary"
+            :disabled="uploading || busy"
+            @click="deleting = false"
+            >{{ c('cancel') }}</ThemeButton
+          >
         </div>
       </section>
     </template>

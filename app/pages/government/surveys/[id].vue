@@ -10,6 +10,7 @@ definePageMeta({ key: (route) => `${route.params.id}-${route.query.agencyId ?? '
 const route = useRoute(),
   api = usePortalApi(),
   message = useApiMessage()
+const { a } = useAttachmentLocale()
 const { s } = useSurveyLocale(),
   { locale, t } = useLocale()
 const isNew = route.params.id === 'new'
@@ -188,6 +189,16 @@ useHead(() => ({ title: s('designer') }))
           :disabled="busy"
         />
         <SurveyDescriptionEditor v-model="definition.description" prefix="survey-description" />
+        <ThemeSelect
+          id="survey-attachments"
+          :label="a('allow')"
+          :model-value="definition.attachments?.enabled ? 'yes' : 'no'"
+          :options="[
+            { value: 'no', label: a('no') },
+            { value: 'yes', label: a('yes') }
+          ]"
+          @update:model-value="definition.attachments = { enabled: $event === 'yes' }"
+        />
       </div>
       <SurveyStructureEditor v-if="editing === undefined" v-model="definition" />
       <section class="content-section">

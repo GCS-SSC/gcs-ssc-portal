@@ -30,6 +30,7 @@ export default defineNuxtConfig({
     }
   },
   vite: {
+    optimizeDeps: { include: ['zod', 'nanoid', '@gcs-ssc/survey', '@gcs-ssc/survey/vue'] },
     vue: {
       template: {
         compilerOptions: {

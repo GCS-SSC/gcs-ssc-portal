@@ -1,6 +1,6 @@
 # System overview
 
-The GCS–SSC organization portal is an independent companion application. It currently handles accounts, organizations, people, permissions, invitations, and government funding administration. No application submission workflow or main-system extension is imported from GCS–SSC.
+The GCS–SSC organization portal is an independent companion application. It handles accounts, organizations, people, permissions, invitations, government funding administration, applications, cases, claims, forecasts, and standalone forms. It provides its own persisted response workflows and private S3 attachments. The main-system extension remains separate and has not been modified.
 
 ## Runtime
 

@@ -37,6 +37,7 @@ export const listSets = async (db: GovernmentDb, actor: GovernmentActor, agencyI
         .selectFrom('submission_set')
         .selectAll()
         .where('agencyId', '=', agencyId)
+        .where('callId', 'is', null)
         .orderBy('createdAt', 'desc')
         .execute()
     ).map(map)
@@ -75,7 +76,8 @@ export const saveSet = async (
         .where('id', '=', id)
         .forUpdate()
         .executeTakeFirst()
-      if (!previous || previous.agencyId !== input.agencyId) return fail(404, 'SET_NOT_FOUND')
+      if (!previous || previous.callId || previous.agencyId !== input.agencyId)
+        return fail(404, 'SET_NOT_FOUND')
       if (previous.organizationId !== input.organizationId || previous.caseId !== input.caseId)
         return fail(409, 'SET_SCOPE_IMMUTABLE')
       if (
@@ -122,6 +124,7 @@ export const publishSet = async (
 ) => {
   const input = versionInput.parse(body),
     parent = await setRow(db, id)
+  if (parent.callId) return fail(404, 'SET_NOT_FOUND')
   return db.transaction().execute(async (tx) => {
     await requireGovernment(tx, actor, { agencyId: parent.agencyId, lock: true })
     await lockOrganization(tx, parent.organizationId)
@@ -212,6 +215,7 @@ export const organizationSets = async (
     .selectAll()
     .where('organizationId', '=', organizationId)
     .where('published', '=', true)
+    .where('callId', 'is', null)
     .orderBy('createdAt', 'desc')
     .execute()
   return {
@@ -231,7 +235,7 @@ export const organizationSet = async (
   id: string
 ) => {
   const row = await setRow(db, id)
-  if (row.organizationId !== organizationId || !row.published || !row.snapshot)
+  if (row.callId || row.organizationId !== organizationId || !row.published || !row.snapshot)
     return fail(404, 'SET_NOT_FOUND')
   await requireBusinessAccess(db, organizationId, userId, setSubjects(row.items), 'viewer')
   return { set: map(row) }

@@ -15,6 +15,10 @@ const screenshot = async (page: Page, name: string) => {
   const theme = (await page.locator('gcds-header').count()) ? 'gcdesign' : 'nuxtui'
   await page.screenshot({ path: `.agent/visual/${theme}-${name}.png`, fullPage: true })
 }
+// Independent journeys share the production server's loopback rate-limit bucket.
+test.beforeEach(async () => {
+  await new Promise((resolve) => setTimeout(resolve, 11000))
+})
 test('root invites staff; staff publish funding; applicants need an explicit grant; API stays agency scoped', async ({
   page,
   browser,

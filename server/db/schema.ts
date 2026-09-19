@@ -81,6 +81,8 @@ export interface Database {
     createdAt: Timestamp
   }
   funding_call: ForeignIdentity & {
+    revision: Generated<number>
+    agencyId: string
     id: string
     streamId: string
     nameEn: string
@@ -114,6 +116,7 @@ export interface Database {
     createdAt: Timestamp
   }
   submission_set: {
+    callId: Generated<string | null>
     id: string
     organizationId: string
     agencyId: string
@@ -150,6 +153,19 @@ export interface Database {
       Record<string, unknown> | null,
       Record<string, unknown> | null
     >
+  }
+  response_attachment: {
+    id: string
+    responseId: string | null
+    itemId: string
+    filename: string
+    size: number
+    sha256: string
+    bucket: string
+    objectKey: string
+    status: 'pending' | 'ready'
+    createdBy: string
+    createdAt: Timestamp
   }
   government_invitation: {
     id: string

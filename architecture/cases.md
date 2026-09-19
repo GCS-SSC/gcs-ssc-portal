@@ -14,7 +14,7 @@ Each member has base `user` and optionally `admin`. Ownership retains admin; nei
 | contributor | Viewer actions plus create and edit shared drafts |
 | manager     | Contributor actions plus submit or delete drafts  |
 
-Permissions are stored as `subject:level`. The API accepts legacy `application` as `application:viewer`; migration 004 upgrades existing grants without elevating them. The funding catalogue accepts any application level. Application response persistence remains separate from these case/organization form sets; the existing call form screen is a preview.
+Permissions are stored as `subject:level`. The API accepts legacy `application` as `application:viewer`; migration 004 upgrades existing grants without elevating them. The funding catalogue accepts any application level. Application responses use the shared response engine with application permissions and a pinned call reference; see [applications](applications.md).
 
 Survey-only sets, whether at case or organization level, require `form`. In a financial set, ancillary designed forms belong to the claim/forecast workflow and inherit its permissions. A set containing claim and forecast requires the applicable level for **both** subjects. Ancillary questions in financial sets do not additionally require standalone `form` access. Authorization is rechecked inside write transactions.
 
@@ -101,3 +101,5 @@ Organization paths start /api/organizations/:organizationId:
 | DELETE /responses/:responseId      | {expectedRevision}; manager, draft only                                      |
 
 Missing permission is 403; inaccessible scoped records are 404. Revision/balance conflicts, withdrawn/superseded publications and final-response mutations return 409. Invalid input returns 400. Reads and exports are no-store.
+
+See [private attachments](attachments.md) for app-wide S3 configuration, per-form opt-in and download/cleanup contracts.

@@ -58,7 +58,25 @@ export interface SubmissionCheck {
 }
 
 export interface ResponseResult {
+  attachments: ResponseAttachment[]
+  attachmentLimits: AttachmentLimits
   response: SetResponse
   balances: LineBalance[]
   submittedBalances: LineBalance[] | null
+}
+
+export interface ResponseAttachment {
+  status: 'pending' | 'ready'
+  id: string
+  itemId: string
+  filename: string
+  size: number
+  sha256: string
+  createdAt: string
+}
+export interface AttachmentLimits {
+  configured: boolean
+  maxBytes: number
+  maxFilesPerForm: number
+  maxResponseBytes: number
 }

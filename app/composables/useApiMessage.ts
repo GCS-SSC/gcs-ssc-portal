@@ -8,6 +8,7 @@ export const useApiMessage = () => {
     }
     const status = failure?.status ?? failure?.statusCode ?? failure?.data?.statusCode
     const code = failure?.data?.code ?? failure?.data?.data?.code ?? ''
+    if (['ORIGIN_FORBIDDEN', 'INVALID_ORIGIN'].includes(code)) return t('addressNotConfigured')
     if (code.includes('USER_ALREADY_EXISTS')) return t('emailExists')
     if (code.includes('INVALID_EMAIL_OR_PASSWORD')) return t('authError')
     if (status === 401) return t('sessionExpired')

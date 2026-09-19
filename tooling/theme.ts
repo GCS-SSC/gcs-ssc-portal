@@ -6,6 +6,7 @@ export const themeComponents = [
   'ThemeShell',
   'ThemeButton',
   'ThemeInput',
+  'ThemeFile',
   'ThemeSelect',
   'ThemeNotice',
   'ThemeBadge',
