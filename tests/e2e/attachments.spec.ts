@@ -46,6 +46,11 @@ test('application drafts and private S3 attachments work from authoring through 
   await page.getByLabel(/^Question in French/).fill('Nom du projet')
   await select(page, /^Response requirement/, 'Required')
   await page.getByRole('button', { name: 'Apply question changes', exact: true }).click()
+  await page.getByRole('button', { name: 'Add question', exact: true }).click()
+  await select(page, /^Control/, 'Number')
+  await page.getByLabel(/^Question in English/).fill('Previous awards')
+  await page.getByLabel(/^Question in French/).fill('Subventions précédentes')
+  await page.getByRole('button', { name: 'Apply question changes', exact: true }).click()
   await page.getByRole('button', { name: 'Save form revision', exact: true }).click()
   await expect(page).toHaveURL(/\/government\/surveys\/[0-9a-f-]{36}$/)
   const surveyId = page.url().split('/').at(-1)!
@@ -153,6 +158,7 @@ test('application drafts and private S3 attachments work from authoring through 
     await expect(applicant.getByRole('link', { name: /^evidence\.txt/ })).toBeVisible()
     // File mutations update CAS without discarding unsaved answers.
     await expect(applicant.getByLabel(/^Project name/)).toHaveValue('Community project')
+    await applicant.getByLabel(/^Previous awards/).fill('0')
     await applicant.getByRole('button', { name: 'Save draft', exact: true }).click()
     await expect(applicant.getByText('Changes saved.', { exact: true })).toBeVisible()
     const result = await (await applicant.request.get(endpoint)).json(),
@@ -202,6 +208,7 @@ test('application drafts and private S3 attachments work from authoring through 
     await page.getByRole('link', { name: 'Attachment agency', exact: true }).click()
     await expect(page.getByText(/Evidence organization/)).toBeVisible()
     await expect(page.getByText('Community project', { exact: true })).toBeVisible()
+    await expect(page.getByRole('definition').filter({ hasText: /^0$/ })).toBeVisible()
     await expect(page.getByRole('link', { name: /^final\.txt/ })).toBeVisible()
     const govDownload = await page.request.get(
       `/api/government/submissions/${final.response.submissionId}/attachments/${final.attachments[0].id}`

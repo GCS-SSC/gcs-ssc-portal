@@ -31,7 +31,9 @@ const navigate = async (action: (() => boolean) | (() => void)) => {
                 ? (question.options.find((option) => option.value === answers[question.id])?.label[
                     locale
                   ] ?? '—')
-                : answers[question.id] || '—'
+                : answers[question.id] === ''
+                  ? '—'
+                  : (answers[question.id] ?? '—')
             }}
           </dd></template
         >
