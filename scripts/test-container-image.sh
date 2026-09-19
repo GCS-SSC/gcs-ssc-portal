@@ -10,6 +10,13 @@ cleanup() {
   docker rm -f "$app" "$database" >/dev/null 2>&1 || true
   docker network rm "$network" >/dev/null 2>&1 || true
 }
+failure() {
+  result=$?
+  docker logs --tail 60 "$app" >&2 2>/dev/null || true
+  docker logs --tail 60 "$database" >&2 2>/dev/null || true
+  return "$result"
+}
+trap failure ERR
 trap cleanup EXIT
 trap 'exit 130' INT TERM
 docker network create "$network" >/dev/null
@@ -17,10 +24,10 @@ docker run -d --name "$database" --network "$network" --network-alias postgres \
   --tmpfs /var/lib/postgresql/data -e POSTGRES_PASSWORD="$password" -e POSTGRES_DB=portal_test \
   postgres:17-alpine >/dev/null
 for attempt in $(seq 1 60); do
-  if docker exec "$database" pg_isready -U postgres -d portal_test >/dev/null 2>&1; then break; fi
+  if docker exec "$database" pg_isready -h 127.0.0.1 -U postgres -d portal_test >/dev/null 2>&1; then break; fi
   sleep 1
 done
-docker exec "$database" pg_isready -U postgres -d portal_test >/dev/null
+docker exec "$database" pg_isready -h 127.0.0.1 -U postgres -d portal_test >/dev/null
 docker run -d --name "$app" --network "$network" -p 127.0.0.1::3000 \
   -e DATABASE_URL="postgresql://postgres:$password@postgres:5432/portal_test" \
   -e APP_URL=https://portal.example.test \
