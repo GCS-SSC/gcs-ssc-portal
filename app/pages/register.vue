@@ -18,6 +18,9 @@ const invitationPath = computed(() =>
       ? `/invitations/${route.query.invitation}`
       : ''
 )
+const invitationLogin = computed(() =>
+  invitationPath.value.startsWith('/government/') ? '/government/login' : '/login'
+)
 useHead(() => ({ title: t('accountTitle') }))
 const submit = async () => {
   if (pending.value) return
@@ -100,7 +103,11 @@ const submit = async () => {
     <p class="form-alternative">
       {{ t('haveAccount') }}
       <ThemeLink
-        :to="invitationPath ? `/login?next=${encodeURIComponent(invitationPath)}` : '/login'"
+        :to="
+          invitationPath
+            ? `${invitationLogin}?next=${encodeURIComponent(invitationPath)}`
+            : '/login'
+        "
         >{{ t('signIn') }}</ThemeLink
       >
     </p>

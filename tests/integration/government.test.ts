@@ -11,6 +11,8 @@ import * as structure from '../../server/utils/government-structure'
 import * as portal from '../../server/utils/portal'
 import {
   governmentAccess,
+  isGovernmentAccount,
+  requireOrganizationAccount,
   secretHash,
   type GovernmentActor
 } from '../../server/utils/government-access'
@@ -95,6 +97,12 @@ describe('government identity and agency boundaries', () => {
     ])
     expect(accepted.filter((result) => result.status === 'fulfilled')).toHaveLength(1)
     expect(await governmentAccess(db, staff.id)).toEqual({ role: 'staff', agencyIds: [] })
+    expect(await isGovernmentAccount(db, staff.id)).toBe(true)
+    await expect(requireOrganizationAccount(db, staff.id)).rejects.toMatchObject({
+      statusCode: 403,
+      data: { code: 'ORGANIZATION_ACCESS_FORBIDDEN' }
+    })
+    await expect(requireOrganizationAccount(db, applicant.id)).resolves.toBeUndefined()
     expect(
       (
         await db
@@ -152,6 +160,10 @@ describe('government identity and agency boundaries', () => {
     ).rejects.toMatchObject({ statusCode: 404 })
     await admin.changeStaff(db, root, staff.id, { active: false }, 'status')
     expect(await governmentAccess(db, staff.id)).toBeNull()
+    expect(await isGovernmentAccount(db, staff.id)).toBe(true)
+    await expect(requireOrganizationAccount(db, staff.id)).rejects.toMatchObject({
+      statusCode: 403
+    })
     await expect(structure.createAgency(db, staffActor, names('Disabled'))).rejects.toMatchObject({
       statusCode: 403
     })
@@ -186,6 +198,16 @@ describe('government identity and agency boundaries', () => {
     const call = await structure.saveCall(db, staffActor, input)
     const { organization } = await portal.createOrganization(db, applicant.id, {
       name: 'Applicant organization'
+    })
+    const staffInvitation = await admin.inviteStaff(db, root, {
+      email: applicant.email,
+      name: applicant.name
+    })
+    await expect(
+      admin.acceptStaffInvitation(db, tokenFrom(staffInvitation.url), applicant)
+    ).rejects.toMatchObject({
+      statusCode: 409,
+      data: { code: 'ORGANIZATION_ACCOUNT_FORBIDDEN' }
     })
     await expect(
       structure.fundingCatalogue(db, organization.id, applicant.id)

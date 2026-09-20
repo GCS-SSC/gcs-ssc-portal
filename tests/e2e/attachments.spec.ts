@@ -167,7 +167,7 @@ test('application drafts and private S3 attachments work from authoring through 
     expect(await download.text()).toBe('Private project evidence')
     expect(download.headers()['content-disposition']).toContain('attachment;')
     expect(download.headers()['content-type']).toBe('application/octet-stream')
-    expect((await page.request.get(`${endpoint}/attachments/${file.id}`)).status()).toBe(404)
+    expect((await page.request.get(`${endpoint}/attachments/${file.id}`)).status()).toBe(403)
     expect(
       (
         await page.request.get(`http://127.0.0.1:3199/portal-test/portal-attachments/${file.id}`)

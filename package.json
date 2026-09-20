@@ -4,7 +4,8 @@
   "type": "module",
   "packageManager": "bun@1.3.13",
   "scripts": {
-    "dev": "nuxt dev",
+    "dev": "bun run scripts/dev.ts",
+    "dev:clean": "bun run scripts/dev.ts --clean",
     "build": "nuxt build",
     "build:nuxtui": "PORTAL_THEME=nuxtui nuxt build",
     "build:gcdesign": "PORTAL_THEME=gcdesign nuxt build",

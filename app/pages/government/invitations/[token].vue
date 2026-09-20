@@ -26,7 +26,9 @@ useHead(() => ({
 }))
 const switchAccount = async () => {
   try {
-    await signOut(`/login?next=${encodeURIComponent(`/government/invitations/${token}`)}`)
+    await signOut(
+      `/government/login?next=${encodeURIComponent(`/government/invitations/${token}`)}`
+    )
   } catch (failure) {
     error.value = message(failure)
   }
@@ -76,9 +78,10 @@ const accept = async () => {
           class="primary-link"
           :to="`/register?governmentInvitation=${encodeURIComponent(token)}&email=${encodeURIComponent(data.email)}`"
           >{{ t('joinAccount') }}</ThemeLink
-        ><ThemeLink :to="`/login?next=${encodeURIComponent(`/government/invitations/${token}`)}`">{{
-          t('joinSignIn')
-        }}</ThemeLink>
+        ><ThemeLink
+          :to="`/government/login?next=${encodeURIComponent(`/government/invitations/${token}`)}`"
+          >{{ t('joinSignIn') }}</ThemeLink
+        >
       </div>
       <template v-else-if="!matchesEmail"
         ><ThemeNotice variant="error">{{ t('wrongEmail') }}</ThemeNotice

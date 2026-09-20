@@ -1,12 +1,18 @@
 export default defineNuxtRouteMiddleware(async (to) => {
-  const { user, government, loaded, refresh } = usePortalSession()
+  const { user, government, governmentAccount, loaded, refresh } = usePortalSession()
   if (!loaded.value) await refresh()
+  const organizationRoute =
+    to.path.startsWith('/organizations') ||
+    to.path.startsWith('/funding') ||
+    to.path.startsWith('/forms') ||
+    to.path.startsWith('/invitations/')
   if (
-    (to.path.startsWith('/organizations') ||
-      to.path.startsWith('/funding') ||
-      to.path.startsWith('/forms')) &&
-    !user.value
+    user.value &&
+    governmentAccount.value &&
+    (organizationRoute || ['/login', '/register'].includes(to.path))
   )
+    return navigateTo('/government')
+  if (organizationRoute && !user.value)
     return navigateTo({ path: '/login', query: { next: to.fullPath } })
   if (
     to.path.startsWith('/government') &&

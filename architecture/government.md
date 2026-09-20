@@ -1,6 +1,6 @@
 # Government administration and funding catalogue
 
-Government staff use `/government/login` and `/government`. Organization navigation never exposes government management. Both entrypoints use Better Auth accounts, but government grants live in separate tables. An organization owner or administrator has no government authority. An account may participate in both domains only after separately receiving the necessary grants.
+Government staff use `/government/login` and `/government`. Organization navigation never exposes government management. Both entrypoints use Better Auth accounts, but government grants live in separate tables. An organization owner or administrator has no government authority. Government and organization identities are separate: once an account is recorded as a government user, it cannot enter organization routes, call organization APIs, or accept organization invitations, even while its government access is inactive.
 
 ## Root and staff
 
@@ -8,9 +8,9 @@ Bootstrap exactly one root account using `bun run root:create` with `ROOT_NAME`,
 
 The bootstrap command creates a fresh password account atomically and refuses an existing root or an existing email. It never elevates an ordinary registered account or resets a password. Public registration cannot grant government access. The root is protected from deactivation through the staff API. Root recovery is an operator-managed database/account recovery operation, not a public password-reset endpoint.
 
-The root invites staff at `/government/staff`. Invitations are email-bound, hashed at rest, single-use, and expire after the same global `INVITATION_EXPIRY_DAYS` used by organization invitations. Root can optionally assign an existing agency in the invitation. A recipient registers or signs in and explicitly accepts. No email is sent, and acceptance does not claim to verify the email inbox.
+The root invites staff at `/government/staff`. Invitations are email-bound, hashed at rest, single-use, and expire after the same global `INVITATION_EXPIRY_DAYS` used by organization invitations. Root can optionally assign an existing agency in the invitation. A recipient registers or signs in through the government entry point and explicitly accepts. Accounts that already belong to an organization cannot accept a government invitation. No email is sent, and acceptance does not claim to verify the email inbox.
 
-Active staff may create their own agencies and receive access to those agencies atomically. Root controls assignment to existing agencies and can remove assignments. Removing an assignment blocks that agency; deactivating the staff account blocks all government access, including creation of new agencies, and invalidates its current login sessions. Reactivation restores the stored assignments. Government deactivation does not remove independent organization memberships.
+Active staff may create their own agencies and receive access to those agencies atomically. Root controls assignment to existing agencies and can remove assignments. Removing an assignment blocks that agency; deactivating the staff account blocks all government access, including creation of new agencies, and invalidates its current login sessions. Reactivation restores the stored assignments. Government deactivation does not turn the identity into an organization account.
 
 ## Structure and publication
 
@@ -55,7 +55,7 @@ All paths below start with `/api/government`. Names mean `{nameEn,nameFr}`. Sche
 | POST /integration-tokens        | `{name,agencyId,expiresInDays?:number}`       | `{id,token,expiresAt}` once; root only                     |
 | DELETE /integration-tokens/:id  | —                                             | `{success:true}`; root only                                |
 
-`GET /api/organizations/:id/funding-calls` returns `{calls}` after checking organization membership and the application permission. Calls include bilingual ancestor names and IDs plus the fields above. `GET /api/session` returns `{user,government}` where `government` is null or `{role,agencyIds}`; UI decisions never replace server authorization.
+`GET /api/organizations/:id/funding-calls` returns `{calls}` after checking organization membership and the application permission. Calls include bilingual ancestor names and IDs plus the fields above. `GET /api/session` returns `{user,government,governmentAccount}` where `government` is null or `{role,agencyIds}` and `governmentAccount` also identifies inactive government users; UI decisions never replace server authorization.
 
 Example extension request, with secrets injected into the process environment:
 

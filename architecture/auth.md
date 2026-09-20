@@ -4,7 +4,7 @@ Better Auth owns email/password accounts and opaque cookie sessions. The server 
 
 The browser uses Better Auth's native JSON endpoints: `POST /api/auth/sign-up/email` with `{name,email,password}`, `POST /api/auth/sign-in/email` with `{email,password}`, and `POST /api/auth/sign-out`. Cookie credentials stay on the same origin. Passwords are hashed by Better Auth; this project never stores plaintext passwords. Password recovery and verification emails are intentionally not configured because there is no email service.
 
-`GET /api/session` returns `{user:{id,name,email}|null}`. All other portal operations require a session except invitation previews. Portal mutation requests must carry an `Origin` equal to `APP_URL`; cross-site requests are rejected. Authentication and ordinary portal bodies are limited to 16 KiB by counting actual streamed bytes. Response JSON allows 3 MiB, government survey/case/set JSON allows 256 KiB, and authorized attachment uploads use the app-wide attachment limit. Responses are not cached and invitation API responses set `Referrer-Policy: no-referrer`.
+`GET /api/session` returns `{user:{id,name,email}|null,government,governmentAccount}`. `governmentAccount` remains true for inactive government identities so they cannot fall through into the organization domain. All other portal operations require a session except invitation previews. Portal mutation requests must carry an `Origin` equal to `APP_URL`; cross-site requests are rejected. Authentication and ordinary portal bodies are limited to 16 KiB by counting actual streamed bytes. Response JSON allows 3 MiB, government survey/case/set JSON allows 256 KiB, and authorized attachment uploads use the app-wide attachment limit. Responses are not cached and invitation API responses set `Referrer-Policy: no-referrer`.
 
 ## Organization permissions
 
@@ -41,6 +41,6 @@ Better Auth rate limiting reads only the internal `x-portal-client-ip` header. T
 
 ## Government and application permissions
 
-Government grants are independent of organization membership and permissions. Root explicitly bootstraps via CLI and invites staff. An `application:viewer`, `application:contributor` or `application:manager` grant is required to read the published funding catalogue; `admin` and owner status do not imply it. See [government administration](government.md) for provisioning, agency scoping and bearer credential rules.
+Government identities are isolated from organization membership and permissions. Root explicitly bootstraps via CLI and invites staff. Organization routes and APIs reject any account recorded in `government_user`; government staff must use `/government/login`. An `application:viewer`, `application:contributor` or `application:manager` grant is required to read the published funding catalogue; `admin` and owner status do not imply it. See [government administration](government.md) for provisioning, agency scoping and bearer credential rules.
 
 Business subjects use viewer/contributor/manager levels independently of base user/admin types. Contributors edit drafts; managers submit or delete. See [case permissions and submission rules](cases.md).

@@ -231,6 +231,14 @@ export const acceptStaffInvitation = async (
         .executeTakeFirst()
     )
       fail(409, 'STAFF_ALREADY_EXISTS')
+    if (
+      await tx
+        .selectFrom('membership')
+        .select('userId')
+        .where('userId', '=', user.id)
+        .executeTakeFirst()
+    )
+      fail(409, 'ORGANIZATION_ACCOUNT_FORBIDDEN')
     await tx
       .insertInto('government_user')
       .values({ userId: user.id, role: 'staff', active: true, createdAt: new Date() })

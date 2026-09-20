@@ -1,5 +1,6 @@
 import { defineNitroPlugin } from 'nitropack/runtime'
-import { closeDatabase } from '../utils/database'
-export default defineNitroPlugin((nitroApp) => {
+import { closeDatabase, useDatabase } from '../utils/database'
+export default defineNitroPlugin(async (nitroApp) => {
+  await useDatabase()
   nitroApp.hooks.hook('close', closeDatabase)
 })

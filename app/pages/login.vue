@@ -3,7 +3,7 @@ const { t } = useLocale()
 const { g } = useGovernmentLocale()
 const governmentLogin = computed(() => route.path === '/government/login')
 const route = useRoute()
-const { refresh } = usePortalSession()
+const { government, governmentAccount, refresh } = usePortalSession()
 const message = useApiMessage()
 const email = ref('')
 const password = ref('')
@@ -32,6 +32,16 @@ const submit = async () => {
       body: { email: email.value, password: password.value }
     })
     await refresh()
+    const governmentInvitation = destination.value.startsWith('/government/invitations/')
+    if (
+      (!governmentLogin.value && governmentAccount.value) ||
+      (governmentLogin.value && !government.value && !governmentInvitation)
+    ) {
+      await $fetch('/api/auth/sign-out', { method: 'POST', body: {} })
+      await refresh()
+      error.value = governmentLogin.value ? g('accessRequiredText') : t('governmentAccountLogin')
+      return
+    }
     await navigateTo(destination.value)
   } catch (failure) {
     error.value = message(failure)

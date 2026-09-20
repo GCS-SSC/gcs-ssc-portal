@@ -126,6 +126,7 @@ export const en = {
   errorTitle: 'Something needs your attention',
   genericError: 'We could not complete your request. Please try again.',
   authError: 'Check your email address and password and try again.',
+  governmentAccountLogin: 'Government staff must use the government staff sign-in page.',
   emailExists: 'An account with this email address already exists. Please sign in.',
   addressNotConfigured:
     'This website address is not configured for the portal. Contact the portal administrator.',
@@ -283,6 +284,8 @@ export const fr: Record<MessageKey, string> = {
   errorTitle: 'Un point nécessite votre attention',
   genericError: 'Impossible de traiter votre demande. Veuillez réessayer.',
   authError: 'Vérifiez votre adresse courriel et votre mot de passe, puis réessayez.',
+  governmentAccountLogin:
+    'Le personnel gouvernemental doit utiliser la page de connexion qui lui est réservée.',
   emailExists: 'Un compte utilise déjà cette adresse courriel. Veuillez vous connecter.',
   addressNotConfigured:
     'Cette adresse Web n’est pas configurée pour le portail. Communiquez avec l’administrateur du portail.',

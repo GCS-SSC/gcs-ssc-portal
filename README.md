@@ -13,7 +13,17 @@ cp .env.example .env
 bun run dev
 ```
 
-Open `http://localhost:3000`. Keep `APP_URL` equal to the browser origin; authenticated writes reject other origins. Nuxt loads `.env` in development. PGlite stores local data in `.data/pglite`; no database setup or seeded accounts are required. Register an account to begin.
+Open `http://localhost:3000`. The development wrapper derives `APP_URL` from Nuxt's `--host` and `--port` arguments so authenticated writes use the active browser origin. Nuxt loads `.env` in development. PGlite stores local data in `.data/pglite`; ordered migrations run automatically during server startup, before it begins serving requests. No separate database setup or seeded accounts are required. Register an account to begin.
+
+To remove the default local PGlite database before starting, pass `--clean`. All other arguments are forwarded to Nuxt, so this matches the main GCS–SSC development workflow:
+
+```sh
+bun run dev --clean --port 3002 -o
+# Equivalent convenience command:
+bun run dev:clean --port 3002 -o
+```
+
+`--clean` removes only `.data/pglite`. It does not delete a custom `PGLITE_DATA_DIR` or a PostgreSQL database selected with `DATABASE_URL`.
 
 PGlite requires one server process per data directory. Stop the old process before starting another. Use PostgreSQL for multi-process operation and active backend hot-reload work. Do not share a PGlite directory between development, previews, or test runs.
 

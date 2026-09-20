@@ -28,6 +28,18 @@ export const governmentAccess = async (
     .execute()
   return { role: staff.role, agencyIds: agencies.map((agency) => agency.agencyId) }
 }
+export const isGovernmentAccount = async (db: GovernmentDb, userId: string): Promise<boolean> =>
+  Boolean(
+    await db
+      .selectFrom('government_user')
+      .select('userId')
+      .where('userId', '=', userId)
+      .executeTakeFirst()
+  )
+
+export const requireOrganizationAccount = async (db: GovernmentDb, userId: string) => {
+  if (await isGovernmentAccount(db, userId)) governmentFail(403, 'ORGANIZATION_ACCESS_FORBIDDEN')
+}
 /** Resolve current authority in the transaction; callers cannot supply cached grants. */
 export const requireGovernment = async (
   db: GovernmentDb,

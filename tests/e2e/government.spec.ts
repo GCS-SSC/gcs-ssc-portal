@@ -60,6 +60,9 @@ test('root invites staff; staff publish funding; applicants need an explicit gra
     await expect(staff.getByRole('heading', { name: 'Government staff invitation' })).toBeVisible()
     await staff.getByRole('button', { name: 'Accept invitation', exact: true }).click()
     await expect(staff).toHaveURL(/\/government$/)
+    expect((await staff.request.get('/api/organizations')).status()).toBe(403)
+    await staff.goto('/organizations')
+    await expect(staff).toHaveURL(/\/government$/)
     expect((await staff.request.get('/api/government/staff')).status()).toBe(403)
     await staff.getByLabel(/^Name in English/).fill('Canadian Innovation Agency')
     await staff.getByLabel(/^Name in French/).fill('Agence canadienne de l’innovation')
@@ -251,5 +254,16 @@ test('root invites staff; staff publish funding; applicants need an explicit gra
   } finally {
     await context.close()
   }
+  await page.getByRole('button', { name: 'Sign out', exact: true }).click()
+  await page.goto('/login')
+  await page.getByLabel(/^Email address/).fill('root@example.test')
+  await page.getByLabel(/^Password/).fill('Root-test-only-2026!')
+  await page.getByRole('button', { name: 'Sign in', exact: true }).click()
+  await expect(page).toHaveURL(/\/login$/)
+  await expect(
+    page.getByText('Government staff must use the government staff sign-in page.')
+  ).toBeVisible()
+  expect((await page.request.get('/api/session')).status()).toBe(200)
+  expect((await page.request.get('/api/session')).json()).resolves.toMatchObject({ user: null })
   expect(errors).toEqual([])
 })

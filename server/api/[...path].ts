@@ -14,7 +14,11 @@ import { useDatabase } from '../utils/database'
 import { portalConfig } from '../utils/config'
 import { parseJsonBody, readBoundedBody, toBoundedRequest } from '../utils/request-body'
 import * as portal from '../utils/portal'
-import { governmentAccess } from '../utils/government-access'
+import {
+  governmentAccess,
+  isGovernmentAccount,
+  requireOrganizationAccount
+} from '../utils/government-access'
 import { fundingCatalogue } from '../utils/government-structure'
 export default defineEventHandler(async (event) => {
   setHeader(event, 'Cache-Control', 'no-store')
@@ -58,16 +62,28 @@ export default defineEventHandler(async (event) => {
       ? { id: session.user.id, name: session.user.name, email: session.user.email }
       : null
     if (path[0] === 'session' && path.length === 1 && method === 'GET')
-      return { user, government: user ? await governmentAccess(db, user.id) : null }
+      return {
+        user,
+        government: user ? await governmentAccess(db, user.id) : null,
+        governmentAccount: user ? await isGovernmentAccount(db, user.id) : false
+      }
     if (!user)
       throw createError({
         statusCode: 401,
         message: 'AUTHENTICATION_REQUIRED',
         data: { code: 'AUTHENTICATION_REQUIRED' }
       })
-    if (path[0] === 'invitations' && path.length === 3 && path[2] === 'accept' && method === 'POST')
+    if (
+      path[0] === 'invitations' &&
+      path.length === 3 &&
+      path[2] === 'accept' &&
+      method === 'POST'
+    ) {
+      await requireOrganizationAccount(db, user.id)
       return await portal.acceptInvitation(db, path[1]!, user)
+    }
     if (path[0] === 'organizations') {
+      await requireOrganizationAccount(db, user.id)
       if (path.length === 1) {
         if (method === 'GET') return await portal.listOrganizations(db, user.id)
         if (method === 'POST')
