@@ -7,6 +7,7 @@ import type { GovernmentActor } from '../../server/utils/government-access'
 import { upgradeSurvey, type SurveyDefinition } from '@gcs-ssc/survey'
 import * as surveys from '../../server/utils/surveys'
 import * as structure from '../../server/utils/government-structure'
+import { createAdministrator } from '../../server/utils/administrator-accounts'
 import * as admin from '../../server/utils/government-admin'
 import * as portal from '../../server/utils/portal'
 import { secretHash } from '../../server/utils/government-access'
@@ -57,12 +58,12 @@ beforeAll(async () => {
       updatedAt: new Date()
     })
     .execute()
-  const root = await admin.bootstrapRoot(db, {
+  const root = await createAdministrator(db, {
     name: 'Root',
     email: 'survey-root@example.test',
     password: 'Survey-root-test-2026!'
   })
-  actor = { kind: 'user', userId: root.id }
+  actor = { kind: 'administrator', administratorId: root.id }
   agencyId = (await structure.createAgency(db, actor, names)).agency.id
   otherId = (await structure.createAgency(db, actor, names)).agency.id
 }, 60000)
@@ -203,8 +204,8 @@ describe('survey persistence and access', () => {
       surveys.createSurvey(db, machine, { agencyId: otherId, definition })
     ).rejects.toMatchObject({ statusCode: 404 })
     await expect(
-      surveys.listSurveys(db, { kind: 'user', userId: owner.id }, agencyId)
-    ).rejects.toMatchObject({ statusCode: 403 })
+      surveys.listSurveys(db, { kind: 'integration', tokenHash: 'not-a-token' }, agencyId)
+    ).rejects.toMatchObject({ statusCode: 401 })
     await admin.revokeToken(db, actor, credential.id)
     await expect(
       surveys.updateSurvey(db, machine, survey.id, { expectedRevision: 2, definition })

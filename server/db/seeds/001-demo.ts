@@ -4,7 +4,7 @@ import { v7 as uuid } from 'uuid'
 import type { SurveyDefinition } from '@gcs-ssc/survey'
 import type { Database } from '../schema'
 
-export const demoPassword = 'Portal-demo-only-2026!'
+export const demoPassword = 'password123'
 export const demoAccounts = ['root', 'staff', 'owner', 'contributor', 'viewer', 'user'] as const
 
 export const demoMigration = {
@@ -33,8 +33,8 @@ export const demoMigration = {
         .values({
           id,
           name: `Demo ${name}`,
-          email: `${name}@demo.example.test`,
-          emailVerified: false,
+          email: `${name}@portal.com`,
+          emailVerified: true,
           image: null,
           createdAt: now,
           updatedAt: now

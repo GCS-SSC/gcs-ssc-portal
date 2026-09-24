@@ -1,20 +1,16 @@
 <script setup lang="ts">
 const { locale, t } = useLocale()
-const { user, government, signOut } = usePortalSession()
+const { user, signOut } = usePortalSession()
+const { administrator, signOut: adminSignOut } = useAdministratorSession()
 const route = useRoute()
 const { g } = useGovernmentLocale()
-const inGovernment = computed(() => route.path.startsWith('/government'))
+const inAdmin = computed(() => route.path.startsWith('/admin'))
 const navigation = computed(() =>
-  inGovernment.value
-    ? government.value
+  inAdmin.value
+    ? administrator.value
       ? [
-          { to: '/government', label: g('agencies') },
-          ...(government.value.role === 'root'
-            ? [
-                { to: '/government/staff', label: g('staff') },
-                { to: '/government/integrations', label: g('integrations') }
-              ]
-            : [])
+          { to: '/admin', label: g('agencies') },
+          { to: '/admin/integrations', label: g('integrations') }
         ]
       : []
     : user.value
@@ -29,26 +25,27 @@ useHead(() => ({
 }))
 const logout = async () => {
   try {
-    await signOut(inGovernment.value ? '/government/login' : '/login')
+    if (inAdmin.value) await adminSignOut()
+    else await signOut('/login')
   } catch (error) {
     signOutError.value = message(error)
   }
 }
 </script>
 <template>
-  <ThemeRoot>
-    <ThemeShell
+  <div class="gc-theme">
+    <PortalShell
       :locale="locale"
       :navigation="navigation"
-      :portal-title="inGovernment ? g('government') : undefined"
-      :signed-in="!!user"
-      :user-name="user?.name"
+      :portal-title="inAdmin ? g('adminTitle') : undefined"
+      :signed-in="inAdmin ? !!administrator : !!user"
+      :user-name="inAdmin ? administrator?.name : user?.name"
       :current-path="route.path"
       @locale="locale = $event"
       @signout="logout"
     >
-      <ThemeNotice v-if="signOutError" variant="error">{{ signOutError }}</ThemeNotice>
+      <PortalNotice v-if="signOutError" variant="error">{{ signOutError }}</PortalNotice>
       <NuxtPage />
-    </ThemeShell>
-  </ThemeRoot>
+    </PortalShell>
+  </div>
 </template>

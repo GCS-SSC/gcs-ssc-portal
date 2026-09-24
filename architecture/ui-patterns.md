@@ -1,5 +1,9 @@
 # UI patterns
 
+## Component selection
+
+Follow [GC Design System UI architecture](gcdesign.md) for official components, page structure, navigation semantics, and fallback decisions. Shared `Portal*` components expose the needed native GCDS primitives. A missing adapter must be added, not replaced with a custom lookalike.
+
 ## Page composition and recovery
 
 Once a shared page shell exists, reuse its navigation, context, spacing, and responsive behavior. Show meaningful record labels and parent context instead of unexplained database identifiers. Specialized workflows may vary when the interaction requires it.

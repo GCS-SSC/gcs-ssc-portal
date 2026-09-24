@@ -66,36 +66,36 @@ const remove = (id: string) =>
 <template>
   <section :aria-labelledby="`attachments-${itemId}`">
     <h3 :id="`attachments-${itemId}`">{{ a('title') }}</h3>
-    <ThemeNotice v-if="error" variant="error"
+    <PortalNotice v-if="error" variant="error"
       >{{ error }}
-      <ThemeButton v-if="conflicted" variant="secondary" :disabled="busy" @click="emit('reload')">{{
+      <PortalButton v-if="conflicted" variant="secondary" :disabled="busy" @click="emit('reload')">{{
         a('reloadAction')
-      }}</ThemeButton></ThemeNotice
+      }}</PortalButton></PortalNotice
     >
     <p v-if="!files.length">{{ a('empty') }}</p>
     <ul v-else>
       <li v-for="entry in files" :key="entry.id">
-        <ThemeLink
+        <PortalLink
           v-if="entry.status === 'ready'"
           :to="`${endpoint}/attachments/${entry.id}`"
           external
-          >{{ entry.filename }}</ThemeLink
+          >{{ entry.filename }}</PortalLink
         >
         <span v-else>{{ entry.filename }} — {{ a('pending') }}</span>
         <span> ({{ entry.size }} B)</span>
-        <ThemeButton
+        <PortalButton
           v-if="!readonly"
           variant="link"
           :disabled="busy || conflicted"
           @click="remove(entry.id)"
-          >{{ a('remove') }} — {{ entry.filename }}</ThemeButton
+          >{{ a('remove') }} — {{ entry.filename }}</PortalButton
         >
       </li>
     </ul>
     <template v-if="!readonly">
-      <ThemeNotice v-if="!limits.configured">{{ a('unavailable') }}</ThemeNotice>
+      <PortalNotice v-if="!limits.configured">{{ a('unavailable') }}</PortalNotice>
       <template v-else>
-        <ThemeFile
+        <PortalFile
           :id="`file-${itemId}`"
           :key="generation"
           :label="a('choose')"
@@ -103,9 +103,9 @@ const remove = (id: string) =>
           :disabled="busy || conflicted"
           @change="file = $event"
         />
-        <ThemeButton :disabled="!file || busy || conflicted" @click="upload">{{
+        <PortalButton :disabled="!file || busy || conflicted" @click="upload">{{
           a(busy ? 'busy' : 'upload')
-        }}</ThemeButton>
+        }}</PortalButton>
       </template>
     </template>
   </section>

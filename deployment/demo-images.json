@@ -1,7 +1,3 @@
 {
-  "theme": "nuxtui",
-  "images": {
-    "nuxtui": "ghcr.io/gcs-ssc/gcs-ssc-portal-demo-nuxtui@sha256:7394c4ff98d89fbe56d622c28221541a7972f6849c73a5067eac7e2083c535df",
-    "gcdesign": "ghcr.io/gcs-ssc/gcs-ssc-portal-demo-gcdesign@sha256:98556f2430490941d42433df99aee65eb7972ffb9610a7481094b229791d14d4"
-  }
+  "image": "ghcr.io/gcs-ssc/gcs-ssc-portal-demo-gcdesign@sha256:98556f2430490941d42433df99aee65eb7972ffb9610a7481094b229791d14d4"
 }

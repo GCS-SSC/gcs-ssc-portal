@@ -1,8 +1,8 @@
 # Cases, financial submissions and form sets
 
-A government agency owns cases under its streams. Each case belongs to one organization; stream, agency and organization are immutable. The server generates UUIDv7 portal IDs. Database composite foreign keys enforce stream/program/agency ancestry and case/set/organization ownership. Government staff and agency-scoped integration tokens use the same API. Organization membership never grants government access.
+A government agency owns cases under its streams. Each case belongs to one organization; stream, agency and organization are immutable. The server generates UUIDv7 portal IDs. Database composite foreign keys enforce stream/program/agency ancestry and case/set/organization ownership. Agency-scoped integration tokens use the API. Organization membership never grants government access.
 
-Government screens are linked from the agency workspace under **Cases and submissions**. Staff enter the organization UUID supplied by its administrator, agreement number, bilingual names, fiscal years and budget lines. Each line has bilingual names, category/subsection, currency, budgeted amount, optional balance/reconciled claimed amount/forecast amount and the source's UTC `balanceAsOf`. Any supplied balance, claimed amount or forecast amount requires a timestamp. Changed financial values require a newer timestamp once one has been recorded.
+The future extension supplies the organization UUID, agreement number, bilingual names, fiscal years and budget lines. Each line has bilingual names, category/subsection, currency, budgeted amount, optional balance/reconciled claimed amount/forecast amount and the source's UTC `balanceAsOf`. Any supplied balance, claimed amount or forecast amount requires a timestamp. Changed financial values require a newer timestamp once one has been recorded.
 
 ## Organization permissions
 
@@ -63,7 +63,7 @@ Manual cases can have null mappings. Financial items report mappingComplete=fals
 
 ## API
 
-Government endpoints accept government cookies or agency-scoped bearer credentials. Cookie writes require the canonical Origin. Foreign browser Origins are rejected for bearer requests too. Case/set bodies are bounded at 256 KiB; organization response bodies at 3 MiB. Strict schemas in shared/schemas/cases.ts are authoritative.
+Government endpoints require agency-scoped bearer credentials. Foreign browser Origins are rejected. Case/set bodies are bounded at 256 KiB; organization response bodies at 3 MiB. Strict schemas in shared/schemas/cases.ts are authoritative.
 
 | Method/path after /api/government            | Contract                                                                                                         |
 | -------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |

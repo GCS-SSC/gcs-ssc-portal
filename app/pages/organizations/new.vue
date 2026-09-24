@@ -27,12 +27,12 @@ const submit = async () => {
 </script>
 <template>
   <div class="form-page">
-    <ThemeLink to="/organizations">{{ t('backOrganizations') }}</ThemeLink>
+    <PortalLink to="/organizations">{{ t('backOrganizations') }}</PortalLink>
     <h1>{{ t('createOrg') }}</h1>
     <p class="lead">{{ t('createOrgIntro') }}</p>
     <form class="portal-form" @submit.prevent="submit">
-      <ThemeNotice v-if="error" variant="error" :title="t('errorTitle')">{{ error }}</ThemeNotice>
-      <ThemeInput
+      <PortalNotice v-if="error" variant="error" :title="t('errorTitle')">{{ error }}</PortalNotice>
+      <PortalInput
         id="organization-name"
         v-model="name"
         :label="t('organizationName')"
@@ -41,7 +41,7 @@ const submit = async () => {
         :maxlength="120"
         required
       />
-      <ThemeInput
+      <PortalInput
         id="organization-description"
         v-model="description"
         :label="t('organizationDescription')"
@@ -49,10 +49,10 @@ const submit = async () => {
         :maxlength="2000"
       />
       <div class="form-actions">
-        <ThemeButton type="submit" :disabled="pending" :loading="pending">{{
+        <PortalButton type="submit" :disabled="pending" :loading="pending">{{
           t('create')
-        }}</ThemeButton
-        ><ThemeLink to="/organizations">{{ t('cancel') }}</ThemeLink>
+        }}</PortalButton
+        ><PortalLink to="/organizations">{{ t('cancel') }}</PortalLink>
       </div>
     </form>
   </div>

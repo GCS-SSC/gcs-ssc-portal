@@ -18,4 +18,6 @@ The portal uses Vue/Nuxt:
 - Use framework data-fetching primitives consistently and preserve request identity across reactive route changes.
 - Verify generated aliases and auto-import behavior through the framework's actual type and build checks.
 
+For UI composition and component selection, read [gcdesign.md](gcdesign.md), including the distinction between existing implementation and the required architecture.
+
 Use [ui-patterns.md](ui-patterns.md), [required-fields.md](required-fields.md), and [i18n.md](i18n.md) for presentation and form contracts.

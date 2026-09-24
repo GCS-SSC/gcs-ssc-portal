@@ -8,4 +8,3 @@ bun.lock
 coverage
 playwright-report
 test-results
-themes/nuxtui/assets

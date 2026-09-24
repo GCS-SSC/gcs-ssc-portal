@@ -6,22 +6,19 @@ vi.mock('../../deployment/demo-images', async () => ({
   ...(await vi.importActual<typeof import('../../deployment/demo-images')>(
     '../../deployment/demo-images'
   )),
-  readDemoImage: () => `ghcr.io/gcs-ssc/gcs-ssc-portal-demo-nuxtui@sha256:${'a'.repeat(64)}`
+  readDemoImage: () => `ghcr.io/gcs-ssc/gcs-ssc-portal-demo-gcdesign@sha256:${'a'.repeat(64)}`
 }))
 afterEach(() => vi.unstubAllEnvs())
-it('rejects mutable tags and images from the wrong repository or theme', () => {
-  const valid = `ghcr.io/gcs-ssc/gcs-ssc-portal-demo-nuxtui@sha256:${'a'.repeat(64)}`
-  const input = { theme: 'nuxtui', images: { nuxtui: valid, gcdesign: null } }
+it('rejects mutable tags and images from the wrong repository', () => {
+  const valid = `ghcr.io/gcs-ssc/gcs-ssc-portal-demo-gcdesign@sha256:${'a'.repeat(64)}`
+  const input = { image: valid }
   expect(imageManifestSchema.parse(input)).toEqual(input)
   for (const image of [
     valid.replace(/@sha256:.+/, ':latest'),
     valid.replace('gcs-ssc/', 'other/'),
-    valid.replace('nuxtui', 'gcdesign')
+    valid.replace('gcdesign', 'unsupported')
   ])
-    expect(
-      imageManifestSchema.safeParse({ ...input, images: { ...input.images, nuxtui: image } })
-        .success
-    ).toBe(false)
+    expect(imageManifestSchema.safeParse({ image }).success).toBe(false)
 })
 it('targets only the separate demo with pinned source, PostgreSQL and secret references', async () => {
   vi.stubEnv('PORTAL_GHCR_USERNAME', 'registry-user')

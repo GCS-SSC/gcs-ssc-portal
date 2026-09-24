@@ -11,11 +11,10 @@ import { ZodError } from 'zod'
 import { organizationId } from '../../shared/schemas/portal'
 import { useAuth } from '../utils/auth'
 import { useDatabase } from '../utils/database'
-import { portalConfig } from '../utils/config'
+import { isPortalOriginAllowed } from '../utils/config'
 import { parseJsonBody, readBoundedBody, toBoundedRequest } from '../utils/request-body'
 import * as portal from '../utils/portal'
 import {
-  governmentAccess,
   isGovernmentAccount,
   requireOrganizationAccount
 } from '../utils/government-access'
@@ -27,7 +26,7 @@ export default defineEventHandler(async (event) => {
   const method = event.method
   if (!['GET', 'HEAD', 'OPTIONS'].includes(method)) {
     if (
-      getHeader(event, 'origin') !== portalConfig().appUrl ||
+      !isPortalOriginAllowed(getHeader(event, 'origin') ?? null, getRequestURL(event).href) ||
       getHeader(event, 'sec-fetch-site') === 'cross-site'
     )
       throw createError({
@@ -64,7 +63,6 @@ export default defineEventHandler(async (event) => {
     if (path[0] === 'session' && path.length === 1 && method === 'GET')
       return {
         user,
-        government: user ? await governmentAccess(db, user.id) : null,
         governmentAccount: user ? await isGovernmentAccount(db, user.id) : false
       }
     if (!user)

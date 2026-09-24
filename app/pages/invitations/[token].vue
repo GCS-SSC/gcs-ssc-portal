@@ -51,7 +51,7 @@ const accept = async () => {
     <template v-else-if="loadError"
       ><h1>{{ t('invitationUnavailable') }}</h1>
       <p class="lead">{{ t('invitationUnavailableText') }}</p>
-      <ThemeLink to="/">{{ t('returnHome') }}</ThemeLink></template
+      <PortalLink to="/">{{ t('returnHome') }}</PortalLink></template
     >
     <template v-else-if="data">
       <p class="eyebrow">GCS–SSC</p>
@@ -66,29 +66,29 @@ const accept = async () => {
         </div>
       </dl>
       <p>{{ t('invitationExpires', { date: date(data.expiresAt) }) }}</p>
-      <ThemeNotice v-if="error" variant="error">{{ error }}</ThemeNotice>
+      <PortalNotice v-if="error" variant="error">{{ error }}</PortalNotice>
       <div v-if="!user" class="invitation-actions">
-        <ThemeLink
+        <PortalLink
           class="primary-link"
           :to="`/register?invitation=${encodeURIComponent(token)}&email=${encodeURIComponent(data.email)}`"
-          >{{ t('joinAccount') }}</ThemeLink
-        ><ThemeLink :to="`/login?next=${encodeURIComponent(`/invitations/${token}`)}`">{{
+          >{{ t('joinAccount') }}</PortalLink
+        ><PortalLink :to="`/login?next=${encodeURIComponent(`/invitations/${token}`)}`">{{
           t('joinSignIn')
-        }}</ThemeLink>
+        }}</PortalLink>
       </div>
       <template v-else-if="!matchesEmail"
-        ><ThemeNotice variant="error">{{ t('wrongEmail') }}</ThemeNotice
-        ><ThemeButton variant="secondary" @click="switchAccount">{{
+        ><PortalNotice variant="error">{{ t('wrongEmail') }}</PortalNotice
+        ><PortalButton variant="secondary" @click="switchAccount">{{
           t('signOut')
-        }}</ThemeButton></template
+        }}</PortalButton></template
       >
       <template v-else
         ><p>
           {{ t('signedInAs') }} <strong>{{ user.email }}</strong>
         </p>
-        <ThemeButton :disabled="pending" :loading="pending" @click="accept">{{
+        <PortalButton :disabled="pending" :loading="pending" @click="accept">{{
           t('acceptInvitation')
-        }}</ThemeButton></template
+        }}</PortalButton></template
       >
     </template>
   </div>

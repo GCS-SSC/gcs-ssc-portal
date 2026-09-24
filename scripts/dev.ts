@@ -1,4 +1,5 @@
 import { rm } from 'node:fs/promises'
+import { networkInterfaces } from 'node:os'
 import path from 'node:path'
 
 type DevChildProcess = {
@@ -33,17 +34,54 @@ export const resolveDevHost = (args: string[]): string => {
   return index === -1 ? 'localhost' : args[index + 1]?.trim() || 'localhost'
 }
 
-export const resolveDevOrigin = (args: string[]): string => {
-  const rawHost = resolveDevHost(args)
-  const protocol = rawHost.startsWith('https://') ? 'https' : 'http'
-  const host = rawHost.replace(/^https?:\/\//, '').replace(/:\d+$/, '')
-  const browserHost = ['0.0.0.0', '::', '[::]'].includes(host) ? 'localhost' : host
-  const formattedHost = browserHost.includes(':') ? `[${browserHost}]` : browserHost
-  return `${protocol}://${formattedHost}:${resolveDevPort(args)}`
+const normalizeHost = (host: string): string => {
+  const normalized = host.replace(/^https?:\/\//, '').trim()
+  if (normalized.startsWith('[')) {
+    const bracket = normalized.indexOf(']')
+    return bracket === -1 ? normalized : normalized.slice(1, bracket)
+  }
+  const colon = normalized.indexOf(':')
+  return colon !== -1 && colon === normalized.lastIndexOf(':')
+    ? normalized.slice(0, colon)
+    : normalized
 }
+
+const originHost = (host: string) => (host.includes(':') ? `[${host}]` : host)
+
+export const localNetworkHosts = (): string[] =>
+  Object.values(networkInterfaces())
+    .flatMap((addresses) => addresses ?? [])
+    .filter((address) => address.family === 'IPv4' && !address.internal)
+    .map((address) => address.address)
+
+export const buildDevAuthOrigins = (
+  host: string,
+  port: number,
+  networkHosts = localNetworkHosts()
+): string[] => {
+  const protocol = host.startsWith('https://') ? 'https' : 'http'
+  const normalized = normalizeHost(host) || 'localhost'
+  const hosts = new Set([normalized])
+  if (normalized === '0.0.0.0' || normalized === '::') {
+    hosts.add('localhost')
+    hosts.add('127.0.0.1')
+    networkHosts.forEach((address) => hosts.add(address))
+  }
+  return [...hosts].map((entry) => `${protocol}://${originHost(entry)}:${port}`)
+}
+
+export const resolveDevOrigin = (args: string[]): string =>
+  buildDevAuthOrigins(resolveDevHost(args), resolveDevPort(args))[0]!
 
 export const cleanDevDatabase = async (directory: string): Promise<void> => {
   await rm(directory, { recursive: true, force: true })
+}
+
+export const prepareDevDatabase = async (directory: string, clean: boolean): Promise<void> => {
+  if (clean) {
+    await cleanDevDatabase(directory)
+    console.info(`[dev] cleaned ${directory}`)
+  }
 }
 
 export const waitForDevChildExit = async (
@@ -73,13 +111,23 @@ const main = async () => {
   const shouldClean = args.includes('--clean')
   const forwardedArgs = args.filter((argument) => argument !== '--clean')
   const defaultDatabase = path.resolve(process.cwd(), '.data/pglite')
-  if (shouldClean) {
-    await cleanDevDatabase(defaultDatabase)
-    console.info(`[dev] cleaned ${defaultDatabase}`)
-  }
+  await prepareDevDatabase(defaultDatabase, shouldClean)
+  const origins = buildDevAuthOrigins(resolveDevHost(forwardedArgs), resolveDevPort(forwardedArgs))
   const child = Bun.spawn(['bun', 'x', 'nuxt', 'dev', ...forwardedArgs], {
     cwd: process.cwd(),
-    env: { ...process.env, APP_URL: resolveDevOrigin(forwardedArgs) },
+    env: {
+      ...process.env,
+      APP_URL: origins[0],
+      PORTAL_AUTO_SEED: 'true',
+      BETTER_AUTH_TRUSTED_ORIGINS: [
+        ...origins,
+        ...(process.env.BETTER_AUTH_TRUSTED_ORIGINS?.split(',') ?? [])
+      ]
+        .map((origin) => origin.trim())
+        .filter(Boolean)
+        .filter((origin, index, all) => all.indexOf(origin) === index)
+        .join(',')
+    },
     stdio: ['inherit', 'inherit', 'inherit']
   })
   process.exitCode = await waitForDevChildExit(child)

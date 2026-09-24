@@ -8,7 +8,7 @@ import type { SurveyDefinition } from '@gcs-ssc/survey'
 import * as surveys from '../../server/utils/surveys'
 import * as structure from '../../server/utils/government-structure'
 import * as portal from '../../server/utils/portal'
-import { bootstrapRoot } from '../../server/utils/government-admin'
+import { createAdministrator } from '../../server/utils/administrator-accounts'
 import { startApplication } from '../../server/utils/applications'
 import {
   checkResponse,
@@ -72,12 +72,12 @@ beforeAll(async () => {
     }
   }
   db = await createDatabase({ url })
-  const root = await bootstrapRoot(db, {
+  const root = await createAdministrator(db, {
     name: 'Root',
     email: 'root@applications.test',
     password: 'Root-test-only-2026!'
   })
-  actor = { kind: 'user', userId: root.id }
+  actor = { kind: 'administrator', administratorId: root.id }
   for (const id of ['owner', 'viewer', 'contributor', 'manager'])
     await db
       .insertInto('user')

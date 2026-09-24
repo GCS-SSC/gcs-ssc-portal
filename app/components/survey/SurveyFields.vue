@@ -7,7 +7,7 @@ const change = (field: SurveyField, value: string) => field.setValue(value)
 <template>
   <template v-for="id in ids" :key="id">
     <template v-for="field in fields.filter((item) => item.id === id)" :key="field.id">
-      <ThemeSelect
+      <PortalSelect
         v-if="field.question.type === 'select'"
         :id="`${prefix}-${field.id}`"
         :model-value="field.value"
@@ -19,7 +19,7 @@ const change = (field: SurveyField, value: string) => field.setValue(value)
         :error="surveyError(field.error)"
         @update:model-value="change(field, $event)"
       />
-      <ThemeInput
+      <PortalInput
         v-else
         :id="`${prefix}-${field.id}`"
         :model-value="field.value"

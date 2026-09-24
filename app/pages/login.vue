@@ -1,25 +1,19 @@
 <script setup lang="ts">
 const { t } = useLocale()
-const { g } = useGovernmentLocale()
-const governmentLogin = computed(() => route.path === '/government/login')
 const route = useRoute()
-const { government, governmentAccount, refresh } = usePortalSession()
+const { governmentAccount, refresh } = usePortalSession()
 const message = useApiMessage()
-const email = ref('')
-const password = ref('')
+const email = ref(import.meta.dev ? 'owner@portal.com' : '')
+const password = ref(import.meta.dev ? 'password123' : '')
 const pending = ref(false)
 const error = ref('')
 const destination = computed(() => {
   const next = route.query.next
   return typeof next === 'string' &&
-    /^\/(organizations(?:\/|$)|funding\/|forms\/|government(?:\/|$)|invitations\/)[a-zA-Z0-9_/?=&%-]*$/.test(
-      next
-    ) &&
+    /^\/(organizations(?:\/|$)|funding\/|forms\/|invitations\/)[a-zA-Z0-9_/?=&%-]*$/.test(next) &&
     !next.includes('\\')
     ? next
-    : governmentLogin.value
-      ? '/government'
-      : '/organizations'
+    : '/organizations'
 })
 useHead(() => ({ title: t('signIn') }))
 const submit = async () => {
@@ -32,14 +26,10 @@ const submit = async () => {
       body: { email: email.value, password: password.value }
     })
     await refresh()
-    const governmentInvitation = destination.value.startsWith('/government/invitations/')
-    if (
-      (!governmentLogin.value && governmentAccount.value) ||
-      (governmentLogin.value && !government.value && !governmentInvitation)
-    ) {
+    if (governmentAccount.value) {
       await $fetch('/api/auth/sign-out', { method: 'POST', body: {} })
       await refresh()
-      error.value = governmentLogin.value ? g('accessRequiredText') : t('governmentAccountLogin')
+      error.value = t('governmentAccountLogin')
       return
     }
     await navigateTo(destination.value)
@@ -52,12 +42,12 @@ const submit = async () => {
 </script>
 <template>
   <div class="form-page">
-    <ThemeLink to="/">{{ t('home') }}</ThemeLink>
-    <h1>{{ governmentLogin ? g('governmentLogin') : t('signIn') }}</h1>
-    <p class="lead">{{ governmentLogin ? g('governmentLoginIntro') : t('signInIntro') }}</p>
+    <PortalLink to="/">{{ t('home') }}</PortalLink>
+    <h1>{{ t('signIn') }}</h1>
+    <p class="lead">{{ t('signInIntro') }}</p>
     <form class="portal-form" @submit.prevent="submit">
-      <ThemeNotice v-if="error" variant="error" :title="t('errorTitle')">{{ error }}</ThemeNotice>
-      <ThemeInput
+      <PortalNotice v-if="error" variant="error" :title="t('errorTitle')">{{ error }}</PortalNotice>
+      <PortalInput
         id="login-email"
         v-model="email"
         :label="t('email')"
@@ -65,7 +55,7 @@ const submit = async () => {
         autocomplete="username"
         required
       />
-      <ThemeInput
+      <PortalInput
         id="login-password"
         v-model="password"
         :label="t('password')"
@@ -74,14 +64,14 @@ const submit = async () => {
         required
       />
       <div class="form-actions">
-        <ThemeButton type="submit" :loading="pending" :disabled="pending">{{
+        <PortalButton type="submit" :loading="pending" :disabled="pending">{{
           t('signIn')
-        }}</ThemeButton>
+        }}</PortalButton>
       </div>
     </form>
-    <p v-if="!governmentLogin" class="form-alternative">
+    <p class="form-alternative">
       {{ t('noAccount') }}
-      <ThemeLink to="/register">{{ t('register') }}</ThemeLink>
+      <PortalLink to="/register">{{ t('register') }}</PortalLink>
     </p>
   </div>
 </template>

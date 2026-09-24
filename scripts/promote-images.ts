@@ -1,34 +1,23 @@
 import { readFileSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
+import { z } from 'zod'
 import { imageManifestSchema } from '../deployment/demo-images'
 
 const directory = process.argv[2]
-const theme = process.argv[3] ?? 'nuxtui'
-if (!directory)
-  throw new Error('Usage: bun scripts/promote-images.ts <download-directory> [nuxtui|gcdesign]')
-const release = (name: string) =>
-  JSON.parse(readFileSync(resolve(directory, `image-${name}`, `image-${name}.json`), 'utf8'))
-const nuxtui = release('nuxtui'),
-  gcdesign = release('gcdesign')
-if (
-  nuxtui.theme !== 'nuxtui' ||
-  gcdesign.theme !== 'gcdesign' ||
-  !/^[a-f0-9]{40}$/.test(nuxtui.commit) ||
-  nuxtui.commit !== gcdesign.commit
-)
-  throw new Error(
-    'Both image artifacts must be from the same source commit and the expected themes'
+if (!directory || process.argv.length !== 3)
+  throw new Error('Usage: bun scripts/promote-images.ts <download-directory>')
+const release = imageManifestSchema
+  .extend({
+    commit: z.string().regex(/^[a-f0-9]{40}$/)
+  })
+  .parse(
+    JSON.parse(readFileSync(resolve(directory, 'image-gcdesign', 'image-gcdesign.json'), 'utf8'))
   )
-const manifest = imageManifestSchema.parse({
-  theme,
-  images: { nuxtui: nuxtui.image, gcdesign: gcdesign.image }
-})
-if (!manifest.images.nuxtui || !manifest.images.gcdesign)
-  throw new Error('Both verified image digests are required for promotion')
+const manifest = imageManifestSchema.parse({ image: release.image })
 writeFileSync(
   new URL('../deployment/demo-images.json', import.meta.url),
   `${JSON.stringify(manifest, null, 2)}\n`
 )
 console.log(
-  `Pinned both images from ${nuxtui.commit}; selected theme: ${manifest.theme}. No Railway operation was performed.`
+  `Pinned GC Design System image from ${release.commit}. No Railway operation was performed.`
 )

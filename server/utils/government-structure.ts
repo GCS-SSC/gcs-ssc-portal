@@ -61,7 +61,7 @@ const callQuery = (db: GovernmentDb) =>
 export const listAgencies = async (db: GovernmentDb, actor: GovernmentActor) => {
   const access = await requireGovernment(db, actor)
   let query = db.selectFrom('agency').selectAll().orderBy('nameEn')
-  if (access.role !== 'root') {
+  if (access.role !== 'administrator') {
     if (!access.agencyIds.length) return { agencies: [] }
     query = query.where('id', 'in', access.agencyIds)
   }
@@ -73,14 +73,10 @@ export const createAgency = async (db: Kysely<Database>, actor: GovernmentActor,
   const input = structureInput.parse(body)
   return db.transaction().execute(async (tx) => {
     const access = await requireGovernment(tx, actor, { lock: true })
-    if (actor.kind !== 'user' || access.role === 'integration')
-      return fail(403, 'GOVERNMENT_USER_REQUIRED')
+    if (actor.kind !== 'administrator' || access.role === 'integration')
+      return fail(403, 'ADMINISTRATOR_REQUIRED')
     const agency = { id: uuidv7(), ...input, createdAt: new Date() }
     await tx.insertInto('agency').values(agency).execute()
-    await tx
-      .insertInto('agency_staff')
-      .values({ agencyId: agency.id, userId: actor.userId })
-      .execute()
     return { agency: { ...agency, createdAt: iso(agency.createdAt) } }
   })
 }

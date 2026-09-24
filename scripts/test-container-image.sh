@@ -43,17 +43,20 @@ ready() {
   return 1
 }
 ready
-for account in owner root; do
-  curl --fail --silent "http://127.0.0.1:$port/api/auth/sign-in/email" \
-    -H 'Origin: https://portal.example.test' -H 'Content-Type: application/json' \
-    --data "{\"email\":\"$account@demo.example.test\",\"password\":\"Portal-demo-only-2026!\"}" \
-    | jq -e --arg email "$account@demo.example.test" '.user.email == $email' >/dev/null
-done
-[[ $(docker exec "$database" psql -U postgres -d portal_test -Atc 'SELECT count(*) FROM "user"') == 6 ]]
+curl --fail --silent "http://127.0.0.1:$port/api/auth/sign-in/email" \
+  -H 'Origin: https://portal.example.test' -H 'Content-Type: application/json' \
+  --data '{"email":"owner@portal.com","password":"password123"}' \
+  | jq -e '.user.email == "owner@portal.com"' >/dev/null
+curl --fail --silent "http://127.0.0.1:$port/api/admin/login" \
+  -H 'Origin: https://portal.example.test' -H 'Content-Type: application/json' \
+  --data '{"email":"admin@portal.com","password":"password123"}' \
+  | jq -e '.administrator.email == "admin@portal.com"' >/dev/null
+[[ $(docker exec "$database" psql -U postgres -d portal_test -Atc 'SELECT count(*) FROM "user"') == 4 ]]
+[[ $(docker exec "$database" psql -U postgres -d portal_test -Atc 'SELECT count(*) FROM administrator') == 1 ]]
 docker exec "$database" psql -U postgres -d portal_test -c "UPDATE organization SET name='Preserved after restart'" >/dev/null
 docker restart "$app" >/dev/null
 port=$(docker port "$app" 3000/tcp | head -1 | cut -d: -f2)
 ready
-[[ $(docker exec "$database" psql -U postgres -d portal_test -Atc 'SELECT count(*) FROM "user"') == 6 ]]
+[[ $(docker exec "$database" psql -U postgres -d portal_test -Atc 'SELECT count(*) FROM "user"') == 4 ]]
 [[ $(docker exec "$database" psql -U postgres -d portal_test -Atc 'SELECT name FROM organization') == 'Preserved after restart' ]]
 echo 'Container verified: PostgreSQL migrations, seeded logins, readiness and non-destructive restart.'

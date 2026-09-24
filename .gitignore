@@ -12,5 +12,4 @@ test-results/
 .agent/
 *.log
 railway-plan*.json
-image-nuxtui.json
 image-gcdesign.json

@@ -36,12 +36,12 @@ const start = () =>
 </script>
 <template>
   <section>
-    <ThemeLink :to="`/organizations/${id}/work`">{{ c('back') }}</ThemeLink>
-    <ThemeNotice v-if="loadError" variant="error"
+    <PortalLink :to="`/organizations/${id}/work`">{{ c('back') }}</PortalLink>
+    <PortalNotice v-if="loadError" variant="error"
       >{{ errorMessage(loadError) }}
-      <ThemeButton @click="refresh()">{{ c('reload') }}</ThemeButton></ThemeNotice
+      <PortalButton @click="refresh()">{{ c('reload') }}</PortalButton></PortalNotice
     >
-    <ThemeNotice v-if="error" variant="error">{{ error }}</ThemeNotice>
+    <PortalNotice v-if="error" variant="error">{{ error }}</PortalNotice>
     <template v-if="data?.set.snapshot">
       <h1>{{ localized(data.set) }}</h1>
       <p v-if="data.set.snapshot.caseReference">
@@ -52,7 +52,7 @@ const start = () =>
           {{ entry.survey?.title[locale] ?? c(entry.item.kind) }}
         </li>
       </ol>
-      <ThemeButton
+      <PortalButton
         v-if="
           setSubjects(data.set.items).every((subject) =>
             hasAccess(data!.organization.permissions, subject, 'contributor')
@@ -60,7 +60,7 @@ const start = () =>
         "
         :disabled="busy"
         @click="start"
-        >{{ c('start') }}</ThemeButton
+        >{{ c('start') }}</PortalButton
       >
       <SurveyPreview
         v-for="entry in data.set.snapshot.items.filter((item) => item.survey)"

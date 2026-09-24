@@ -25,22 +25,6 @@ export const callInput = structureInput
     message: 'End date must not precede start date'
   })
 export const publishInput = z.object({ published: z.boolean() }).strict()
-export const staffInvitationInput = z
-  .object({
-    email: z.string().trim().toLowerCase().email().max(254),
-    name: z.string().trim().min(1).max(120),
-    agencyId: z.uuid().nullable().default(null)
-  })
-  .strict()
-export const staffAgencyInput = z
-  .object({
-    agencyIds: z
-      .array(z.uuid())
-      .max(100)
-      .refine((ids) => new Set(ids).size === ids.length)
-  })
-  .strict()
-export const staffStatusInput = z.object({ active: z.boolean() }).strict()
 export const integrationTokenInput = z
   .object({
     name: z.string().trim().min(1).max(120),
@@ -52,6 +36,6 @@ export const bootstrapInput = z
   .object({
     name: z.string().trim().min(1).max(120),
     email: z.string().trim().toLowerCase().email().max(254),
-    password: z.string().min(12).max(128)
+    password: z.string().min(8).max(128)
   })
   .strict()

@@ -6,7 +6,7 @@ import { migrate } from '../../server/db/migrations'
 import { pgliteDialect } from '../../server/db/pglite-dialect'
 import type { Database } from '../../server/db/schema'
 import { createDatabase } from '../../server/utils/database'
-import { bootstrapRoot } from '../../server/utils/government-admin'
+import { createAdministrator } from '../../server/utils/administrator-accounts'
 import { createAgency, createProgram, createStream } from '../../server/utils/government-structure'
 import { createOrganization, updatePermissions } from '../../server/utils/portal'
 import type { GovernmentActor } from '../../server/utils/government-access'
@@ -49,12 +49,12 @@ beforeAll(async () => {
     }
   }
   db = await createDatabase({ url })
-  const account = await bootstrapRoot(db, {
+  const account = await createAdministrator(db, {
     name: 'Root',
     email: 'root@cases.test',
     password: 'Root-test-only-2026!'
   })
-  root = { kind: 'user', userId: account.id }
+  root = { kind: 'administrator', administratorId: account.id }
   for (const id of [owner, viewer, contributor, manager])
     await db
       .insertInto('user')
@@ -360,8 +360,8 @@ describe('case submissions and reconciliation', () => {
       startResponse(db, otherOrg, owner, set.id, { locale: 'en' })
     ).rejects.toMatchObject({ statusCode: 404 })
     await expect(
-      getCase(db, { kind: 'user', userId: owner }, fundingCase.id)
-    ).rejects.toMatchObject({ statusCode: 403 })
+      getCase(db, { kind: 'integration', tokenHash: 'not-a-token' }, fundingCase.id)
+    ).rejects.toMatchObject({ statusCode: 401 })
     const value = caseInput.parse({
       nameEn: fundingCase.nameEn,
       nameFr: fundingCase.nameFr,

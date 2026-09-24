@@ -5,9 +5,8 @@ import * as cases from '../../utils/cases'
 import * as sets from '../../utils/submission-sets'
 import * as responses from '../../utils/set-responses'
 import { ZodError, z } from 'zod'
-import { useAuth } from '../../utils/auth'
 import { useDatabase } from '../../utils/database'
-import { portalConfig } from '../../utils/config'
+import { isPortalOriginAllowed } from '../../utils/config'
 import { parseJsonBody, readBoundedBody, toBoundedRequest } from '../../utils/request-body'
 import {
   governmentFail as fail,
@@ -16,7 +15,6 @@ import {
   type GovernmentActor
 } from '../../utils/government-access'
 import * as surveys from '../../utils/surveys'
-import * as admin from '../../utils/government-admin'
 import * as structure from '../../utils/government-structure'
 export default defineEventHandler(async (event) => {
   setHeader(event, 'Cache-Control', 'no-store')
@@ -37,9 +35,8 @@ export default defineEventHandler(async (event) => {
   const mutation = !['GET', 'HEAD', 'OPTIONS'].includes(method)
   if (
     mutation &&
-    (!authorization || getHeader(event, 'origin')) &&
-    (getHeader(event, 'origin') !== portalConfig().appUrl ||
-      getHeader(event, 'sec-fetch-site') === 'cross-site')
+    getHeader(event, 'origin') &&
+    !isPortalOriginAllowed(getHeader(event, 'origin') ?? null, getRequestURL(event).href)
   )
     fail(403, 'ORIGIN_FORBIDDEN')
   const request = toBoundedRequest(event)
@@ -51,29 +48,14 @@ export default defineEventHandler(async (event) => {
     : undefined
   const db = await useDatabase()
   try {
-    if (path[0] === 'invitations' && path.length === 2 && method === 'GET')
-      return await admin.previewStaffInvitation(db, path[1]!)
-    let actor: GovernmentActor
-    if (authorization) {
-      if (!/^Bearer gcs_[A-Za-z0-9_-]{43}$/.test(authorization))
-        return fail(401, 'INVALID_INTEGRATION_TOKEN')
-      actor = { kind: 'integration', tokenHash: secretHash(authorization.slice(7)) }
-    } else {
-      const session = await (await useAuth()).api.getSession({ headers: request.headers })
-      if (!session) return fail(401, 'AUTHENTICATION_REQUIRED')
-      if (
-        path[0] === 'invitations' &&
-        path.length === 3 &&
-        path[2] === 'accept' &&
-        method === 'POST'
-      )
-        return await admin.acceptStaffInvitation(db, path[1]!, session.user)
-      actor = { kind: 'user', userId: session.user.id }
+    if (!authorization || !/^Bearer gcs_[A-Za-z0-9_-]{43}$/.test(authorization))
+      return fail(401, 'INVALID_INTEGRATION_TOKEN')
+    const actor: GovernmentActor = {
+      kind: 'integration',
+      tokenHash: secretHash(authorization.slice(7))
     }
     await requireGovernment(db, actor)
-    const id = path[1]
-      ? (path[0] === 'staff' ? z.string().min(1).max(128) : z.uuid()).parse(path[1])
-      : undefined
+    const id = path[1] ? z.uuid().parse(path[1]) : undefined
     if (
       id &&
       path[0] === 'submissions' &&
@@ -137,19 +119,13 @@ export default defineEventHandler(async (event) => {
     if (path.length === 1) {
       if (method === 'GET') {
         if (path[0] === 'agencies') return await structure.listAgencies(db, actor)
-        if (path[0] === 'staff') return await admin.listStaff(db, actor)
-        if (path[0] === 'staff-invitations') return await admin.listStaffInvitations(db, actor)
-        if (path[0] === 'integration-tokens') return await admin.listTokens(db, actor)
       }
       if (method === 'POST') {
         const input = parseJsonBody(body)
         if (path[0] === 'surveys') return await surveys.createSurvey(db, actor, input)
-        if (path[0] === 'agencies') return await structure.createAgency(db, actor, input)
         if (path[0] === 'programs') return await structure.createProgram(db, actor, input)
         if (path[0] === 'streams') return await structure.createStream(db, actor, input)
         if (path[0] === 'calls') return await structure.saveCall(db, actor, input)
-        if (path[0] === 'staff-invitations') return await admin.inviteStaff(db, actor, input)
-        if (path[0] === 'integration-tokens') return await admin.createToken(db, actor, input)
       }
     }
     if (id && path.length === 2) {
@@ -168,10 +144,6 @@ export default defineEventHandler(async (event) => {
       }
       if (path[0] === 'calls' && method === 'PUT')
         return await structure.saveCall(db, actor, parseJsonBody(body), id)
-      if (path[0] === 'staff-invitations' && method === 'DELETE')
-        return await admin.revokeStaffInvitation(db, actor, id)
-      if (path[0] === 'integration-tokens' && method === 'DELETE')
-        return await admin.revokeToken(db, actor, id)
     }
     if (
       id &&
@@ -186,8 +158,6 @@ export default defineEventHandler(async (event) => {
     if (id && path.length === 3 && method === 'PATCH') {
       if (path[0] === 'calls' && path[2] === 'publication')
         return await structure.publishCall(db, actor, id, parseJsonBody(body))
-      if (path[0] === 'staff' && (path[2] === 'access' || path[2] === 'status'))
-        return await admin.changeStaff(db, actor, id, parseJsonBody(body), path[2])
     }
     return fail(404, 'NOT_FOUND')
   } catch (error) {

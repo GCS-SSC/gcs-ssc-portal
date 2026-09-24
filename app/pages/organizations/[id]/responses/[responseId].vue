@@ -168,24 +168,24 @@ const changePosition = async (next: number) => {
 </script>
 <template>
   <section>
-    <ThemeLink :to="back">{{ c('back') }}</ThemeLink>
-    <ThemeNotice v-if="loadError" variant="error"
+    <PortalLink :to="back">{{ c('back') }}</PortalLink>
+    <PortalNotice v-if="loadError" variant="error"
       >{{ errorMessage(loadError) }}
-      <ThemeButton @click="reload">{{ c('reload') }}</ThemeButton></ThemeNotice
+      <PortalButton @click="reload">{{ c('reload') }}</PortalButton></PortalNotice
     >
     <template v-if="response">
       <h1>{{ localized(response.snapshot) }}</h1>
-      <ThemeBadge>{{ c(response.status) }}</ThemeBadge>
+      <PortalBadge>{{ c(response.status) }}</PortalBadge>
       <p>{{ c(response.status === 'submitted' ? 'finalNotice' : 'sharedDraft') }}</p>
-      <ThemeNotice v-if="error" variant="error"
+      <PortalNotice v-if="error" variant="error"
         >{{ error }}
-        <ThemeButton variant="link" @click="reload">{{ c('reload') }}</ThemeButton></ThemeNotice
+        <PortalButton variant="link" @click="reload">{{ c('reload') }}</PortalButton></PortalNotice
       >
-      <ThemeNotice v-if="success" variant="success">{{ success }}</ThemeNotice>
+      <PortalNotice v-if="success" variant="success">{{ success }}</PortalNotice>
       <section v-if="review" class="confirmation" aria-labelledby="review-heading">
         <h2 id="review-heading">{{ c('confirmTitle') }}</h2>
         <p>{{ c('confirmHint') }}</p>
-        <ThemeNotice
+        <PortalNotice
           v-for="warning in review.warnings"
           :key="`${warning.kind}-${warning.budgetLineId}`"
         >
@@ -200,23 +200,23 @@ const changePosition = async (next: number) => {
           {{ c(warning.reason as 'overBalance' | 'balanceUnknown' | 'lineUnavailable') }}
           {{ c('amount') }}: {{ warning.amount }}; {{ c('balance') }}:
           {{ warning.balance ?? c('unknown') }}
-        </ThemeNotice>
+        </PortalNotice>
         <p v-if="review.warnings.length">{{ c('warningHint') }}</p>
         <div class="form-actions">
-          <ThemeButton :disabled="uploading || busy" @click="submit">{{ c('submit') }}</ThemeButton
-          ><ThemeButton variant="secondary" :disabled="uploading || busy" @click="review = null">{{
+          <PortalButton :disabled="uploading || busy" @click="submit">{{ c('submit') }}</PortalButton
+          ><PortalButton variant="secondary" :disabled="uploading || busy" @click="review = null">{{
             c('cancel')
-          }}</ThemeButton>
+          }}</PortalButton>
         </div>
       </section>
       <p v-if="response.snapshot.case && response.status === 'submitted'">
         {{ c(recorded ? 'recordedBalances' : 'latestBalances') }}
       </p>
-      <ThemeButton
+      <PortalButton
         v-if="submittedBalances && !recorded"
         variant="secondary"
         @click="showRecorded"
-        >{{ c('recordedBalances') }}</ThemeButton
+        >{{ c('recordedBalances') }}</PortalButton
       >
       <div id="response-item" tabindex="-1">
         <p>{{ c('item') }} {{ position + 1 }} / {{ response.items.length }}</p>
@@ -253,57 +253,57 @@ const changePosition = async (next: number) => {
         </template>
       </div>
       <div class="form-actions">
-        <ThemeButton
+        <PortalButton
           v-if="position > 0"
           variant="secondary"
           :disabled="uploading || busy"
           @click="changePosition(position - 1)"
-          >{{ c('previousItem') }}</ThemeButton
-        ><ThemeButton
+          >{{ c('previousItem') }}</PortalButton
+        ><PortalButton
           v-if="position < response.items.length - 1"
           variant="secondary"
           :disabled="uploading || busy"
           @click="changePosition(position + 1)"
-          >{{ c('nextItem') }}</ThemeButton
+          >{{ c('nextItem') }}</PortalButton
         >
       </div>
       <p v-if="dirty">{{ c('dirty') }}</p>
       <div class="form-actions">
-        <ThemeButton v-if="editable" :disabled="uploading || busy" @click="save">{{
+        <PortalButton v-if="editable" :disabled="uploading || busy" @click="save">{{
           c('saveDraft')
-        }}</ThemeButton>
-        <ThemeButton
+        }}</PortalButton>
+        <PortalButton
           v-if="manager && !review"
           :disabled="uploading || busy || !!dirty"
           @click="prepare"
-          >{{ c('reviewSubmit') }}</ThemeButton
+          >{{ c('reviewSubmit') }}</PortalButton
         >
-        <ThemeButton
+        <PortalButton
           v-if="response.snapshot.case"
           variant="secondary"
           :disabled="uploading || busy"
           @click="updateBalances"
-          >{{ c('refreshBalances') }}</ThemeButton
+          >{{ c('refreshBalances') }}</PortalButton
         >
-        <ThemeButton
+        <PortalButton
           v-if="manager && !review"
           variant="secondary"
           :disabled="uploading || busy"
           @click="deleting = true"
-          >{{ c('deleteDraft') }}</ThemeButton
+          >{{ c('deleteDraft') }}</PortalButton
         >
       </div>
       <section v-if="deleting" class="confirmation">
         <p>{{ c('deleteConfirm') }}</p>
         <div class="form-actions">
-          <ThemeButton :disabled="uploading || busy" @click="remove">{{
+          <PortalButton :disabled="uploading || busy" @click="remove">{{
             c('deleteDraft')
-          }}</ThemeButton
-          ><ThemeButton
+          }}</PortalButton
+          ><PortalButton
             variant="secondary"
             :disabled="uploading || busy"
             @click="deleting = false"
-            >{{ c('cancel') }}</ThemeButton
+            >{{ c('cancel') }}</PortalButton
           >
         </div>
       </section>

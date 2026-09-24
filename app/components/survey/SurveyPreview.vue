@@ -49,11 +49,11 @@ const navigate = async (action: (() => boolean) | (() => void)) => {
             data-survey-errors
             tabindex="-1"
           >
-            <ThemeNotice variant="error">{{ s('validation') }}</ThemeNotice>
+            <PortalNotice variant="error">{{ s('validation') }}</PortalNotice>
           </div>
           <div :id="`${prefix}-page`" class="survey-page" tabindex="-1">
             <template v-if="complete">
-              <ThemeNotice variant="success">{{ s('valid') }}</ThemeNotice>
+              <PortalNotice variant="success">{{ s('valid') }}</PortalNotice>
               <p>{{ s('previewComplete') }}</p>
             </template>
             <template v-else-if="page">
@@ -85,12 +85,12 @@ const navigate = async (action: (() => boolean) | (() => void)) => {
             </template>
           </div>
           <div class="form-actions">
-            <ThemeButton v-if="canBack" variant="secondary" @click="navigate(back)">{{
+            <PortalButton v-if="canBack" variant="secondary" @click="navigate(back)">{{
               s('previousPage')
-            }}</ThemeButton>
-            <ThemeButton v-if="!complete" type="submit">{{
+            }}</PortalButton>
+            <PortalButton v-if="!complete" type="submit">{{
               s(isLastPage ? 'check' : 'nextPage')
-            }}</ThemeButton>
+            }}</PortalButton>
           </div>
         </form>
       </template>

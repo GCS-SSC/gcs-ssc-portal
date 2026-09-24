@@ -206,11 +206,16 @@ p {
   border-top: 2px solid var(--portal-ink);
 }
 .organization-list > li {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  justify-content: space-between;
   gap: 2rem;
   padding: 1.8rem 0;
+}
+.organization-list > li > div {
+  min-width: 0;
+}
+.organization-list > li:not(:last-child) {
   border-bottom: 1px solid var(--portal-line);
 }
 .organization-list h2 {
@@ -220,7 +225,6 @@ p {
 .organization-list p {
   max-width: 680px;
 }
-.organization-access,
 .badges,
 .entity-meta {
   display: flex;
@@ -228,12 +232,9 @@ p {
   flex-wrap: wrap;
   gap: 0.65rem;
 }
-.organization-access {
-  flex-shrink: 0;
-}
-.organization-access > a {
-  font-size: 1.6rem;
-  padding: 0.3rem 0.6rem;
+.organization-action {
+  justify-self: end;
+  white-space: nowrap;
 }
 .metadata,
 .muted {
@@ -243,7 +244,6 @@ p {
 .empty-state {
   padding: 2.5rem 0;
   border-top: 1px solid var(--portal-line);
-  border-bottom: 1px solid var(--portal-line);
 }
 .entity-heading {
   padding: 1.7rem 0 2rem;
@@ -270,6 +270,12 @@ p {
   gap: 0.3rem;
 }
 .workspace-nav > * {
+  display: block;
+  color: var(--portal-ink) !important;
+  font-weight: 400 !important;
+  line-height: 1.5;
+  border-radius: 0;
+  white-space: normal;
   text-align: left !important;
   justify-content: flex-start !important;
   padding: 0.75rem 0.8rem !important;
@@ -277,10 +283,17 @@ p {
   border-left: 4px solid transparent !important;
   text-decoration: none !important;
 }
+.workspace-nav > *:hover {
+  background: var(--portal-surface);
+}
+.workspace-nav > *:focus-visible {
+  outline: 2px solid var(--portal-ink);
+  outline-offset: 2px;
+}
 .workspace-nav > [aria-current='page'] {
   border-left-color: var(--portal-accent) !important;
   background: var(--portal-surface) !important;
-  font-weight: 700;
+  font-weight: 700 !important;
 }
 .workspace-body {
   min-width: 0;
@@ -297,6 +310,8 @@ p {
   grid-template-columns: 180px minmax(0, 1fr);
   gap: 1rem;
   padding: 1rem 0;
+}
+.detail-list > div:not(:last-child) {
   border-bottom: 1px solid var(--portal-line);
 }
 dt {
@@ -334,8 +349,10 @@ th {
 }
 td {
   padding: 1.2rem 0.9rem 1.2rem 0;
-  border-bottom: 1px solid var(--portal-line);
   vertical-align: top;
+}
+tbody tr:not(:last-child) td {
+  border-bottom: 1px solid var(--portal-line);
 }
 .table-secondary {
   display: block;
@@ -377,6 +394,13 @@ td {
     flex-direction: column;
     align-items: flex-start;
   }
+  .organization-list > li {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.8rem;
+  }
+  .organization-action {
+    justify-self: start;
+  }
   .workspace {
     grid-template-columns: 1fr;
     gap: 1.7rem;
@@ -415,11 +439,6 @@ td {
   .step-number {
     margin-top: 0.2rem;
   }
-  .organization-list > li {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 0.8rem;
-  }
   .detail-list > div {
     grid-template-columns: 1fr;
     gap: 0.4rem;
@@ -441,7 +460,7 @@ td {
   }
 }
 
-/* Semantic groups remain open sections in both government themes. */
+/* Semantic groups remain open sections in the GC Design System UI. */
 fieldset.portal-form {
   border: 0;
   padding: 0;

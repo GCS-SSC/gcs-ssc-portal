@@ -2,9 +2,21 @@ import { applicationMigration } from './application-migration'
 import { caseMigration } from './case-migration'
 import { surveyMigration } from './survey-migration'
 import { governmentMigration } from './government-migration'
+import { administratorMigration } from './administrator-migration'
 import { Migrator, sql } from 'kysely'
-import type { Kysely } from 'kysely'
+import type { Kysely, MigrationResult } from 'kysely'
 import type { Database } from './schema'
+export const reportMigrationResults = (
+  results: readonly MigrationResult[] | undefined,
+  label = 'migration'
+) => {
+  results?.forEach((result) => {
+    if (result.status === 'Success')
+      console.info(`${label} "${result.migrationName}" was executed successfully`)
+    else if (result.status === 'Error')
+      console.error(`failed to execute ${label} "${result.migrationName}"`)
+  })
+}
 export const migrate = async (db: Kysely<Database>, target?: string) => {
   const migrator = new Migrator({
     db,
@@ -14,6 +26,7 @@ export const migrate = async (db: Kysely<Database>, target?: string) => {
         '003_surveys': surveyMigration,
         '004_cases': caseMigration,
         '005_applications_attachments': applicationMigration,
+        '006_administrators': administratorMigration,
         '001_initial': {
           up: async (connection: Kysely<unknown>) => {
             const statements = `CREATE TABLE "user" (id text PRIMARY KEY, name text NOT NULL, email text UNIQUE NOT NULL, "emailVerified" boolean NOT NULL DEFAULT false, image text, "createdAt" timestamptz NOT NULL, "updatedAt" timestamptz NOT NULL);
@@ -40,5 +53,10 @@ CREATE INDEX invitation_org_idx ON invitation ("organizationId");`
     }
   })
   const result = await (target ? migrator.migrateTo(target) : migrator.migrateToLatest())
-  if (result.error) throw result.error
+  reportMigrationResults(result.results)
+  if (result.error) {
+    console.error('failed to migrate')
+    console.error(result.error)
+    throw result.error
+  }
 }

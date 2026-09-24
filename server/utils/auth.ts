@@ -1,7 +1,7 @@
 import { betterAuth } from 'better-auth'
 import { kyselyAdapter } from '@better-auth/kysely-adapter'
 import { useDatabase } from './database'
-import { portalConfig } from './config'
+import { isPortalOriginAllowed, portalConfig, portalTrustedOriginsForRequest } from './config'
 import { INTERNAL_IP_HEADER } from './client-ip'
 import { readBoundedBody } from './request-body'
 const createAuth = async () => {
@@ -10,8 +10,8 @@ const createAuth = async () => {
     database: kyselyAdapter(await useDatabase(), { type: 'postgres' }),
     secret: config.secret,
     baseURL: config.appUrl,
-    trustedOrigins: [config.appUrl],
-    emailAndPassword: { enabled: true, minPasswordLength: 12, maxPasswordLength: 128 },
+    trustedOrigins: (request) => portalTrustedOriginsForRequest(request),
+    emailAndPassword: { enabled: true, minPasswordLength: 8, maxPasswordLength: 128 },
     session: { expiresIn: 60 * 60 * 24 * 7 },
     rateLimit: { enabled: true, window: 60, max: 60 },
     advanced: {
@@ -27,7 +27,7 @@ export const useAuth = () => (instance ??= createAuth())
 export const handleAuthRequest = async (request: Request) => {
   if (
     !['GET', 'HEAD', 'OPTIONS'].includes(request.method) &&
-    (request.headers.get('origin') !== portalConfig().appUrl ||
+    (!isPortalOriginAllowed(request.headers.get('origin'), request.url) ||
       request.headers.get('sec-fetch-site') === 'cross-site')
   ) {
     void request.body?.cancel().catch(() => undefined)

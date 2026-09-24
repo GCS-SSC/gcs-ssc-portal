@@ -1,23 +1,10 @@
-import { fileURLToPath } from 'node:url'
-import { resolveTheme } from './tooling/theme'
-
-const theme = resolveTheme(
-  fileURLToPath(new URL('.', import.meta.url)),
-  process.env.PORTAL_THEME || 'nuxtui'
-)
-
 export default defineNuxtConfig({
-  ...theme.moduleOptions,
   compatibilityDate: '2026-09-19',
   ssr: false,
   devtools: { enabled: false },
-  modules: ['@nuxt/eslint', ...theme.modules],
-  components: [
-    { path: '~/components', pathPrefix: false },
-    { path: `${theme.directory}/components`, pathPrefix: false }
-  ],
-  plugins: theme.plugins,
-  css: ['~/assets/css/main.css', ...theme.css],
+  modules: ['@nuxt/eslint'],
+  components: [{ path: '~/components', pathPrefix: false }],
+  css: ['~/assets/css/main.css', '~/assets/css/gcds.css'],
   app: {
     head: {
       title: 'GCS–SSC | Organization portal',
@@ -34,8 +21,7 @@ export default defineNuxtConfig({
     vue: {
       template: {
         compilerOptions: {
-          isCustomElement: (tag) =>
-            theme.customElementPrefixes.some((prefix) => tag.startsWith(prefix))
+          isCustomElement: (tag) => tag.startsWith('gcds-')
         }
       }
     }

@@ -6,7 +6,7 @@ The shared provider is `@gcs-ssc/survey`, maintained separately in the public `G
 
 The core entrypoint exports the versioned JSON schemas (v1 and v2), inferred TypeScript types, answer schema and answer validator. The `/vue` entrypoint exports a renderless `HeadlessSurvey` component and `useSurveyDesigner`. The optional `/client` entrypoint exports the server-side portal import helper. Neither core nor client loads Vue; Vue is an optional peer required by `/vue`.
 
-The provider has no Nuxt, theme, CSS, database or authentication dependency. Renderless slots expose localized questions, values, errors, required/disabled state, options and setter actions. Hosts choose every element and control, and own accessible DOM IDs/labels, focus behavior, validation messages, layout and persistence. The portal implements these with its existing `ThemeInput`, `ThemeSelect` and `ThemeButton` adapters, so both build-time themes use exactly the same model and behavior.
+The provider has no Nuxt, theme, CSS, database or authentication dependency. Renderless slots expose localized questions, values, errors, required/disabled state, options and setter actions. Hosts choose every element and control, and own accessible DOM IDs/labels, focus behavior, validation messages, layout and persistence. The portal implements these with its existing `PortalInput`, `PortalSelect` and `PortalButton` adapters, so the application uses the shared model and behavior.
 
 Version 1 supports text, email, number, calendar date and single choice. It requires English/French titles and question labels. Single-choice options also require both languages and stable values. There are 1–50 saved questions, 2–30 options per choice question, 1–200 characters per label, up to 500 per help text, and up to 5000 per text response. Question IDs and option values must be unique in their respective scopes. Content is plain text, not HTML or executable expressions. Unknown schema versions, properties and controls are rejected.
 
@@ -26,7 +26,7 @@ Designer deletions refuse questions referenced by conditions. Empty containers c
 
 ## Portal workflow
 
-Agency staff open **Application forms** from the agency workspace. They create/edit bilingual forms, add/edit/remove/reorder questions, set response requirements and preview the result. Editing a question is staged until **Apply question changes**. The page prevents accidentally navigating away from unsaved edits. Persisted forms require at least one valid question, and optimistic revision checks reject overwriting a newer form.
+The future extension creates and updates bilingual forms through the agency-scoped API. Persisted forms require at least one valid question, and optimistic revision checks reject overwriting a newer form.
 
 Calls can attach a saved form revision through the call workspace. The survey must belong to the call's agency. Published calls must be unpublished before attaching, replacing or removing a form. Updating a survey creates a new immutable revision; it never changes a call's current attachment. The assignment UI explicitly shows the attached revision and offers the latest saved revision for a deliberate update. Existing calls without forms remain valid.
 
@@ -34,9 +34,9 @@ Organization members with application viewer access can open a published call’
 
 ## Persistence and API
 
-Migration `003_surveys` adds `survey` (agency, current revision and update timestamp), immutable `survey_revision` (JSON definition and creation time), and nullable `surveyId`/`surveyRevision` on `funding_call`. A composite foreign key and pair check enforce a valid attachment. Updates lock the mutable government actor authority then the survey row, compare `expectedRevision`, insert a revision and advance the head in one transaction. Attachment locks the actor then call; parent agency links are immutable. All survey IDs are server-generated UUIDv7.
+Migration `003_surveys` adds `survey` (agency, current revision and update timestamp), immutable `survey_revision` (JSON definition and creation time), and nullable `surveyId`/`surveyRevision` on `funding_call`. A composite foreign key and pair check enforce a valid attachment. Updates lock the integration credential then the survey row, compare `expectedRevision`, insert a revision and advance the head in one transaction. Attachment locks the actor then call; parent agency links are immutable. All survey IDs are server-generated UUIDv7.
 
-All government routes accept either an authorized staff session or an active agency-scoped integration credential, under the existing origin rules. Survey mutation requests have a bounded 256 KiB envelope; the shared definition schema permits at most 240 KiB UTF-8. Other endpoints retain the 16 KiB request limit.
+All government routes require an active agency-scoped integration credential. Survey mutation requests have a bounded 256 KiB envelope; the shared definition schema permits at most 240 KiB UTF-8. Other endpoints retain the 16 KiB request limit.
 
 | Method/path                                             | Body                            | Result                                                                                                        |
 | ------------------------------------------------------- | ------------------------------- | ------------------------------------------------------------------------------------------------------------- |
@@ -52,6 +52,6 @@ The optional package import helper validates definitions and response envelopes,
 
 ## Verification
 
-The package owns model, headless Vue, designer and transport tests. The portal owns database lifecycle/access tests and both-theme browser journeys covering direct design, required fields, all initial controls, bilingual preview, reload/edit, imported surveys, body limits, call attachment, revision conflicts and applicant visibility. PostgreSQL tests use an isolated disposable database, alongside the PGlite lane.
+The package owns model, headless Vue, designer and transport tests. The portal owns database lifecycle/access tests and GC Design System browser journeys covering direct design, required fields, all initial controls, bilingual preview, reload/edit, imported surveys, body limits, call attachment, revision conflicts and applicant visibility. PostgreSQL tests use an isolated disposable database, alongside the PGlite lane.
 
 See [private attachments](attachments.md) for app-wide S3 configuration, per-form opt-in and download/cleanup contracts.

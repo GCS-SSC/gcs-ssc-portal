@@ -36,7 +36,7 @@ const fillZero = () => {
     <p v-if="!readonly">{{ c('moneyHint') }}</p>
     <fieldset v-if="item.kind === 'claim'" class="portal-form" :disabled="readonly">
       <legend>{{ c('claim') }}</legend>
-      <ThemeSelect
+      <PortalSelect
         :id="`${prefix}-start`"
         :disabled="readonly"
         :model-value="String(item.periodStart)"
@@ -45,7 +45,7 @@ const fillZero = () => {
         required
         @update:model-value="item.periodStart = Number($event)"
       />
-      <ThemeSelect
+      <PortalSelect
         :id="`${prefix}-end`"
         :disabled="readonly"
         :model-value="String(item.periodEnd)"
@@ -54,7 +54,7 @@ const fillZero = () => {
         required
         @update:model-value="item.periodEnd = Number($event)"
       />
-      <ThemeSelect
+      <PortalSelect
         :id="`${prefix}-final`"
         :disabled="readonly"
         :model-value="item.isFinalForYear ? 'yes' : 'no'"
@@ -86,12 +86,12 @@ const fillZero = () => {
           <dd>{{ balanceFor(line.id)?.[field] ?? c('unknown') }}</dd></template
         >
       </dl>
-      <ThemeNotice v-if="!balanceFor(line.id)?.available">{{ c('lineUnavailable') }}</ThemeNotice>
+      <PortalNotice v-if="!balanceFor(line.id)?.available">{{ c('lineUnavailable') }}</PortalNotice>
       <fieldset class="portal-form" :disabled="readonly">
         <legend>{{ c('amount') }} — {{ localized(line) }}</legend>
         <template v-for="(entry, index) in item.lines" :key="index">
           <template v-if="entry.budgetLineId === line.id">
-            <ThemeInput
+            <PortalInput
               v-if="'description' in entry"
               :id="`${prefix}-description-${index}`"
               v-model="entry.description"
@@ -100,7 +100,7 @@ const fillZero = () => {
               required
               :maxlength="2000"
             />
-            <ThemeInput
+            <PortalInput
               :id="`${prefix}-amount-${index}`"
               v-model="entry.amount"
               :disabled="readonly"
@@ -112,9 +112,9 @@ const fillZero = () => {
         </template>
       </fieldset>
     </section>
-    <ThemeButton v-if="!readonly" variant="secondary" @click="fillZero">{{
+    <PortalButton v-if="!readonly" variant="secondary" @click="fillZero">{{
       c('fillZero')
-    }}</ThemeButton>
+    }}</PortalButton>
   </section>
 </template>
 <style scoped>

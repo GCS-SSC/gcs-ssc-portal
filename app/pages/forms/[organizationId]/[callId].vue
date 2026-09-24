@@ -18,12 +18,12 @@ useHead(() => ({ title: s('view') }))
 </script>
 <template>
   <section>
-    <ThemeLink :to="`/funding/${route.params.organizationId}`">{{ s('back') }}</ThemeLink>
-    <ThemeNotice v-if="error" variant="error"
+    <PortalLink :to="`/funding/${route.params.organizationId}`">{{ s('back') }}</PortalLink>
+    <PortalNotice v-if="error" variant="error"
       >{{ message(error) }}
-      <ThemeButton variant="secondary" @click="refresh()">{{
+      <PortalButton variant="secondary" @click="refresh()">{{
         t('retry')
-      }}</ThemeButton></ThemeNotice
+      }}</PortalButton></PortalNotice
     >
     <template v-else-if="data"
       ><h1>{{ data.survey[locale === 'en' ? 'nameEn' : 'nameFr'] }}</h1>

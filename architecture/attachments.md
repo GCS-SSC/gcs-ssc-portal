@@ -20,7 +20,7 @@ Upload preflight authenticates, parses metadata and checks contributor permissio
 
 Contributors can add/remove individual files while editing drafts. Only managers can submit or delete whole drafts. Pending uploads block review/submission. Deleting a file/draft immediately removes portal access and retains private storage metadata until cleanup. Final submission freezes file IDs, names, sizes and SHA-256 checksums into the immutable export.
 
-Organization downloads require the response's subject viewer permission. Government downloads require a submitted response and fresh agency authority (staff or integration token). The server verifies the stored length and SHA-256 before returning bytes with `Content-Disposition: attachment`, `application/octet-stream`, `nosniff`, `no-store` and CSP sandbox. Object locations are never exposed through organization APIs.
+Organization downloads require the response's subject viewer permission. Government downloads require a submitted response and fresh agency authority (integration token). The server verifies the stored length and SHA-256 before returning bytes with `Content-Disposition: attachment`, `application/octet-stream`, `nosniff`, `no-store` and CSP sandbox. Object locations are never exposed through organization APIs.
 
 ## API
 
@@ -34,4 +34,4 @@ Organization routes start `/api/organizations/:organizationId/responses/:respons
 
 Government routes: `GET /api/government/submissions/:submissionId/attachments/:attachmentId` downloads a submitted file; `GET /api/government/submissions/:submissionId/response` returns a read-only response with frozen balances and file metadata. Response reads include `attachments` and `attachmentLimits`. Each metadata entry includes `id`, `itemId`, `status`, `filename`, `size`, `sha256`, and `createdAt`.
 
-Browser verification uses a disposable, digest-pinned MinIO container with a private bucket; no operator AWS credentials or real bucket are used. It tests both themes, actual S3 PUT/GET, unauthorized public access, permissions, revision updates without losing unsaved answers, removal, submission, and government download.
+Browser verification uses a disposable, digest-pinned MinIO container with a private bucket; no operator AWS credentials or real bucket are used. It tests GC Design System, actual S3 PUT/GET, unauthorized public access, permissions, revision updates without losing unsaved answers, removal, submission, and agency-key download.

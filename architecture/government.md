@@ -1,63 +1,33 @@
-# Government administration and funding catalogue
+# Administrator access and agency integration
 
-Government staff use `/government/login` and `/government`. Organization navigation never exposes government management. Both entrypoints use Better Auth accounts, but government grants live in separate tables. An organization owner or administrator has no government authority. Government and organization identities are separate: once an account is recorded as a government user, it cannot enter organization routes, call organization APIs, or accept organization invitations, even while its government access is inactive.
+The companion portal does not authenticate government officials. Configuration for programs, streams, calls, surveys, cases, and submission sets is supplied by the future GCS–SSC extension through agency-scoped bearer credentials. Organization users retain their own Better Auth accounts and cannot access administrator or integration APIs.
 
-## Root and staff
+## Administrators
 
-Bootstrap exactly one root account using `bun run root:create` with `ROOT_NAME`, `ROOT_EMAIL`, and `ROOT_PASSWORD` in the process environment. The command uses the same `DATABASE_URL` or `PGLITE_DATA_DIR` as the application. For PGlite, stop the server first. Bun reads `.env`; production operators should inject the intended environment explicitly. Do not keep the root password in shared configuration, shell history, or version control.
+Administrators sign in at `/admin/login`. Their credentials live in `administrator`, separate from Better Auth's `user`, `account`, and `session` tables. Administrator sessions use random, hashed tokens in `administrator_session`, a dedicated HTTP-only cookie, a seven-day expiry, a ten-attempt-per-address-and-email login limit per 15 minutes, and canonical-Origin checks on writes. Multiple administrators are allowed. The demo seed creates `admin@portal.com` with the documented demo password. Production administrators can currently be created with `bun run admin:create` and `ADMIN_NAME`, `ADMIN_EMAIL`, and `ADMIN_PASSWORD`; a first-launch provisioning flow is planned. There is no public administrator registration or staff invitation flow.
 
-The bootstrap command creates a fresh password account atomically and refuses an existing root or an existing email. It never elevates an ordinary registered account or resets a password. Public registration cannot grant government access. The root is protected from deactivation through the staff API. Root recovery is an operator-managed database/account recovery operation, not a public password-reset endpoint.
+The administrator UI at `/admin` registers agencies with bilingual names and shows their IDs. `/admin/integrations` issues and revokes agency-scoped keys. Each key has a name and expiry of 1–365 days (default 90); its random secret is displayed once and only its SHA-256 hash is stored. Administrator routes are `/api/admin/session`, `/login`, `/logout`, `/agencies`, `/agencies/:id` (PATCH), and `/integration-tokens` (GET/POST/DELETE by ID). Administrator cookies do not authorize `/api/government` or organization routes.
 
-The root invites staff at `/government/staff`. Invitations are email-bound, hashed at rest, single-use, and expire after the same global `INVITATION_EXPIRY_DAYS` used by organization invitations. Root can optionally assign an existing agency in the invitation. A recipient registers or signs in through the government entry point and explicitly accepts. Accounts that already belong to an organization cannot accept a government invitation. No email is sent, and acceptance does not claim to verify the email inbox.
+Migration `006_administrators` adds the separate administrator tables and revokes preexisting government staff sessions and password accounts. Legacy `government_user` records remain as tombstones so former staff cannot enter organization routes or accept organization invitations. No staff access or invitation endpoint remains. Existing agencies, calls, submissions, keys, and organization data are preserved.
 
-Active staff may create their own agencies and receive access to those agencies atomically. Root controls assignment to existing agencies and can remove assignments. Removing an assignment blocks that agency; deactivating the staff account blocks all government access, including creation of new agencies, and invalidates its current login sessions. Reactivation restores the stored assignments. Government deactivation does not turn the identity into an organization account.
+## Extension API
 
-## Structure and publication
+Every `/api/government/*` request requires `Authorization: Bearer gcs_…`. Missing, invalid, expired, or revoked credentials return 401. A key can manage only its agency's configuration and read that agency's submitted exports. It cannot create an agency, issue keys, or access organization APIs. Write transactions recheck and lock the key before mutating data. Foreign browser Origins are rejected; bodies are bounded at 16 KiB or 256 KiB for survey, case, and set writes. Responses are `no-store`.
 
-The hierarchy is `agency → program → stream → funding_call`. Each entity has a server-generated UUIDv7 and a required English and French name, each at most 200 characters. Parent relationships are fixed at creation; the UI and API support renaming without moving children between hierarchies.
+The agency hierarchy is `agency → program → stream → funding_call`. Calls start as drafts and are published explicitly. Published calls are visible to organization members with an explicit `application:viewer` or higher permission; ownership and `admin` alone do not grant it. See [surveys](surveys.md), [cases](cases.md), and [applications](applications.md) for the remaining machine contracts.
 
-A call stores only its bilingual name, stream reference, start date, end date, publication state, ID and creation time. Agency and program derive from the stream, avoiding contradictory selections. Dates are calendar values `YYYY-MM-DD`; real dates and end ≥ start are required. The application period includes both boundary dates, using the current UTC calendar date for the Upcoming/Open/Closed label. There is no timestamp conversion or time-of-day deadline.
+| Method/path after `/api/government` | Purpose |
+| --- | --- |
+| GET /agencies, GET /agencies/:id | List and read agencies within key scope |
+| PATCH /agencies/:id | Update the key's agency |
+| POST /programs, PATCH /programs/:id | Manage programs in the key's agency |
+| POST /streams, PATCH /streams/:id | Manage streams in the key's agency |
+| POST /calls, PUT /calls/:id, PATCH /calls/:id/publication | Manage and publish calls |
+| GET/POST/PUT surveys and call survey assignment | Manage pinned form definitions |
+| GET/POST/PUT cases and sets, case balances, set publication | Manage case configuration and form sets |
+| GET agency submissions and submission exports/attachments | Retrieve submitted data |
 
-New calls are drafts. Staff explicitly publish or unpublish them. Published calls must be unpublished before editing. Publication controls visibility; dates label a published call as upcoming, open, or closed, rather than automatically hiding it. Ancestor names are live, so renaming a program updates its displayed name on published calls. Published calls can also expose a pinned survey revision for an interactive application-form preview. Contributors save shared application drafts and managers submit during the call dates; see [applications](applications.md). See [surveys](surveys.md).
-
-An organization's explicit `application:viewer` (or higher) grant exposes **Apply for funding** on its list entry and workspace. Neither `admin` nor ownership implies this grant. Organization administrators can add/remove it independently of `admin`; every member retains implicit `user`. The catalogue endpoint requires both membership and an application subject level, and returns published calls only. No government-management metadata or drafts appear in that endpoint.
-
-## Machine API
-
-Root creates/revokes agency-specific integration credentials at `/government/integrations`. Each has a name and expiry of 1–365 days (default 90). The random secret is displayed once; only its SHA-256 hash is stored. Pass it as `Authorization: Bearer gcs_…`. Invalid, expired and revoked credentials return 401 without falling back to cookie authentication. A credential may read/update its agency and manage that agency's programs, streams and calls. It cannot create agencies, provision users, manage tokens, or access organization APIs. Every request resolves its current scope; write transactions recheck and lock authority.
-
-Cookie-authenticated writes require the canonical `Origin`. Machine requests without an Origin use explicit bearer authentication; a supplied foreign browser Origin is rejected. Request bodies are bounded at 16 KiB, with a 256 KiB envelope for survey, case and set writes. Responses are marked `no-store`. The API is ready for a future GCS–SSC extension; that separate extension is not implemented here.
-
-All paths below start with `/api/government`. Names mean `{nameEn,nameFr}`. Schema errors return 400 with `data.code = INVALID_INPUT`; forbidden identities return 403; inaccessible agencies return 404.
-
-| Method/path                     | Request                                       | Response/access                                            |
-| ------------------------------- | --------------------------------------------- | ---------------------------------------------------------- |
-| GET /agencies                   | —                                             | `{agencies}`; own scopes or all for root                   |
-| POST /agencies                  | names                                         | `{agency}`; human government staff/root                    |
-| GET /agencies/:id               | —                                             | `{agency,programs,streams,calls}`; includes drafts, scoped |
-| PATCH /agencies/:id             | names                                         | `{agency}`; scoped                                         |
-| POST /programs                  | names, agencyId                               | `{program}`; scoped                                        |
-| PATCH /programs/:id             | names                                         | `{success:true}`; scoped                                   |
-| POST /streams                   | names, programId                              | `{stream}`; scoped                                         |
-| PATCH /streams/:id              | names                                         | `{success:true}`; scoped                                   |
-| POST /calls                     | names, streamId, startDate, endDate           | `{id}`; creates draft, scoped                              |
-| PUT /calls/:id                  | names, unchanged streamId, startDate, endDate | `{id}`; draft only, scoped                                 |
-| PATCH /calls/:id/publication    | `{published:boolean}`                         | `{success:true}`; scoped                                   |
-| GET /staff                      | —                                             | Staff array, no credentials; root only                     |
-| PATCH /staff/:userId/access     | `{agencyIds:string[]}`                        | Replaces agency assignments; root only                     |
-| PATCH /staff/:userId/status     | `{active:boolean}`                            | Enables/disables staff; root only                          |
-| GET /staff-invitations          | —                                             | Invitation metadata array; root only                       |
-| POST /staff-invitations         | `{name,email,agencyId?:string-or-null}`       | `{id,expiresAt,url}`; root only                            |
-| DELETE /staff-invitations/:id   | —                                             | Revokes pending invitation; root only                      |
-| GET /invitations/:token         | —                                             | `{name,email,expiresAt}`; secret-link preview              |
-| POST /invitations/:token/accept | —                                             | `{success:true}`; matching signed-in user                  |
-| GET /integration-tokens         | —                                             | Credential metadata array; root only                       |
-| POST /integration-tokens        | `{name,agencyId,expiresInDays?:number}`       | `{id,token,expiresAt}` once; root only                     |
-| DELETE /integration-tokens/:id  | —                                             | `{success:true}`; root only                                |
-
-`GET /api/organizations/:id/funding-calls` returns `{calls}` after checking organization membership and the application permission. Calls include bilingual ancestor names and IDs plus the fields above. `GET /api/session` returns `{user,government,governmentAccount}` where `government` is null or `{role,agencyIds}` and `governmentAccount` also identifies inactive government users; UI decisions never replace server authorization.
-
-Example extension request, with secrets injected into the process environment:
+The future extension should keep each returned portal ID and reconcile before retrying an ambiguous create request; creation is not idempotent. A request example:
 
 ```sh
 curl --fail-with-body "$PORTAL_URL/api/government/programs" \
@@ -65,13 +35,3 @@ curl --fail-with-body "$PORTAL_URL/api/government/programs" \
   -H 'Content-Type: application/json' \
   --data '{"agencyId":"<agency UUID>","nameEn":"Community innovation","nameFr":"Innovation communautaire"}'
 ```
-
-Use returned IDs to create streams, then calls; publish with a separate explicit PATCH. Persist those IDs in the extension for subsequent updates. Creation endpoints are not idempotent: reconcile against the agency structure before retrying an ambiguous network failure.
-
-## Survey authoring and import
-
-Agency staff and agency-scoped integration credentials can create and update surveys through the [survey API](surveys.md). Call attachments pin immutable revisions; editing a reusable survey never changes a published call. The portal supplies its own themed designer and preview over the public headless provider. The GCS–SSC sibling app and extension remain untouched.
-
-Case configuration, ordered form sets, balance reconciliation and immutable submission exports are documented in [cases](cases.md).
-
-See [private attachments](attachments.md) for app-wide S3 configuration, per-form opt-in and download/cleanup contracts.

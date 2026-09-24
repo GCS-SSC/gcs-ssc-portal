@@ -4,6 +4,10 @@ import { useDatabase } from '../../server/utils/database'
 beforeAll(() => {
   vi.stubEnv('PGLITE_DATA_DIR', 'memory://')
   vi.stubEnv('APP_URL', 'http://localhost:3000')
+  vi.stubEnv(
+    'BETTER_AUTH_TRUSTED_ORIGINS',
+    'http://localhost:3000,http://127.0.0.1:3000'
+  )
 })
 afterAll(async () => {
   await (await useDatabase()).destroy()
@@ -22,7 +26,7 @@ describe('real Better Auth boundary', () => {
     const input = {
       name: 'Test person',
       email: 'test-person@example.test',
-      password: 'secure-test-password-2026'
+      password: 'password123'
     }
     const response = await request('sign-up/email', input)
     expect(response.status).toBe(200)
@@ -47,6 +51,15 @@ describe('real Better Auth boundary', () => {
     expect(
       (await request('sign-in/email', { email: input.email, password: 'wrong-password' })).status
     ).toBe(401)
+    expect(
+      (
+        await request(
+          'sign-up/email',
+          { name: 'Loopback', email: 'loopback@example.test', password: 'password123' },
+          'http://127.0.0.1:3000'
+        )
+      ).status
+    ).toBe(200)
     expect(
       (
         await request(
@@ -78,6 +91,15 @@ describe('real Better Auth boundary', () => {
     )
     expect(response.status).toBe(413)
     expect((await response.json()).code).toBe('REQUEST_TOO_LARGE')
+  })
+  it('accepts a same-origin forwarded HTTPS login in development', async () => {
+    const origin = 'https://3002.613868.xyz'
+    const response = await handleAuthRequest(new Request(`${origin}/api/auth/sign-in/email`, {
+      method: 'POST',
+      headers: { origin, 'content-type': 'application/json' },
+      body: JSON.stringify({ email: 'test-person@example.test', password: 'password123' })
+    }))
+    expect(response.status).toBe(200)
   })
   it('rejects weak passwords and duplicate emails', async () => {
     expect(

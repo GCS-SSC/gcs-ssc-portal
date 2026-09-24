@@ -4,7 +4,9 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it, vi } from 'vitest'
 import {
+  buildDevAuthOrigins,
   cleanDevDatabase,
+  prepareDevDatabase,
   resolveDevHost,
   resolveDevOrigin,
   resolveDevPort,
@@ -19,7 +21,13 @@ describe('development server wrapper', () => {
     expect(resolveDevPort(['-p=3004'])).toBe(3004)
     expect(resolveDevPort(['--port', 'invalid'])).toBe(3000)
     expect(resolveDevHost(['--host', '0.0.0.0'])).toBe('0.0.0.0')
-    expect(resolveDevOrigin(['--host', '0.0.0.0', '--port', '3002'])).toBe('http://localhost:3002')
+    expect(resolveDevOrigin(['--host', '0.0.0.0', '--port', '3002'])).toBe('http://0.0.0.0:3002')
+    expect(buildDevAuthOrigins('0.0.0.0', 3002, ['192.168.2.101'])).toEqual([
+      'http://0.0.0.0:3002',
+      'http://localhost:3002',
+      'http://127.0.0.1:3002',
+      'http://192.168.2.101:3002'
+    ])
   })
 
   it('removes only the explicitly provided development database directory', async () => {
@@ -29,6 +37,14 @@ describe('development server wrapper', () => {
     await cleanDevDatabase(database)
     await expect(stat(database)).rejects.toMatchObject({ code: 'ENOENT' })
     await expect(stat(root)).resolves.toBeDefined()
+  })
+
+  it('cleans the database before Nuxt starts', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'portal-dev-prepare-'))
+    const database = join(root, 'pglite')
+    await mkdir(database)
+    await prepareDevDatabase(database, true)
+    await expect(stat(database)).rejects.toMatchObject({ code: 'ENOENT' })
   })
 
   it('forwards one terminal signal and returns the child exit code', async () => {

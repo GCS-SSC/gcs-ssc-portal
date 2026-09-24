@@ -18,7 +18,9 @@ const message = useApiMessage()
 const api = usePortalApi()
 const id = String(route.params.id)
 const base = `/api/organizations/${encodeURIComponent(id)}`
-const tab = ref<'overview' | 'members' | 'invitations' | 'settings'>('overview')
+const tab = ref<'overview' | 'work' | 'funding' | 'members' | 'invitations' | 'settings'>(
+  'overview'
+)
 const organization = ref<Organization | null>(null)
 const members = ref<Member[]>([])
 const invitations = ref<Invitation[]>([])
@@ -193,62 +195,59 @@ await load()
 </script>
 <template>
   <section>
-    <ThemeLink to="/organizations">{{ t('backOrganizations') }}</ThemeLink>
+    <PortalLink to="/organizations">{{ t('backOrganizations') }}</PortalLink>
     <p v-if="loading" role="status">{{ t('loading') }}</p>
-    <ThemeNotice v-else-if="loadError" variant="error"
+    <PortalNotice v-else-if="loadError" variant="error"
       >{{ loadError }}
-      <ThemeButton variant="secondary" @click="load">{{ t('retry') }}</ThemeButton></ThemeNotice
+      <PortalButton variant="secondary" @click="load">{{ t('retry') }}</PortalButton></PortalNotice
     >
     <template v-else-if="organization">
       <div class="entity-heading">
-        <p class="eyebrow">{{ t('portal') }}</p>
         <h1>{{ organization.name }}</h1>
-        <ThemeLink
-          v-if="
-            subjects.some(
-              (subject) =>
-                subject !== 'application' && hasAccess(organization?.permissions ?? [], subject)
-            )
-          "
-          :to="`/organizations/${id}/work`"
-          >{{ c('cases') }}</ThemeLink
-        >
-        <p class="metadata">{{ c('organizationId') }}: {{ id }}</p>
-        <p v-if="canAdmin">{{ c('permissionsHint') }}</p>
-        <p v-if="organization.description" class="lead">
-          {{ organization.description }}
-        </p>
-        <div class="entity-meta">
-          <span>{{ members.length }} {{ members.length === 1 ? t('onePerson') : t('people') }}</span
-          ><ThemeBadge v-if="isOwner" tone="success">{{ t('owner') }}</ThemeBadge
-          ><ThemeBadge v-for="permission in organization.permissions" :key="permission">{{
-            permissionLabel(permission)
-          }}</ThemeBadge>
-        </div>
       </div>
       <div class="workspace">
         <nav class="workspace-nav" :aria-label="t('manageOrganization')">
-          <ThemeLink
-            v-if="hasAccess(organization.permissions, 'application')"
-            :to="`/funding/${id}`"
-            >{{ g('apply') }}</ThemeLink
+          <PortalButton
+            variant="link"
+            :aria-current="tab === 'overview' ? 'page' : undefined"
+            @click="tab = 'overview'"
+            >{{ t('overview') }}</PortalButton
           >
-          <ThemeButton
+          <PortalButton
+            v-if="
+              subjects.some(
+                (subject) =>
+                  subject !== 'application' && hasAccess(organization?.permissions ?? [], subject)
+              )
+            "
+            variant="link"
+            :aria-current="tab === 'work' ? 'page' : undefined"
+            @click="tab = 'work'"
+            >{{ c('cases') }}</PortalButton
+          >
+          <PortalButton
+            v-if="hasAccess(organization.permissions, 'application')"
+            variant="link"
+            :aria-current="tab === 'funding' ? 'page' : undefined"
+            @click="tab = 'funding'"
+            >{{ g('apply') }}</PortalButton
+          >
+          <PortalButton
             v-for="item in canAdmin
-              ? (['overview', 'members', 'invitations', 'settings'] as const)
-              : (['overview', 'members'] as const)"
+              ? (['members', 'invitations', 'settings'] as const)
+              : (['members'] as const)"
             :key="item"
             variant="link"
             :aria-current="tab === item ? 'page' : undefined"
             @click="tab = item"
-            >{{ t(item) }}</ThemeButton
+            >{{ t(item) }}</PortalButton
           >
         </nav>
         <div class="workspace-body">
-          <ThemeNotice v-if="error" variant="error" :title="t('errorTitle')">{{
+          <PortalNotice v-if="error" variant="error" :title="t('errorTitle')">{{
             error
-          }}</ThemeNotice>
-          <ThemeNotice v-if="success" variant="success">{{ success }}</ThemeNotice>
+          }}</PortalNotice>
+          <PortalNotice v-if="success" variant="success">{{ success }}</PortalNotice>
           <section
             v-if="confirmation"
             id="confirm-change"
@@ -261,20 +260,26 @@ await load()
             <h3>{{ t('confirmTitle') }}</h3>
             <p>{{ confirmation.text }}</p>
             <div class="form-actions">
-              <ThemeButton :disabled="busy" @click="confirmation.action">{{
+              <PortalButton :disabled="busy" @click="confirmation.action">{{
                 t('confirm')
-              }}</ThemeButton
-              ><ThemeButton variant="secondary" :disabled="busy" @click="confirmation = null">{{
+              }}</PortalButton
+              ><PortalButton variant="secondary" :disabled="busy" @click="confirmation = null">{{
                 t('cancel')
-              }}</ThemeButton>
+              }}</PortalButton>
             </div>
           </section>
+          <OrganizationWork v-if="tab === 'work'" :organization-id="id" embedded />
+          <OrganizationFunding v-if="tab === 'funding'" :organization-id="id" embedded />
           <template v-if="tab === 'overview'">
             <h2>{{ t('overview') }}</h2>
             <dl class="detail-list">
               <div>
                 <dt>{{ t('organizationName') }}</dt>
                 <dd>{{ organization.name }}</dd>
+              </div>
+              <div v-if="organization.description">
+                <dt>{{ t('organizationDescription') }}</dt>
+                <dd>{{ organization.description }}</dd>
               </div>
               <div>
                 <dt>{{ t('organizationId') }}</dt>
@@ -300,6 +305,7 @@ await load()
           <template v-if="tab === 'members'">
             <h2>{{ t('members') }}</h2>
             <p>{{ t('teamIntro') }}</p>
+            <p v-if="canAdmin">{{ c('permissionsHint') }}</p>
             <div class="table-scroll">
               <table>
                 <caption class="sr-only">
@@ -322,26 +328,26 @@ await load()
                     </td>
                     <td>
                       <div class="badges">
-                        <ThemeBadge v-if="member.isOwner" tone="success">{{
+                        <PortalBadge v-if="member.isOwner" tone="success">{{
                           t('owner')
-                        }}</ThemeBadge
-                        ><ThemeBadge v-for="permission in member.permissions" :key="permission">{{
+                        }}</PortalBadge
+                        ><PortalBadge v-for="permission in member.permissions" :key="permission">{{
                           permissionLabel(permission)
-                        }}</ThemeBadge>
+                        }}</PortalBadge>
                       </div>
                     </td>
                     <td v-if="canAdmin">
                       <span v-if="member.isOwner" class="muted">{{ t('ownerPermissionHint') }}</span
-                      ><ThemeButton
+                      ><PortalButton
                         v-else
                         variant="link"
                         :disabled="busy"
                         @click="requestPermission(member)"
                         >{{
                           t(member.permissions.includes('admin') ? 'removeAdmin' : 'grantAdmin')
-                        }}</ThemeButton
+                        }}</PortalButton
                       >
-                      <ThemeSelect
+                      <PortalSelect
                         v-for="subject in subjects"
                         :id="`permission-${member.userId}-${subject}`"
                         :key="subject"
@@ -364,7 +370,7 @@ await load()
             <h2>{{ t('invitePerson') }}</h2>
             <p>{{ t('inviteIntro') }}</p>
             <form class="portal-form" @submit.prevent="invite">
-              <ThemeInput
+              <PortalInput
                 id="invite-email"
                 v-model="inviteEmail"
                 :label="t('email')"
@@ -372,7 +378,7 @@ await load()
                 :hint="t('inviteEmailHint')"
                 :maxlength="254"
                 required
-              /><ThemeInput
+              /><PortalInput
                 id="invite-name"
                 v-model="inviteName"
                 :label="t('fullName')"
@@ -380,24 +386,24 @@ await load()
                 :maxlength="120"
               />
               <div class="form-actions">
-                <ThemeButton type="submit" :disabled="busy" :loading="busy">{{
+                <PortalButton type="submit" :disabled="busy" :loading="busy">{{
                   t('createInvitation')
-                }}</ThemeButton>
+                }}</PortalButton>
               </div>
             </form>
             <section v-if="invitationUrl" class="invitation-result" aria-live="polite">
               <h3>{{ t('invitationCreated') }}</h3>
               <p>{{ t('shareLink') }}</p>
-              <ThemeInput
+              <PortalInput
                 id="invitation-link"
                 :model-value="invitationUrl"
                 :label="t('invitationLink')"
                 readonly
               />
               <p class="metadata">{{ t('expires') }} {{ date(invitationExpiry) }}</p>
-              <ThemeButton variant="secondary" @click="copy">{{
+              <PortalButton variant="secondary" @click="copy">{{
                 copied ? t('copied') : t('copyLink')
-              }}</ThemeButton>
+              }}</PortalButton>
             </section>
             <section class="content-section">
               <h2>{{ t('pendingInvitations') }}</h2>
@@ -426,19 +432,19 @@ await load()
                         }}</span>
                       </td>
                       <td>
-                        <ThemeBadge
+                        <PortalBadge
                           :tone="invitation.status === 'pending' ? 'warning' : 'neutral'"
-                          >{{ t(invitation.status) }}</ThemeBadge
+                          >{{ t(invitation.status) }}</PortalBadge
                         >
                       </td>
                       <td>{{ date(invitation.expiresAt) }}</td>
                       <td>
-                        <ThemeButton
+                        <PortalButton
                           v-if="invitation.status === 'pending'"
                           variant="link"
                           :disabled="busy"
                           @click="revoke(invitation)"
-                          >{{ t('revoke') }}</ThemeButton
+                          >{{ t('revoke') }}</PortalButton
                         >
                       </td>
                     </tr>
@@ -450,7 +456,7 @@ await load()
           <template v-if="tab === 'settings' && canAdmin">
             <h2>{{ t('details') }}</h2>
             <form class="portal-form" @submit.prevent="save">
-              <ThemeInput
+              <PortalInput
                 id="edit-name"
                 v-model="name"
                 :label="t('organizationName')"
@@ -458,7 +464,7 @@ await load()
                 :hint="t('organizationNameHint')"
                 :maxlength="120"
                 required
-              /><ThemeInput
+              /><PortalInput
                 id="edit-description"
                 v-model="description"
                 :label="t('organizationDescription')"
@@ -466,9 +472,9 @@ await load()
                 :maxlength="2000"
               />
               <div class="form-actions">
-                <ThemeButton type="submit" :disabled="busy" :loading="busy">{{
+                <PortalButton type="submit" :disabled="busy" :loading="busy">{{
                   t('saveChanges')
-                }}</ThemeButton>
+                }}</PortalButton>
               </div>
             </form>
             <section v-if="isOwner" class="content-section">
@@ -478,7 +484,7 @@ await load()
                 {{ t('noTransferMembers') }}
               </p>
               <form v-else class="portal-form" @submit.prevent="transfer">
-                <ThemeSelect
+                <PortalSelect
                   id="new-owner"
                   v-model="newOwner"
                   :label="t('newOwner')"
@@ -486,9 +492,9 @@ await load()
                   required
                 />
                 <div class="form-actions">
-                  <ThemeButton type="submit" variant="secondary" :disabled="busy || !newOwner">{{
+                  <PortalButton type="submit" variant="secondary" :disabled="busy || !newOwner">{{
                     t('transferOwnership')
-                  }}</ThemeButton>
+                  }}</PortalButton>
                 </div>
               </form>
             </section>

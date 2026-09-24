@@ -11,15 +11,9 @@ const pending = ref(false)
 const error = ref('')
 const confirmationError = ref('')
 const invitationPath = computed(() =>
-  typeof route.query.governmentInvitation === 'string' &&
-  /^[a-zA-Z0-9_-]+$/.test(route.query.governmentInvitation)
-    ? `/government/invitations/${route.query.governmentInvitation}`
-    : typeof route.query.invitation === 'string' && /^[a-zA-Z0-9_-]+$/.test(route.query.invitation)
-      ? `/invitations/${route.query.invitation}`
-      : ''
-)
-const invitationLogin = computed(() =>
-  invitationPath.value.startsWith('/government/') ? '/government/login' : '/login'
+  typeof route.query.invitation === 'string' && /^[a-zA-Z0-9_-]+$/.test(route.query.invitation)
+    ? `/invitations/${route.query.invitation}`
+    : ''
 )
 useHead(() => ({ title: t('accountTitle') }))
 const submit = async () => {
@@ -44,19 +38,19 @@ const submit = async () => {
 </script>
 <template>
   <div class="form-page">
-    <ThemeLink to="/">{{ t('home') }}</ThemeLink>
+    <PortalLink to="/">{{ t('home') }}</PortalLink>
     <h1>{{ t('accountTitle') }}</h1>
     <p class="lead">{{ t('accountIntro') }}</p>
     <template v-if="user"
-      ><ThemeNotice>{{ t('signedInAs') }} {{ user.email }}</ThemeNotice
-      ><ThemeLink :to="invitationPath || '/organizations'">{{
+      ><PortalNotice>{{ t('signedInAs') }} {{ user.email }}</PortalNotice
+      ><PortalLink :to="invitationPath || '/organizations'">{{
         invitationPath ? t('acceptInvitation') : t('organizations')
-      }}</ThemeLink></template
+      }}</PortalLink></template
     >
     <form v-else class="portal-form" @submit.prevent="submit">
-      <ThemeNotice v-if="error" variant="error" :title="t('errorTitle')">{{ error }}</ThemeNotice>
+      <PortalNotice v-if="error" variant="error" :title="t('errorTitle')">{{ error }}</PortalNotice>
       <p class="form-note">{{ t('requiredHint') }}</p>
-      <ThemeInput
+      <PortalInput
         id="register-name"
         v-model="name"
         :label="t('fullName')"
@@ -64,7 +58,7 @@ const submit = async () => {
         :maxlength="120"
         required
       />
-      <ThemeInput
+      <PortalInput
         id="register-email"
         v-model="email"
         :label="t('email')"
@@ -73,18 +67,18 @@ const submit = async () => {
         :maxlength="254"
         required
       />
-      <ThemeInput
+      <PortalInput
         id="register-password"
         v-model="password"
         :label="t('password')"
         type="password"
         autocomplete="new-password"
-        :minlength="12"
+        :minlength="8"
         :hint="t('passwordHint')"
         :maxlength="128"
         required
       />
-      <ThemeInput
+      <PortalInput
         id="register-confirmation"
         v-model="confirmation"
         :label="t('confirmPassword')"
@@ -95,20 +89,16 @@ const submit = async () => {
         required
       />
       <div class="form-actions">
-        <ThemeButton type="submit" :loading="pending" :disabled="pending">{{
+        <PortalButton type="submit" :loading="pending" :disabled="pending">{{
           t('register')
-        }}</ThemeButton>
+        }}</PortalButton>
       </div>
     </form>
     <p class="form-alternative">
       {{ t('haveAccount') }}
-      <ThemeLink
-        :to="
-          invitationPath
-            ? `${invitationLogin}?next=${encodeURIComponent(invitationPath)}`
-            : '/login'
-        "
-        >{{ t('signIn') }}</ThemeLink
+      <PortalLink
+        :to="invitationPath ? `/login?next=${encodeURIComponent(invitationPath)}` : '/login'"
+        >{{ t('signIn') }}</PortalLink
       >
     </p>
   </div>

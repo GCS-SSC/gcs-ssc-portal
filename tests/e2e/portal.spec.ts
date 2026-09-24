@@ -19,10 +19,9 @@ test.afterEach(({ page }) => {
   expect(browserErrors.get(page)).toEqual([])
 })
 const screenshot = async (page: Page, name: string) => {
-  const theme = (await page.locator('gcds-header').count()) ? 'gcdesign' : 'nuxtui'
   const directory = join(process.cwd(), '.agent', 'visual')
   mkdirSync(directory, { recursive: true })
-  await page.screenshot({ path: join(directory, `${theme}-${name}.png`), fullPage: true })
+  await page.screenshot({ path: join(directory, `gcdesign-${name}.png`), fullPage: true })
 }
 
 const password = 'Portal end-to-end passphrase 2026!'
@@ -107,9 +106,7 @@ test('registration, invitation access, per-organization permissions and ownershi
     await expect(
       memberPage.getByRole('heading', { level: 1, name: 'Shared services team' })
     ).toBeVisible()
-    await expect(
-      memberPage.getByRole('button', { name: 'Organization settings', exact: true })
-    ).toHaveCount(0)
+    await expect(memberPage.getByRole('button', { name: 'Settings', exact: true })).toHaveCount(0)
     const memberOrgResponse = await memberPage.request.get(`/api/organizations/${organizationId}`)
     const memberOrg = (await memberOrgResponse.json()).organization
     expect(memberOrg.permissions).toEqual(['user'])
@@ -166,9 +163,7 @@ test('registration, invitation access, per-organization permissions and ownershi
       memberRow.getByRole('button', { name: 'Remove administrator', exact: true })
     ).toBeVisible()
     await memberPage.reload()
-    await expect(
-      memberPage.getByRole('button', { name: 'Organization settings', exact: true })
-    ).toBeVisible()
+    await expect(memberPage.getByRole('button', { name: 'Settings', exact: true })).toBeVisible()
     expect(
       (await memberPage.request.get(`/api/organizations/${secondOrganization.id}`)).status()
     ).toBe(404)
@@ -180,14 +175,9 @@ test('registration, invitation access, per-organization permissions and ownershi
       ).status()
     ).toBe(403)
 
-    await page.getByRole('button', { name: 'Organization settings', exact: true }).click()
+    await page.getByRole('button', { name: 'Settings', exact: true }).click()
     const ownerSelect = page.getByRole('combobox', { name: /^New owner/ })
-    if (await ownerSelect.evaluate((element) => element.tagName === 'SELECT')) {
-      await ownerSelect.selectOption(memberId)
-    } else {
-      await ownerSelect.click()
-      await page.getByRole('option', { name: `Sam Member (${memberEmail})`, exact: true }).click()
-    }
+    await ownerSelect.selectOption(memberId)
     await page.getByRole('button', { name: 'Transfer ownership', exact: true }).click()
     await confirm(page)
     await expect(page.getByText('Ownership transferred.', { exact: true })).toBeVisible()
@@ -237,7 +227,7 @@ test('mobile bilingual navigation and accessible required fields', async ({ page
   }
   await page.getByRole('button', { name: 'Create an account', exact: true }).click()
   await expect(page).toHaveURL(/\/register$/)
-  await page.getByRole('button', { name: 'Français', exact: true }).click()
+  await page.locator('gcds-lang-toggle').getByRole('link').click()
   await expect(page.getByRole('heading', { level: 1, name: 'Créez votre compte' })).toBeVisible()
   await expect(page.locator('html')).toHaveAttribute('lang', 'fr')
   await expect(page.getByLabel(/^Nom complet/)).toBeVisible()
@@ -246,7 +236,7 @@ test('mobile bilingual navigation and accessible required fields', async ({ page
   )
   await page.reload()
   await expect(page.getByRole('heading', { level: 1, name: 'Créez votre compte' })).toBeVisible()
-  await page.getByRole('button', { name: 'English', exact: true }).click()
+  await page.locator('gcds-lang-toggle').getByRole('link').click()
   await expect(page.getByRole('heading', { level: 1, name: 'Create your account' })).toBeVisible()
 })
 

@@ -13,8 +13,8 @@ This is the GCS–SSC companion organization portal. It owns its accounts, organ
 
 - `AGENTS.md` and `architecture/` are maintained directly in this repository. No private tooling checkout, submodule, compatibility symlink, or sibling-specific skill is required.
 - Stack: Bun, Nuxt 4/Vue 3, Better Auth, Kysely, PostgreSQL or single-process PGlite, and Zod. Read `package.json` for commands.
-- Themes are selected at build time with `PORTAL_THEME`; read [architecture/themes.md](architecture/themes.md). Host pages must use the shared `Theme*` adapters, never vendor components. Every adapter change must work in both themes.
-- Run `bun run lint`, `bun run typecheck`, `bun run test:unit`, and `bun run test:themes` for relevant implementation changes. Browser tests build each theme sequentially; never rebuild `.output` while another verification server owns it.
+- For UI work, read [GC Design System UI architecture](architecture/gcdesign.md). Reuse official GCDS components through the shared GCDS integration components, including layout and typography; do not recreate available components with custom HTML/CSS. Document genuine capability gaps.
+- Run `bun run lint`, `bun run typecheck`, `bun run test:unit`, and `bun run test:e2e` for relevant implementation changes. Browser tests build the GC Design System application; never rebuild `.output` while another verification server owns it.
 - Keep dependencies, build outputs, caches, generated reports, local databases, and secrets out of authored source. Change generators rather than their generated outputs.
 - Keep tests with the application or package that owns the behavior. Shared integration tests should verify public boundaries rather than another package's implementation details.
 

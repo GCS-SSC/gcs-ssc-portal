@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { portalConfig } from '../../server/utils/config'
+import { isPortalOriginAllowed, portalConfig, portalTrustedOriginsForRequest } from '../../server/utils/config'
 import { invitationInput, permissionsInput } from '../../shared/schemas/portal'
 afterEach(() => vi.unstubAllEnvs())
 describe('configuration and request rules', () => {
@@ -21,6 +21,35 @@ describe('configuration and request rules', () => {
     expect(() => portalConfig()).toThrow()
     vi.stubEnv('APP_URL', 'https://portal.example.test')
     expect(portalConfig().appUrl).toBe('https://portal.example.test')
+  })
+  it('trusts equivalent loopback origins only in development', () => {
+    vi.stubEnv('NODE_ENV', 'development')
+    vi.stubEnv('APP_URL', 'http://0.0.0.0:3002')
+    vi.stubEnv(
+      'BETTER_AUTH_TRUSTED_ORIGINS',
+      'http://0.0.0.0:3002,http://localhost:3002,http://127.0.0.1:3002'
+    )
+    expect(portalConfig().trustedOrigins).toEqual(
+      expect.arrayContaining(['http://localhost:3002', 'http://127.0.0.1:3002'])
+    )
+    expect(portalConfig().trustedOrigins).not.toContain('http://example.test:3002')
+  })
+  it('accepts a forwarded same-origin HTTPS request in development only', () => {
+    vi.stubEnv('NODE_ENV', 'development')
+    vi.stubEnv('APP_URL', 'http://0.0.0.0:3002')
+    const origin = 'https://3002.613868.xyz'
+    const requestUrl = `${origin}/api/auth/sign-in/email`
+    expect(isPortalOriginAllowed(origin, requestUrl)).toBe(true)
+    expect(portalTrustedOriginsForRequest(new Request(requestUrl, { headers: { origin } })))
+      .toContain(origin)
+    expect(isPortalOriginAllowed('https://evil.example.test', requestUrl)).toBe(false)
+    expect(isPortalOriginAllowed(`${origin}/`, requestUrl)).toBe(false)
+    expect(isPortalOriginAllowed(origin, 'http://localhost:3002/api/auth/sign-in/email'))
+      .toBe(false)
+    vi.stubEnv('NODE_ENV', 'production')
+    vi.stubEnv('APP_URL', 'https://portal.example.test')
+    vi.stubEnv('BETTER_AUTH_SECRET', 'a'.repeat(32))
+    expect(isPortalOriginAllowed(origin, requestUrl)).toBe(false)
   })
   it('limits permissions to additive grants and normalizes addresses', () => {
     expect(invitationInput.parse({ email: 'Person@Example.test' }).email).toBe(

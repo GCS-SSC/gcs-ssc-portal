@@ -1,4 +1,4 @@
-name: Build and publish portal demo images
+name: Build and publish portal demo image
 on:
   workflow_dispatch:
   push:
@@ -7,8 +7,6 @@ on:
       - 'app/**'
       - 'server/**'
       - 'shared/**'
-      - 'themes/**'
-      - 'tooling/**'
       - 'public/**'
       - 'scripts/**'
       - 'deployment/start.mjs'
@@ -28,20 +26,14 @@ jobs:
   publish:
     runs-on: ubuntu-latest
     timeout-minutes: 40
-    strategy:
-      fail-fast: false
-      matrix:
-        theme: [nuxtui, gcdesign]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           persist-credentials: false
       - name: Choose immutable release tag
         id: image
-        env:
-          THEME: ${{ matrix.theme }}
         run: |
-          repository="ghcr.io/${GITHUB_REPOSITORY,,}-demo-${THEME}"
+          repository="ghcr.io/${GITHUB_REPOSITORY,,}-demo-gcdesign"
           echo "tag=${repository}:sha-${GITHUB_SHA}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" >> "$GITHUB_OUTPUT"
       - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069
       - name: Build once
@@ -53,13 +45,12 @@ jobs:
           push: false
           tags: ${{ steps.image.outputs.tag }}
           build-args: |
-            PORTAL_THEME=${{ matrix.theme }}
             PORTAL_ENVIRONMENT=demo
           labels: |
             org.opencontainers.image.source=https://github.com/${{ github.repository }}
             org.opencontainers.image.revision=${{ github.sha }}
-          cache-from: type=gha,scope=portal-${{ matrix.theme }}
-          cache-to: type=gha,mode=max,scope=portal-${{ matrix.theme }}
+          cache-from: type=gha,scope=portal-gcdesign
+          cache-to: type=gha,mode=max,scope=portal-gcdesign
       - name: Verify the exact image before publishing
         env:
           IMAGE: ${{ steps.image.outputs.tag }}
@@ -72,19 +63,18 @@ jobs:
       - name: Push and capture digest
         env:
           IMAGE: ${{ steps.image.outputs.tag }}
-          THEME: ${{ matrix.theme }}
         run: |
           docker push "$IMAGE"
           reference=$(docker image inspect --format '{{index .RepoDigests 0}}' "$IMAGE")
-          if [[ ! "$reference" =~ ^ghcr\.io/gcs-ssc/gcs-ssc-portal-demo-${THEME}@sha256:[a-f0-9]{64}$ ]]; then
+          if [[ ! "$reference" =~ ^ghcr\.io/gcs-ssc/gcs-ssc-portal-demo-gcdesign@sha256:[a-f0-9]{64}$ ]]; then
             echo '::error::Registry did not return the expected digest-pinned image'
             exit 1
           fi
-          jq -n --arg theme "$THEME" --arg image "$reference" --arg commit "$GITHUB_SHA" '{theme:$theme,image:$image,commit:$commit}' > "image-${THEME}.json"
-          printf 'Verified %s image: `%s`\n' "$THEME" "$reference" >> "$GITHUB_STEP_SUMMARY"
+          jq -n --arg image "$reference" --arg commit "$GITHUB_SHA" '{image:$image,commit:$commit}' > "image-gcdesign.json"
+          printf 'Verified GC Design System image: `%s`\n' "$reference" >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
-          name: image-${{ matrix.theme }}
-          path: image-${{ matrix.theme }}.json
+          name: image-gcdesign
+          path: image-gcdesign.json
           if-no-files-found: error
           retention-days: 90

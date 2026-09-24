@@ -10,13 +10,13 @@ useHead(() => ({ title: t('portal') }))
       <h1>{{ t('portal') }}</h1>
       <p class="lead">{{ t('intro') }}</p>
       <div class="start-actions">
-        <ThemeLink class="primary-link" :to="user ? '/organizations' : '/register'"
+        <PortalLink class="primary-link" :to="user ? '/organizations' : '/register'"
           >{{ user ? t('organizations') : t('getStarted') }}
-          <span aria-hidden="true">→</span></ThemeLink
+          <span aria-hidden="true">→</span></PortalLink
         >
         <p v-if="!user">
           {{ t('returning') }}
-          <ThemeLink to="/login">{{ t('signIn') }}</ThemeLink>
+          <PortalLink to="/login">{{ t('signIn') }}</PortalLink>
         </p>
       </div>
     </section>

@@ -55,7 +55,7 @@ export default defineConfig({
       reuseExistingServer: false
     },
     {
-      command: 'bun scripts/create-root.ts && node .output/server/index.mjs',
+      command: 'bun scripts/create-administrator.ts && node .output/server/index.mjs',
       url: `${baseURL}/api/session`,
       timeout: 60_000,
       reuseExistingServer: false,
@@ -68,10 +68,9 @@ export default defineConfig({
         S3_FORCE_PATH_STYLE: 'true',
         AWS_ACCESS_KEY_ID: 'portal-test-only',
         AWS_SECRET_ACCESS_KEY: 'portal-test-only-secret',
-        ROOT_NAME: 'Portal Root',
-        ROOT_EMAIL: 'root@example.test',
-        ROOT_PASSWORD: 'Root-test-only-2026!',
-        PORTAL_THEME: 'runtime-theme-switch-is-not-supported',
+        ADMIN_NAME: 'Portal Root',
+        ADMIN_EMAIL: 'root@example.test',
+        ADMIN_PASSWORD: 'Root-test-only-2026!',
         NITRO_SSL_CERT: readFileSync(certificatePath, 'utf8'),
         NITRO_SSL_KEY: readFileSync(keyPath, 'utf8'),
         APP_URL: baseURL,

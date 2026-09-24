@@ -7,6 +7,21 @@ interface ForeignIdentity {
   foreignSystemId: Generated<string | null>
 }
 export interface Database {
+  administrator: {
+    id: string
+    name: string
+    email: string
+    passwordHash: string
+    active: boolean
+    createdAt: Timestamp
+  }
+  administrator_session: {
+    tokenHash: string
+    administratorId: string
+    expiresAt: Timestamp
+    createdAt: Timestamp
+  }
+  administrator_login_attempt: { key: string; windowStart: Timestamp; count: number }
   user: {
     id: string
     name: string
