@@ -9,9 +9,7 @@ const {
   data,
   error: loadError,
   refresh
-} = await useAsyncData('admin-agencies', () =>
-  api<{ agencies: Agency[] }>('/api/admin/agencies')
-)
+} = await useAsyncData('admin-agencies', () => api<{ agencies: Agency[] }>('/api/admin/agencies'))
 const nameEn = ref('')
 const nameFr = ref('')
 const create = () =>
@@ -28,8 +26,8 @@ useHead(() => ({ title: g('agencies') }))
 </script>
 <template>
   <section>
-    <h1>{{ g('agencies') }}</h1>
-    <p class="lead">{{ g('adminAgencyIntro') }}</p>
+    <PortalHeading tag="h1">{{ g('agencies') }}</PortalHeading>
+    <PortalText>{{ g('adminAgencyIntro') }}</PortalText>
     <PortalNotice v-if="loadError" variant="error"
       >{{ message(loadError) }}
       <PortalButton variant="secondary" @click="refresh()">{{
@@ -41,9 +39,9 @@ useHead(() => ({ title: g('agencies') }))
         {{ localized(agency) }} <code>{{ agency.id }}</code>
       </li>
     </ul>
-    <p v-else>{{ g('noAgencies') }}</p>
+    <PortalText v-else>{{ g('noAgencies') }}</PortalText>
     <section class="content-section">
-      <h2>{{ g('newAgency') }}</h2>
+      <PortalHeading tag="h2">{{ g('newAgency') }}</PortalHeading>
       <PortalNotice v-if="error" variant="error">{{ error }}</PortalNotice>
       <form class="portal-form" @submit.prevent="create">
         <PortalInput
@@ -60,7 +58,9 @@ useHead(() => ({ title: g('agencies') }))
           :maxlength="200"
           required
         />
-        <PortalButton type="submit" :disabled="busy" :loading="busy">{{ g('create') }}</PortalButton>
+        <PortalButton type="submit" :disabled="busy" :loading="busy">{{
+          g('create')
+        }}</PortalButton>
       </form>
     </section>
   </section>

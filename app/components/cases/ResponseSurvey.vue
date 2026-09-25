@@ -21,7 +21,7 @@ const navigate = async (action: (() => boolean) | (() => void)) => {
 <template>
   <section class="content-section">
     <template v-if="readonly">
-      <h3>{{ definition.title[locale] }}</h3>
+      <PortalHeading tag="h2">{{ definition.title[locale] }}</PortalHeading>
       <dl>
         <template v-for="question in readQuestions" :key="question.id"
           ><dt>{{ question.label[locale] }}</dt>
@@ -55,8 +55,8 @@ const navigate = async (action: (() => boolean) | (() => void)) => {
           back
         }"
       >
-        <h3>{{ title }}</h3>
-        <p v-if="description">{{ description }}</p>
+        <PortalHeading tag="h2">{{ title }}</PortalHeading>
+        <PortalText v-if="description">{{ description }}</PortalText>
         <form class="portal-form" novalidate @submit.prevent="navigate(next)">
           <div
             v-if="Object.keys(errors).length"
@@ -71,28 +71,36 @@ const navigate = async (action: (() => boolean) | (() => void)) => {
               <PortalNotice variant="success">{{ s('valid') }}</PortalNotice>
             </template>
             <template v-else-if="page">
-              <h4 v-if="definition.schemaVersion === 2">
+              <PortalHeading v-if="definition.schemaVersion === 2" tag="h3">
                 {{ s('page') }} {{ pageIndex + 1 }}: {{ page.title[locale] }}
-              </h4>
-              <p v-if="page.description">{{ page.description[locale] }}</p>
+              </PortalHeading>
+              <PortalText v-if="page.description">{{ page.description[locale] }}</PortalText>
               <SurveyFields :fields="fields" :ids="page.questionIds" :prefix="prefix" />
               <section
                 v-for="section in page.sections"
                 :key="section.id"
-                :aria-labelledby="`${prefix}-${section.id}`"
+                :aria-label="section.title[locale]"
                 class="content-section"
               >
-                <h5 :id="`${prefix}-${section.id}`">{{ section.title[locale] }}</h5>
-                <p v-if="section.description">{{ section.description[locale] }}</p>
+                <PortalHeading :id="`${prefix}-${section.id}`" tag="h4">{{
+                  section.title[locale]
+                }}</PortalHeading>
+                <PortalText v-if="section.description">{{
+                  section.description[locale]
+                }}</PortalText>
                 <SurveyFields :fields="fields" :ids="section.questionIds" :prefix="prefix" />
                 <section
                   v-for="subsection in section.subsections"
                   :key="subsection.id"
-                  :aria-labelledby="`${prefix}-${subsection.id}`"
+                  :aria-label="subsection.title[locale]"
                   class="content-section"
                 >
-                  <h6 :id="`${prefix}-${subsection.id}`">{{ subsection.title[locale] }}</h6>
-                  <p v-if="subsection.description">{{ subsection.description[locale] }}</p>
+                  <PortalHeading :id="`${prefix}-${subsection.id}`" tag="h5">{{
+                    subsection.title[locale]
+                  }}</PortalHeading>
+                  <PortalText v-if="subsection.description">{{
+                    subsection.description[locale]
+                  }}</PortalText>
                   <SurveyFields :fields="fields" :ids="subsection.questionIds" :prefix="prefix" />
                 </section>
               </section>
@@ -113,30 +121,9 @@ const navigate = async (action: (() => boolean) | (() => void)) => {
 </template>
 
 <style scoped>
-h3 {
-  font-size: 1.5rem;
-}
-.survey-page h4,
-.survey-page h5,
-.survey-page h6 {
-  font-family: Lato, Arial, sans-serif;
-  color: var(--portal-ink);
-  font-weight: 700;
-  line-height: 1.4;
-  margin: 0 0 0.8rem;
-}
-.survey-page h4 {
-  font-size: 1.3rem;
-}
-.survey-page h5 {
-  font-size: 1.2rem;
-}
-.survey-page h6 {
-  font-size: 1.125rem;
-}
 .survey-page .content-section {
   border-top: 0;
   padding-top: 0;
-  margin-top: 1.5rem;
+  margin-top: var(--gcds-spacing-300);
 }
 </style>

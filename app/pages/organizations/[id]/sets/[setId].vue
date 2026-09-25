@@ -36,17 +36,17 @@ const start = () =>
 </script>
 <template>
   <section>
-    <PortalLink :to="`/organizations/${id}/work`">{{ c('back') }}</PortalLink>
+    <PortalLink :to="`/organizations/${id}?section=work`">{{ c('back') }}</PortalLink>
     <PortalNotice v-if="loadError" variant="error"
       >{{ errorMessage(loadError) }}
       <PortalButton @click="refresh()">{{ c('reload') }}</PortalButton></PortalNotice
     >
     <PortalNotice v-if="error" variant="error">{{ error }}</PortalNotice>
     <template v-if="data?.set.snapshot">
-      <h1>{{ localized(data.set) }}</h1>
-      <p v-if="data.set.snapshot.caseReference">
+      <PortalHeading tag="h1">{{ localized(data.set) }}</PortalHeading>
+      <PortalText v-if="data.set.snapshot.caseReference">
         {{ c('agreementNumber') }}: {{ data.set.snapshot.caseReference.agreementNumber }}
-      </p>
+      </PortalText>
       <ol>
         <li v-for="entry in data.set.snapshot.items" :key="entry.item.id">
           {{ entry.survey?.title[locale] ?? c(entry.item.kind) }}

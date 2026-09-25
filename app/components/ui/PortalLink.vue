@@ -1,10 +1,13 @@
 <script setup lang="ts">
-import { GcdsLink } from '@gcds-core/components-vue'
+import { GcdsLink, GcdsButton } from '@gcds-core/components-vue'
 import type { PortalLinkProps } from '../../../shared/types/ui'
 
 defineProps<PortalLinkProps>()
 </script>
 
 <template>
-  <GcdsLink :href="to" :external="external"><slot /></GcdsLink>
+  <GcdsButton v-if="variant === 'button'" size="regular" type="link" :href="to"
+    ><slot
+  /></GcdsButton>
+  <GcdsLink v-else :href="to" :external="external"><slot /></GcdsLink>
 </template>

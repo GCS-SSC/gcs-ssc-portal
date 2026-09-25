@@ -46,9 +46,8 @@ useHead(() => ({ title: g('integrations') }))
 </script>
 <template>
   <section>
-    <PortalLink to="/admin">{{ g('back') }}</PortalLink>
-    <h1>{{ g('integrations') }}</h1>
-    <p class="lead">{{ g('integrationIntro') }}</p>
+    <PortalHeading tag="h1">{{ g('integrations') }}</PortalHeading>
+    <PortalText>{{ g('integrationIntro') }}</PortalText>
     <PortalNotice v-if="loadError" variant="error"
       >{{ message(loadError) }}
       <PortalButton variant="secondary" @click="refresh()">{{
@@ -57,57 +56,53 @@ useHead(() => ({ title: g('integrations') }))
     ><PortalNotice v-if="error" variant="error">{{ error }}</PortalNotice
     ><PortalNotice v-if="success" variant="success">{{ success }}</PortalNotice>
     <section v-if="confirmation" class="confirmation" aria-live="polite">
-      <h2>{{ g('confirmChange') }}</h2>
-      <p>{{ g('revokeConfirm') }} {{ confirmation.name }}</p>
+      <PortalHeading tag="h2">{{ g('confirmChange') }}</PortalHeading>
+      <PortalText>{{ g('revokeConfirm') }} {{ confirmation.name }}</PortalText>
       <div class="form-actions">
-        <PortalButton :disabled="busy" @click="revoke(confirmation)">{{ g('confirm') }}</PortalButton
+        <PortalButton :disabled="busy" @click="revoke(confirmation)">{{
+          g('confirm')
+        }}</PortalButton
         ><PortalButton variant="secondary" :disabled="busy" @click="confirmation = null">{{
           g('cancel')
         }}</PortalButton>
       </div>
     </section>
     <template v-if="data">
-      <p v-if="!data.tokens.length">{{ g('noTokens') }}</p>
+      <PortalText v-if="!data.tokens.length">{{ g('noTokens') }}</PortalText>
       <div v-else class="table-scroll">
-        <table>
-          <caption class="sr-only">
-            {{
-              g('integrations')
-            }}
-          </caption>
-          <thead>
-            <tr>
-              <th scope="col">{{ g('tokenName') }}</th>
-              <th scope="col">{{ g('agency') }}</th>
-              <th scope="col">{{ g('expires') }}</th>
-              <th scope="col">{{ g('status') }}</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="token in data.tokens" :key="token.id">
-              <td>{{ token.name }}</td>
-              <td>{{ localized(data.agencies.find((a) => a.id === token.agencyId)!) }}</td>
-              <td>{{ date(token.expiresAt) }}</td>
-              <td>
-                <span v-if="token.revoked">{{ g('revoked') }}</span
-                ><span v-else-if="new Date(token.expiresAt).getTime() <= Date.now()">{{
-                  g('expired')
-                }}</span
-                ><PortalButton
-                  v-else
-                  variant="link"
-                  :disabled="busy"
-                  @click="confirmation = token"
-                  >{{ g('revoke') }}</PortalButton
-                >
-              </td>
-            </tr>
-          </tbody>
-        </table>
+        <PortalTable
+          :label="g('integrations')"
+          :rows="data.tokens"
+          :columns="[
+            { field: 'name', header: g('tokenName') },
+            { field: 'agency', header: g('agency') },
+            { field: 'expires', header: g('expires') },
+            { field: 'status', header: g('status') }
+          ]"
+        >
+          <template #name="{ row: token }">{{ token.name }}</template>
+          <template #agency="{ row: token }">{{
+            localized(data.agencies.find((a) => a.id === token.agencyId)!)
+          }}</template>
+          <template #expires="{ row: token }">{{ date(token.expiresAt) }}</template>
+          <template #status="{ row: token }">
+            <span v-if="token.revoked">{{ g('revoked') }}</span
+            ><span v-else-if="new Date(token.expiresAt).getTime() <= Date.now()">{{
+              g('expired')
+            }}</span
+            ><PortalButton
+              v-else
+              variant="secondary"
+              :disabled="busy"
+              @click="confirmation = token"
+              >{{ g('revoke') }}</PortalButton
+            >
+          </template>
+        </PortalTable>
       </div>
       <section class="content-section">
-        <h2>{{ g('issueToken') }}</h2>
-        <p v-if="!data.agencies.length">{{ g('noAgencies') }}</p>
+        <PortalHeading tag="h2">{{ g('issueToken') }}</PortalHeading>
+        <PortalText v-if="!data.agencies.length">{{ g('noAgencies') }}</PortalText>
         <form v-else class="portal-form" @submit.prevent="create">
           <PortalInput
             id="token-name"
@@ -136,7 +131,7 @@ useHead(() => ({ title: g('integrations') }))
           </div>
         </form>
         <section v-if="secret" class="invitation-result" aria-live="polite">
-          <p>{{ g('tokenHint') }}</p>
+          <PortalText>{{ g('tokenHint') }}</PortalText>
           <PortalInput id="integration-secret" :model-value="secret" :label="g('token')" readonly />
         </section>
       </section>

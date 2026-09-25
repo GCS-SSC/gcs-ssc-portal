@@ -51,6 +51,9 @@ test('registration, invitation access, per-organization permissions and ownershi
   await page.setViewportSize({ width: 1440, height: 1050 })
   await page.goto('/')
   await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
+  await expect(
+    page.getByRole('region', { name: 'A shared space for your organization', exact: true })
+  ).toBeVisible()
   await screenshot(page, 'home-desktop')
   await page.goto('/register')
   await signUp(page, 'Alex Owner', ownerEmail)
@@ -71,7 +74,14 @@ test('registration, invitation access, per-organization permissions and ownershi
     /^[a-f0-9]{8}-[a-f0-9]{4}-7[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/
   )
 
-  await page.getByRole('button', { name: 'Invitations', exact: true }).click()
+  await page.getByRole('link', { name: 'Invitations', exact: true }).click()
+  const signoutHeight = await page
+    .getByRole('button', { name: 'Sign out', exact: true })
+    .evaluate((button) => button.getBoundingClientRect().height)
+  const createHeight = await page
+    .getByRole('button', { name: 'Create invitation link' })
+    .evaluate((button) => button.getBoundingClientRect().height)
+  expect(createHeight).toBe(signoutHeight)
   await page.getByLabel(/^Email address/).fill(memberEmail)
   await page.getByLabel(/^Full name/).fill('Sam Member')
   await page.getByRole('button', { name: 'Create invitation link' }).click()
@@ -106,7 +116,7 @@ test('registration, invitation access, per-organization permissions and ownershi
     await expect(
       memberPage.getByRole('heading', { level: 1, name: 'Shared services team' })
     ).toBeVisible()
-    await expect(memberPage.getByRole('button', { name: 'Settings', exact: true })).toHaveCount(0)
+    await expect(memberPage.getByRole('link', { name: 'Settings', exact: true })).toHaveCount(0)
     const memberOrgResponse = await memberPage.request.get(`/api/organizations/${organizationId}`)
     const memberOrg = (await memberOrgResponse.json()).organization
     expect(memberOrg.permissions).toEqual(['user'])
@@ -155,15 +165,32 @@ test('registration, invitation access, per-organization permissions and ownershi
     ).toBe(403)
 
     await page.reload()
-    await page.getByRole('button', { name: 'People', exact: true }).click()
-    const memberRow = page.getByRole('row').filter({ hasText: memberEmail })
-    await memberRow.getByRole('button', { name: 'Make administrator', exact: true }).click()
+    await page.getByRole('link', { name: 'People', exact: true }).click()
+    const memberRow = page.getByRole('row', { name: new RegExp(memberEmail) })
+    await expect(memberRow).toBeVisible()
+    await page.setViewportSize({ width: 390, height: 844 })
+    await page.getByRole('button', { name: 'Permissions — Sam Member', exact: true }).click()
+    await page.getByRole('combobox', { name: 'Applications', exact: true }).selectOption('viewer')
+    await expect(page.getByText('Permissions updated.', { exact: true })).toBeVisible()
+    const updatedPeople = await (
+      await page.request.get(`/api/organizations/${organizationId}/members`)
+    ).json()
+    expect(
+      updatedPeople.members.find((member: { userId: string }) => member.userId === memberId)
+        .permissions
+    ).toContain('application:viewer')
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+    await screenshot(page, 'people-mobile')
+    await page.setViewportSize({ width: 1440, height: 1050 })
+    await page
+      .getByRole('button', { name: `Make administrator — ${memberEmail}`, exact: true })
+      .click()
     await confirm(page)
     await expect(
-      memberRow.getByRole('button', { name: 'Remove administrator', exact: true })
+      page.getByRole('button', { name: `Remove administrator — ${memberEmail}`, exact: true })
     ).toBeVisible()
     await memberPage.reload()
-    await expect(memberPage.getByRole('button', { name: 'Settings', exact: true })).toBeVisible()
+    await expect(memberPage.getByRole('link', { name: 'Settings', exact: true })).toBeVisible()
     expect(
       (await memberPage.request.get(`/api/organizations/${secondOrganization.id}`)).status()
     ).toBe(404)
@@ -175,7 +202,7 @@ test('registration, invitation access, per-organization permissions and ownershi
       ).status()
     ).toBe(403)
 
-    await page.getByRole('button', { name: 'Settings', exact: true }).click()
+    await page.getByRole('link', { name: 'Settings', exact: true }).click()
     const ownerSelect = page.getByRole('combobox', { name: /^New owner/ })
     await ownerSelect.selectOption(memberId)
     await page.getByRole('button', { name: 'Transfer ownership', exact: true }).click()
@@ -190,19 +217,17 @@ test('registration, invitation access, per-organization permissions and ownershi
     expect(transferred.ownerId).toBe(memberId)
     expect(transferred.permissions).toEqual(expect.arrayContaining(['user', 'admin']))
 
-    await page.getByRole('button', { name: 'Invitations', exact: true }).click()
+    await page.getByRole('link', { name: 'Invitations', exact: true }).click()
     const revokedEmail = `revoked-${suffix}@example.test`
     await page.getByLabel(/^Email address/).fill(revokedEmail)
     await page.getByRole('button', { name: 'Create invitation link' }).click()
     await expect(page.getByLabel(/^Invitation link/)).toHaveValue(/\/invitations\//)
     const revokedUrl = await page.getByLabel(/^Invitation link/).inputValue()
-    await page
-      .getByRole('row')
-      .filter({ hasText: revokedEmail })
-      .getByRole('button', { name: 'Revoke invitation' })
-      .click()
+    await page.getByRole('button', { name: `Revoke invitation — ${revokedEmail}` }).click()
     await confirm(page)
-    await expect(page.getByRole('row').filter({ hasText: revokedEmail })).toContainText('Revoked')
+    await expect(
+      page.getByRole('row', { name: new RegExp(`${revokedEmail}.*Revoked`) })
+    ).toBeVisible()
     await memberPage.goto(revokedUrl)
     await expect(
       memberPage.getByRole('heading', { name: 'This invitation is unavailable' })
@@ -260,12 +285,12 @@ test('expired sessions and wrong-account sign-out preserve the intended destinat
   expect(invited.ok()).toBeTruthy()
   const invitationUrl = (await invited.json()).url
   await page.goto(destination)
-  await page.getByRole('button', { name: 'Invitations', exact: true }).click()
+  await page.getByRole('link', { name: 'Invitations', exact: true }).click()
   await page.context().clearCookies()
   await page.getByLabel(/^Email address/).fill('expired-session@example.test')
   await page.getByRole('button', { name: 'Create invitation link' }).click()
   await expect(page).toHaveURL(/\/login\?next=/)
-  expect(new URL(page.url()).searchParams.get('next')).toBe(destination)
+  expect(new URL(page.url()).searchParams.get('next')).toBe(`${destination}?section=invitations`)
   await page.getByLabel(/^Email address/).fill(email)
   await page.getByLabel(/^Password/).fill(password)
   await page.getByRole('button', { name: 'Sign in', exact: true }).click()

@@ -1,7 +1,7 @@
 /** Shared integration contracts for the GC Design System components. */
 export interface PortalButtonProps {
   type?: 'button' | 'submit' | 'reset'
-  variant?: 'primary' | 'secondary' | 'danger' | 'link'
+  variant?: 'primary' | 'secondary' | 'danger'
   disabled?: boolean
   loading?: boolean
 }
@@ -37,10 +37,12 @@ export interface PortalBadgeProps {
   tone?: 'neutral' | 'success' | 'warning'
 }
 export interface PortalLinkProps {
+  variant?: 'button'
   to: string
   external?: boolean
 }
 export interface PortalShellProps {
+  breadcrumbs?: { to: string; label: string }[]
   locale: 'en' | 'fr'
   signedIn: boolean
   userName?: string

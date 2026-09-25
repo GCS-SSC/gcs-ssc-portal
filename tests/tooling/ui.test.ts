@@ -19,6 +19,17 @@ describe('GC Design System integration boundary', () => {
     )) {
       const content = readFileSync(file, 'utf8')
       expect(content, file).not.toMatch(/@nuxt\/ui|@gcds-core|<U[A-Z]|<Gcds|<gcds-/)
+      // Layout and content must use the same official primitives as the controls.
+      expect(content, file).not.toMatch(/<(?:h[1-6]|p|table|fieldset)(?:\s|>)/)
+    }
+  })
+  it('does not rescale or repaint GCDS controls', () => {
+    for (const file of ['app/assets/css/main.css', 'app/assets/css/gcds.css']) {
+      const css = readFileSync(file, 'utf8').replace(/\/\*[\s\S]*?\*\//g, '')
+      expect(css, file).not.toMatch(/::part\(|h1::after|!important/)
+      for (const root of css.matchAll(/:root\s*\{([^}]+)\}/g)) {
+        expect(root[1], file).not.toMatch(/(?:font-size|font)\s*:/)
+      }
     }
   })
 })

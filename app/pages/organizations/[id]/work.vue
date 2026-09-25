@@ -1,7 +1,5 @@
 <script setup lang="ts">
-definePageMeta({ key: (route) => route.fullPath })
 const id = String(useRoute().params.id)
+await navigateTo(`/organizations/${encodeURIComponent(id)}?section=work`, { replace: true })
 </script>
-<template>
-  <OrganizationWork :organization-id="id" />
-</template>
+<template><div /></template>

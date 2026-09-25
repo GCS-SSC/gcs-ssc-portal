@@ -17,6 +17,22 @@ const navigation = computed(() =>
       ? [{ to: '/organizations', label: t('organizations') }]
       : []
 )
+const breadcrumbs = computed(() => {
+  if (route.path === '/') return []
+  if (inAdmin.value)
+    return route.path === '/admin' || route.path === '/admin/login'
+      ? []
+      : [{ to: '/admin', label: g('adminTitle') }]
+  const items = [{ to: '/', label: t('home') }]
+  if (
+    route.path.startsWith('/organizations/') ||
+    route.path.startsWith('/funding/') ||
+    route.path.startsWith('/forms/')
+  ) {
+    items.push({ to: '/organizations', label: t('organizations') })
+  }
+  return items
+})
 const message = useApiMessage()
 const signOutError = ref('')
 useHead(() => ({
@@ -36,6 +52,7 @@ const logout = async () => {
   <div class="gc-theme">
     <PortalShell
       :locale="locale"
+      :breadcrumbs="breadcrumbs"
       :navigation="navigation"
       :portal-title="inAdmin ? g('adminTitle') : undefined"
       :signed-in="inAdmin ? !!administrator : !!user"

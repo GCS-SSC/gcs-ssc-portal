@@ -46,30 +46,30 @@ const accept = async () => {
 }
 </script>
 <template>
-  <div class="form-page">
-    <p v-if="status === 'pending'" role="status">{{ t('loading') }}</p>
+  <PortalContainer size="md">
+    <PortalText v-if="status === 'pending'" role="status">{{ t('loading') }}</PortalText>
     <template v-else-if="loadError"
-      ><h1>{{ t('invitationUnavailable') }}</h1>
-      <p class="lead">{{ t('invitationUnavailableText') }}</p>
+      ><PortalHeading tag="h1">{{ t('invitationUnavailable') }}</PortalHeading>
+      <PortalText>{{ t('invitationUnavailableText') }}</PortalText>
       <PortalLink to="/">{{ t('returnHome') }}</PortalLink></template
     >
     <template v-else-if="data">
-      <p class="eyebrow">GCS–SSC</p>
-      <h1>{{ t('invitationTitle') }}</h1>
-      <p class="lead">
+      <PortalText size="small" text-role="secondary">GCS–SSC</PortalText>
+      <PortalHeading tag="h1">{{ t('invitationTitle') }}</PortalHeading>
+      <PortalText>
         {{ t('invitationIntro', { organization: data.organizationName }) }}
-      </p>
+      </PortalText>
       <dl class="detail-list">
         <div>
           <dt>{{ t('invitedEmail') }}</dt>
           <dd>{{ data.email }}</dd>
         </div>
       </dl>
-      <p>{{ t('invitationExpires', { date: date(data.expiresAt) }) }}</p>
+      <PortalText>{{ t('invitationExpires', { date: date(data.expiresAt) }) }}</PortalText>
       <PortalNotice v-if="error" variant="error">{{ error }}</PortalNotice>
       <div v-if="!user" class="invitation-actions">
         <PortalLink
-          class="primary-link"
+          variant="button"
           :to="`/register?invitation=${encodeURIComponent(token)}&email=${encodeURIComponent(data.email)}`"
           >{{ t('joinAccount') }}</PortalLink
         ><PortalLink :to="`/login?next=${encodeURIComponent(`/invitations/${token}`)}`">{{
@@ -83,13 +83,13 @@ const accept = async () => {
         }}</PortalButton></template
       >
       <template v-else
-        ><p>
+        ><PortalText>
           {{ t('signedInAs') }} <strong>{{ user.email }}</strong>
-        </p>
+        </PortalText>
         <PortalButton :disabled="pending" :loading="pending" @click="accept">{{
           t('acceptInvitation')
         }}</PortalButton></template
       >
     </template>
-  </div>
+  </PortalContainer>
 </template>

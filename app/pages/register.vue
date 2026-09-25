@@ -37,10 +37,9 @@ const submit = async () => {
 }
 </script>
 <template>
-  <div class="form-page">
-    <PortalLink to="/">{{ t('home') }}</PortalLink>
-    <h1>{{ t('accountTitle') }}</h1>
-    <p class="lead">{{ t('accountIntro') }}</p>
+  <PortalContainer size="md">
+    <PortalHeading tag="h1">{{ t('accountTitle') }}</PortalHeading>
+    <PortalText>{{ t('accountIntro') }}</PortalText>
     <template v-if="user"
       ><PortalNotice>{{ t('signedInAs') }} {{ user.email }}</PortalNotice
       ><PortalLink :to="invitationPath || '/organizations'">{{
@@ -49,7 +48,7 @@ const submit = async () => {
     >
     <form v-else class="portal-form" @submit.prevent="submit">
       <PortalNotice v-if="error" variant="error" :title="t('errorTitle')">{{ error }}</PortalNotice>
-      <p class="form-note">{{ t('requiredHint') }}</p>
+      <PortalText size="small">{{ t('requiredHint') }}</PortalText>
       <PortalInput
         id="register-name"
         v-model="name"
@@ -94,12 +93,12 @@ const submit = async () => {
         }}</PortalButton>
       </div>
     </form>
-    <p class="form-alternative">
+    <PortalText class="form-alternative">
       {{ t('haveAccount') }}
       <PortalLink
         :to="invitationPath ? `/login?next=${encodeURIComponent(invitationPath)}` : '/login'"
         >{{ t('signIn') }}</PortalLink
       >
-    </p>
-  </div>
+    </PortalText>
+  </PortalContainer>
 </template>

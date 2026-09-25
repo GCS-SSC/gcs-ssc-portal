@@ -6,44 +6,44 @@ useHead(() => ({ title: t('portal') }))
 <template>
   <div class="landing">
     <section class="landing-intro">
-      <p class="eyebrow">{{ t('serviceLabel') }}</p>
-      <h1>{{ t('portal') }}</h1>
-      <p class="lead">{{ t('intro') }}</p>
+      <PortalText size="small" text-role="secondary">{{ t('serviceLabel') }}</PortalText>
+      <PortalHeading tag="h1">{{ t('portal') }}</PortalHeading>
+      <PortalText>{{ t('intro') }}</PortalText>
       <div class="start-actions">
-        <PortalLink class="primary-link" :to="user ? '/organizations' : '/register'"
+        <PortalLink variant="button" :to="user ? '/organizations' : '/register'"
           >{{ user ? t('organizations') : t('getStarted') }}
           <span aria-hidden="true">→</span></PortalLink
         >
-        <p v-if="!user">
+        <PortalText v-if="!user">
           {{ t('returning') }}
           <PortalLink to="/login">{{ t('signIn') }}</PortalLink>
-        </p>
+        </PortalText>
       </div>
     </section>
-    <section class="landing-process" aria-labelledby="getting-started">
-      <h2 id="getting-started">{{ t('howTitle') }}</h2>
-      <p class="section-intro">{{ t('howIntro') }}</p>
-      <ol class="steps">
+    <section class="landing-process" :aria-label="t('howTitle')">
+      <PortalHeading id="getting-started" tag="h2">{{ t('howTitle') }}</PortalHeading>
+      <PortalText text-role="secondary">{{ t('howIntro') }}</PortalText>
+      <PortalGrid tag="ol" columns="1fr" columns-tablet="repeat(3, minmax(0, 1fr))" class="steps">
         <li>
           <span class="step-number" aria-hidden="true">01</span>
-          <h3>{{ t('stepOne') }}</h3>
-          <p>{{ t('stepOneText') }}</p>
+          <PortalHeading tag="h3">{{ t('stepOne') }}</PortalHeading>
+          <PortalText>{{ t('stepOneText') }}</PortalText>
         </li>
         <li>
           <span class="step-number" aria-hidden="true">02</span>
-          <h3>{{ t('stepTwo') }}</h3>
-          <p>{{ t('stepTwoText') }}</p>
+          <PortalHeading tag="h3">{{ t('stepTwo') }}</PortalHeading>
+          <PortalText>{{ t('stepTwoText') }}</PortalText>
         </li>
         <li>
           <span class="step-number" aria-hidden="true">03</span>
-          <h3>{{ t('stepThree') }}</h3>
-          <p>{{ t('stepThreeText') }}</p>
+          <PortalHeading tag="h3">{{ t('stepThree') }}</PortalHeading>
+          <PortalText>{{ t('stepThreeText') }}</PortalText>
         </li>
-      </ol>
+      </PortalGrid>
     </section>
     <aside class="help-strip">
-      <h2>{{ t('helpTitle') }}</h2>
-      <p>{{ t('helpText') }}</p>
+      <PortalHeading tag="h2">{{ t('helpTitle') }}</PortalHeading>
+      <PortalText>{{ t('helpText') }}</PortalText>
     </aside>
   </div>
 </template>

@@ -12,15 +12,15 @@ useHead(() => ({ title: t('organizations') }))
   <section>
     <div class="page-heading">
       <div>
-        <p class="eyebrow">GCS–SSC</p>
-        <h1>{{ t('organizations') }}</h1>
-        <p class="lead">{{ t('organizationIntro') }}</p>
+        <PortalText size="small" text-role="secondary">GCS–SSC</PortalText>
+        <PortalHeading tag="h1">{{ t('organizations') }}</PortalHeading>
+        <PortalText>{{ t('organizationIntro') }}</PortalText>
       </div>
-      <PortalLink class="primary-link" to="/organizations/new"
+      <PortalLink variant="button" to="/organizations/new"
         >{{ t('createOrg') }} <span aria-hidden="true">+</span></PortalLink
       >
     </div>
-    <p v-if="status === 'pending'" role="status">{{ t('loading') }}</p>
+    <PortalText v-if="status === 'pending'" role="status">{{ t('loading') }}</PortalText>
     <PortalNotice v-else-if="error" variant="error"
       >{{ message(error) }}
       <PortalButton variant="secondary" @click="refresh()">{{
@@ -28,19 +28,19 @@ useHead(() => ({ title: t('organizations') }))
       }}</PortalButton></PortalNotice
     >
     <div v-else-if="!data?.organizations.length" class="empty-state">
-      <h2>{{ t('noOrganizations') }}</h2>
-      <p>{{ t('noOrganizationsText') }}</p>
+      <PortalHeading tag="h2">{{ t('noOrganizations') }}</PortalHeading>
+      <PortalText>{{ t('noOrganizationsText') }}</PortalText>
       <PortalLink to="/organizations/new">{{ t('createOrg') }}</PortalLink>
     </div>
     <ul v-else class="organization-list">
       <li v-for="organization in data.organizations" :key="organization.id">
         <div>
-          <h2>{{ organization.name }}</h2>
-          <p v-if="organization.description">{{ organization.description }}</p>
-          <p class="metadata">
+          <PortalHeading tag="h2">{{ organization.name }}</PortalHeading>
+          <PortalText v-if="organization.description">{{ organization.description }}</PortalText>
+          <PortalText class="metadata">
             {{ organization.memberCount }}
             {{ organization.memberCount === 1 ? t('onePerson') : t('people') }}
-          </p>
+          </PortalText>
         </div>
         <div class="organization-action">
           <PortalLink

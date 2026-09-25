@@ -64,15 +64,19 @@ const remove = (id: string) =>
   )
 </script>
 <template>
-  <section :aria-labelledby="`attachments-${itemId}`">
-    <h3 :id="`attachments-${itemId}`">{{ a('title') }}</h3>
+  <section :aria-label="a('title')">
+    <PortalHeading :id="`attachments-${itemId}`" tag="h3">{{ a('title') }}</PortalHeading>
     <PortalNotice v-if="error" variant="error"
       >{{ error }}
-      <PortalButton v-if="conflicted" variant="secondary" :disabled="busy" @click="emit('reload')">{{
-        a('reloadAction')
-      }}</PortalButton></PortalNotice
+      <PortalButton
+        v-if="conflicted"
+        variant="secondary"
+        :disabled="busy"
+        @click="emit('reload')"
+        >{{ a('reloadAction') }}</PortalButton
+      ></PortalNotice
     >
-    <p v-if="!files.length">{{ a('empty') }}</p>
+    <PortalText v-if="!files.length">{{ a('empty') }}</PortalText>
     <ul v-else>
       <li v-for="entry in files" :key="entry.id">
         <PortalLink
@@ -85,7 +89,7 @@ const remove = (id: string) =>
         <span> ({{ entry.size }} B)</span>
         <PortalButton
           v-if="!readonly"
-          variant="link"
+          variant="secondary"
           :disabled="busy || conflicted"
           @click="remove(entry.id)"
           >{{ a('remove') }} — {{ entry.filename }}</PortalButton

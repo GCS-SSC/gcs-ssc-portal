@@ -9,7 +9,7 @@ const id = props.organizationId,
 const api = usePortalApi(),
   { c, errorMessage } = useCaseLocale(),
   { localized } = useGovernmentLocale(),
-  { locale, t } = useLocale()
+  { locale, t, date } = useLocale()
 const { busy, error, perform } = useCaseAction()
 const {
   data,
@@ -44,16 +44,16 @@ const start = (set: SubmissionSet) =>
 <template>
   <section>
     <PortalLink v-if="!embedded" :to="`/organizations/${id}`">{{ c('back') }}</PortalLink>
-    <component :is="embedded ? 'h2' : 'h1'">{{ c('cases') }}</component>
-    <p v-if="loadStatus === 'pending'" role="status">{{ t('loading') }}</p>
+    <PortalHeading :tag="embedded ? 'h2' : 'h1'" margin-top="0">{{ c('cases') }}</PortalHeading>
+    <PortalText v-if="loadStatus === 'pending'" role="status">{{ t('loading') }}</PortalText>
     <PortalNotice v-if="loadError" variant="error"
       >{{ errorMessage(loadError) }}
       <PortalButton @click="refresh()">{{ c('reload') }}</PortalButton></PortalNotice
     >
     <PortalNotice v-if="error" variant="error">{{ error }}</PortalNotice>
     <template v-if="data">
-      <component :is="embedded ? 'h3' : 'h2'">{{ c('sets') }}</component>
-      <p v-if="!data.sets.length">{{ c('empty') }}</p>
+      <PortalHeading :tag="embedded ? 'h3' : 'h2'">{{ c('sets') }}</PortalHeading>
+      <PortalText v-if="!data.sets.length">{{ c('empty') }}</PortalText>
       <ul class="service-list">
         <li v-for="set in data.sets" :key="set.id">
           <PortalLink :to="`/organizations/${id}/sets/${set.id}`">{{ localized(set) }}</PortalLink>
@@ -64,7 +64,7 @@ const start = (set: SubmissionSet) =>
                 hasAccess(data!.organization.permissions, subject, 'contributor')
               )
             "
-            variant="link"
+            variant="secondary"
             :disabled="busy"
             @click="start(set)"
             >{{ c('start') }}</PortalButton
@@ -72,15 +72,15 @@ const start = (set: SubmissionSet) =>
           <span v-else>{{ c('viewOnly') }}</span>
         </li>
       </ul>
-      <component :is="embedded ? 'h3' : 'h2'">{{ c('responses') }}</component>
-      <p v-if="!data.responses.length">{{ c('empty') }}</p>
+      <PortalHeading :tag="embedded ? 'h3' : 'h2'">{{ c('responses') }}</PortalHeading>
+      <PortalText v-if="!data.responses.length">{{ c('empty') }}</PortalText>
       <ul class="service-list">
         <li v-for="response in data.responses" :key="response.id">
           <PortalLink :to="`/organizations/${id}/responses/${response.id}`">{{
             localized(response)
           }}</PortalLink
           ><PortalBadge>{{ c(response.status) }}</PortalBadge
-          ><span>{{ response.updatedAt }}</span>
+          ><span>{{ date(response.updatedAt) }}</span>
         </li>
       </ul>
     </template>

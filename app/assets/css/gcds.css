@@ -1,139 +1,39 @@
 @import '@gcds-core/components-vue/gcds.css';
 
-.gc-theme {
-  --portal-navy: #26374a;
-  --portal-red: #a62a1e;
-  --portal-muted: #5f6266;
-  --portal-border: #d6d9dc;
-  color: #333;
-  background: #fff;
-  font-family: 'Noto Sans', Arial, sans-serif;
-}
+/* Integration layout only. GCDS owns control sizes, typography and interaction styles. */
 .gc-shell {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
 }
-.gc-shell gcds-header {
-  --gcds-header-margin: 0;
-}
 .gc-main {
-  width: min(1140px, calc(100% - 3rem));
-  margin: 0 auto;
-  padding: 2rem 0 5rem;
   flex: 1;
-}
-.gc-shell gcds-top-nav {
-  background: var(--gcds-color-grayscale-50, #f1f2f3);
+  padding-block: var(--gcds-spacing-400) var(--gcds-spacing-800);
 }
 .gc-nav-signout {
   align-self: center;
-  margin-inline-start: 1rem;
-}
-.gc-theme a:focus-visible,
-.gc-theme button:focus-visible {
-  outline: 3px solid #ffbf47;
-  outline-offset: 4px;
-}
-.gc-theme h1,
-.gc-theme h2,
-.gc-theme h3 {
-  font-family: Lato, Arial, sans-serif;
-}
-.gc-theme h1::after {
-  content: '';
-  display: block;
-  width: 4.5rem;
-  height: 0.3rem;
-  margin-top: 1.15rem;
-  background: #a62a1e;
-}
-.gc-theme gcds-input,
-.gc-theme gcds-select {
-  width: 100%;
-  --gcds-input-max-width: 100%;
-  --gcds-select-max-width: 100%;
+  margin-inline-start: var(--gcds-spacing-300);
 }
 .gc-status {
   display: inline-block;
-  padding: 0.15rem 0.5rem;
-  font-size: 0.85rem;
-  line-height: 1.5;
-  background: #edf0f2;
-  color: #26374a;
+  padding: var(--gcds-spacing-50) var(--gcds-spacing-150);
+  font: var(--gcds-font-text-small);
+  background: var(--gcds-bg-light);
+  color: var(--gcds-text-primary);
 }
 .gc-status--success {
-  background: #e4efdf;
-  color: #234718;
+  background: var(--gcds-color-green-50);
+  color: var(--gcds-color-green-800);
 }
 .gc-status--warning {
-  background: #fff1cf;
-  color: #654700;
+  background: var(--gcds-color-yellow-50);
+  color: var(--gcds-color-grayscale-800);
 }
-@media (max-width: 760px) {
-  .gc-main {
-    padding-top: 2rem;
-    width: calc(100% - 2rem);
-  }
+@media (width < 48em) {
   .gc-nav-signout {
-    margin: 0.75rem 1rem;
+    margin: var(--gcds-spacing-200) var(--gcds-spacing-300);
   }
-}
-
-/* The vendor renders controls inside shadow DOM; style its public parts so
-   application emphasis reaches the actual interactive element. */
-.gc-theme gcds-link.primary-link {
-  padding: 0;
-}
-.gc-theme gcds-link.primary-link::part(link) {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 48px;
-  padding: 0.65rem 1.25rem;
-  border-radius: 3px;
-  color: #fff;
-  text-decoration: none;
-  font-weight: 700;
-}
-.gc-theme .gc-button-link::part(button) {
-  border: 0;
-  background: transparent;
-  color: #284162;
-  padding: 0;
-  min-height: 2rem;
-  font: inherit;
-  text-decoration: underline;
-  text-underline-offset: 0.2rem;
-  text-align: left;
-}
-.gc-theme .gc-button-link::part(button):hover {
-  color: #15345b;
-  text-decoration-thickness: 2px;
-}
-.gc-theme .workspace-nav .gc-button-link::part(button) {
-  width: 100%;
-  justify-content: flex-start;
-  text-decoration: none;
-}
-
-/* Match the interactive shadow elements to the shared workspace menu. */
-.gc-theme .workspace-nav > * {
-  padding: 0 !important;
-}
-.gc-theme .workspace-nav .gc-button-link::part(button),
-.gc-theme .workspace-nav gcds-link::part(link) {
-  display: block;
-  box-sizing: border-box;
-  width: 100%;
-  min-height: 0;
-  padding: 0.75rem 0.8rem;
-  color: var(--portal-ink);
-  font: inherit;
-  line-height: 1.5;
-  text-align: left;
-  text-decoration: none;
-}
-.gc-theme .workspace-nav > [aria-current='page']::part(button) {
-  font-weight: 700;
+  .gc-status {
+    font: var(--gcds-font-text-small-mobile);
+  }
 }

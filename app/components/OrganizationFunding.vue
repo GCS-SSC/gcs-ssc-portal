@@ -51,8 +51,8 @@ const start = (callId: string) =>
     <PortalLink v-if="!embedded" :to="`/organizations/${id}`">{{
       data?.organization.name || g('back')
     }}</PortalLink>
-    <component :is="embedded ? 'h2' : 'h1'">{{ g('apply') }}</component>
-    <p v-if="loadStatus === 'pending'" role="status">{{ t('loading') }}</p>
+    <PortalHeading :tag="embedded ? 'h2' : 'h1'" margin-top="0">{{ g('apply') }}</PortalHeading>
+    <PortalText v-if="loadStatus === 'pending'" role="status">{{ t('loading') }}</PortalText>
     <PortalNotice v-if="error" variant="error"
       >{{ message(error) }}
       <PortalButton variant="secondary" @click="refresh()">{{
@@ -62,7 +62,7 @@ const start = (callId: string) =>
     <PortalNotice v-if="actionError" variant="error">{{ actionError }}</PortalNotice>
     <template v-if="data && !error">
       <section v-if="data.responses.length" class="content-section">
-        <component :is="embedded ? 'h3' : 'h2'">{{ a('applications') }}</component>
+        <PortalHeading :tag="embedded ? 'h3' : 'h2'">{{ a('applications') }}</PortalHeading>
         <ul>
           <li v-for="response in data.responses" :key="response.id">
             <PortalLink :to="`/organizations/${id}/responses/${response.id}`"
@@ -71,15 +71,17 @@ const start = (callId: string) =>
           </li>
         </ul>
       </section>
-      <p class="lead">{{ g('fundingIntro') }}</p>
-      <p>{{ g('fundingScope') }}</p>
-      <p v-if="!data.calls.length">{{ g('noFunding') }}</p>
+      <PortalText>{{ g('fundingIntro') }}</PortalText>
+      <PortalText>{{ g('fundingScope') }}</PortalText>
+      <PortalText v-if="!data.calls.length">{{ g('noFunding') }}</PortalText>
       <section v-for="call in data.calls" :key="call.id" class="content-section">
-        <p class="eyebrow">
+        <PortalText size="small" text-role="secondary">
           {{ localized({ nameEn: call.agencyNameEn, nameFr: call.agencyNameFr }) }}
-        </p>
-        <component :is="embedded ? 'h3' : 'h2'">{{ localized(call) }}</component>
-        <PortalLink v-if="call.surveyId" :to="`/forms/${id}/${call.id}`">{{ s('view') }}</PortalLink>
+        </PortalText>
+        <PortalHeading :tag="embedded ? 'h3' : 'h2'">{{ localized(call) }}</PortalHeading>
+        <PortalLink v-if="call.surveyId" :to="`/forms/${id}/${call.id}`">{{
+          s('view')
+        }}</PortalLink>
         <PortalButton
           v-if="
             call.surveyId &&

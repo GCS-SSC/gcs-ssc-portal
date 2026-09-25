@@ -41,10 +41,9 @@ const submit = async () => {
 }
 </script>
 <template>
-  <div class="form-page">
-    <PortalLink to="/">{{ t('home') }}</PortalLink>
-    <h1>{{ t('signIn') }}</h1>
-    <p class="lead">{{ t('signInIntro') }}</p>
+  <PortalContainer size="md">
+    <PortalHeading tag="h1">{{ t('signIn') }}</PortalHeading>
+    <PortalText>{{ t('signInIntro') }}</PortalText>
     <form class="portal-form" @submit.prevent="submit">
       <PortalNotice v-if="error" variant="error" :title="t('errorTitle')">{{ error }}</PortalNotice>
       <PortalInput
@@ -69,9 +68,9 @@ const submit = async () => {
         }}</PortalButton>
       </div>
     </form>
-    <p class="form-alternative">
+    <PortalText class="form-alternative">
       {{ t('noAccount') }}
       <PortalLink to="/register">{{ t('register') }}</PortalLink>
-    </p>
-  </div>
+    </PortalText>
+  </PortalContainer>
 </template>

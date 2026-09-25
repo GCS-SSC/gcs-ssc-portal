@@ -12,9 +12,9 @@ const handleClick = (event: Event) => {
 <template>
   <!-- GCDS bridges submit/reset to the containing native form itself. -->
   <GcdsButton
-    :class="{ 'gc-button-link': variant === 'link' }"
+    size="regular"
     :type="type ?? 'button'"
-    :button-role="variant === 'link' ? 'secondary' : (variant ?? 'primary')"
+    :button-role="variant ?? 'primary'"
     :disabled="disabled || loading"
     :aria-busy="loading ? 'true' : undefined"
     @gcds-click="handleClick"

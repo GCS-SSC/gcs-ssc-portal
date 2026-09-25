@@ -27,9 +27,9 @@ const submit = async () => {
 }
 </script>
 <template>
-  <div class="form-page">
-    <h1>{{ g('adminLogin') }}</h1>
-    <p class="lead">{{ g('adminLoginIntro') }}</p>
+  <PortalContainer size="md">
+    <PortalHeading tag="h1">{{ g('adminLogin') }}</PortalHeading>
+    <PortalText>{{ g('adminLoginIntro') }}</PortalText>
     <form class="portal-form" @submit.prevent="submit">
       <PortalNotice v-if="error" variant="error">{{ error }}</PortalNotice>
       <PortalInput
@@ -52,5 +52,5 @@ const submit = async () => {
         t('signIn')
       }}</PortalButton>
     </form>
-  </div>
+  </PortalContainer>
 </template>

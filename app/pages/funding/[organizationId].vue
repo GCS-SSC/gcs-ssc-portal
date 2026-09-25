@@ -1,9 +1,5 @@
 <script setup lang="ts">
-definePageMeta({ key: (route) => String(route.params.organizationId) })
 const id = String(useRoute().params.organizationId)
-const { g } = useGovernmentLocale()
-useHead(() => ({ title: g('apply') }))
+await navigateTo(`/organizations/${encodeURIComponent(id)}?section=funding`, { replace: true })
 </script>
-<template>
-  <OrganizationFunding :organization-id="id" />
-</template>
+<template><div /></template>

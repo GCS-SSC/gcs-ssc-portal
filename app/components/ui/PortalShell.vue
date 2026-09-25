@@ -6,7 +6,10 @@ import {
   GcdsTopNav,
   GcdsNavLink,
   GcdsNavGroup,
-  GcdsButton
+  GcdsButton,
+  GcdsContainer,
+  GcdsBreadcrumbs,
+  GcdsBreadcrumbsItem
 } from '@gcds-core/components-vue'
 import type { PortalShellProps } from '../../../shared/types/ui'
 
@@ -63,13 +66,27 @@ const text = computed(() =>
             >{{ item.label }}</GcdsNavLink
           >
         </GcdsNavGroup>
-        <GcdsButton v-if="signedIn" class="gc-nav-signout" @gcds-click="emit('signout')">
+        <GcdsButton
+          v-if="signedIn"
+          size="regular"
+          class="gc-nav-signout"
+          @gcds-click="emit('signout')"
+        >
           {{ text.signout }}
         </GcdsButton>
       </GcdsTopNav>
       <!-- eslint-enable vue/no-deprecated-slot-attribute -->
     </GcdsHeader>
-    <main id="main-content" class="gc-main" tabindex="-1"><slot /></main>
+    <GcdsContainer v-if="breadcrumbs?.length" layout="page">
+      <GcdsBreadcrumbs :lang="locale" hide-canada-link>
+        <GcdsBreadcrumbsItem v-for="item in breadcrumbs" :key="item.to" :href="item.to">{{
+          item.label
+        }}</GcdsBreadcrumbsItem>
+      </GcdsBreadcrumbs>
+    </GcdsContainer>
+    <main id="main-content" class="gc-main" tabindex="-1">
+      <GcdsContainer layout="page"><slot /></GcdsContainer>
+    </main>
     <GcdsFooter :lang="locale" display="compact" />
   </div>
 </template>

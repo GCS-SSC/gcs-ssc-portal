@@ -22,8 +22,8 @@ const navigate = async (action: (() => boolean) | (() => void)) => {
 </script>
 <template>
   <section class="content-section" data-survey-preview>
-    <h2>{{ s('preview') }}</h2>
-    <p>{{ s('previewHint') }}</p>
+    <PortalHeading tag="h2">{{ s('preview') }}</PortalHeading>
+    <PortalText>{{ s('previewHint') }}</PortalText>
     <HeadlessSurvey v-model="answers" :definition="definition" :locale="locale">
       <template
         #default="{
@@ -40,8 +40,8 @@ const navigate = async (action: (() => boolean) | (() => void)) => {
           back
         }"
       >
-        <h3>{{ title }}</h3>
-        <p v-if="description">{{ description }}</p>
+        <PortalHeading tag="h3">{{ title }}</PortalHeading>
+        <PortalText v-if="description">{{ description }}</PortalText>
         <form class="portal-form" novalidate @submit.prevent="navigate(next)">
           <div
             v-if="Object.keys(errors).length"
@@ -54,31 +54,39 @@ const navigate = async (action: (() => boolean) | (() => void)) => {
           <div :id="`${prefix}-page`" class="survey-page" tabindex="-1">
             <template v-if="complete">
               <PortalNotice variant="success">{{ s('valid') }}</PortalNotice>
-              <p>{{ s('previewComplete') }}</p>
+              <PortalText>{{ s('previewComplete') }}</PortalText>
             </template>
             <template v-else-if="page">
-              <h4 v-if="definition.schemaVersion === 2">
+              <PortalHeading v-if="definition.schemaVersion === 2" tag="h4">
                 {{ s('page') }} {{ pageIndex + 1 }}: {{ page.title[locale] }}
-              </h4>
-              <p v-if="page.description">{{ page.description[locale] }}</p>
+              </PortalHeading>
+              <PortalText v-if="page.description">{{ page.description[locale] }}</PortalText>
               <SurveyFields :fields="fields" :ids="page.questionIds" :prefix="prefix" />
               <section
                 v-for="section in page.sections"
                 :key="section.id"
-                :aria-labelledby="`${prefix}-${section.id}`"
+                :aria-label="section.title[locale]"
                 class="content-section"
               >
-                <h5 :id="`${prefix}-${section.id}`">{{ section.title[locale] }}</h5>
-                <p v-if="section.description">{{ section.description[locale] }}</p>
+                <PortalHeading :id="`${prefix}-${section.id}`" tag="h5">{{
+                  section.title[locale]
+                }}</PortalHeading>
+                <PortalText v-if="section.description">{{
+                  section.description[locale]
+                }}</PortalText>
                 <SurveyFields :fields="fields" :ids="section.questionIds" :prefix="prefix" />
                 <section
                   v-for="subsection in section.subsections"
                   :key="subsection.id"
-                  :aria-labelledby="`${prefix}-${subsection.id}`"
+                  :aria-label="subsection.title[locale]"
                   class="content-section"
                 >
-                  <h6 :id="`${prefix}-${subsection.id}`">{{ subsection.title[locale] }}</h6>
-                  <p v-if="subsection.description">{{ subsection.description[locale] }}</p>
+                  <PortalHeading :id="`${prefix}-${subsection.id}`" tag="h6">{{
+                    subsection.title[locale]
+                  }}</PortalHeading>
+                  <PortalText v-if="subsection.description">{{
+                    subsection.description[locale]
+                  }}</PortalText>
                   <SurveyFields :fields="fields" :ids="subsection.questionIds" :prefix="prefix" />
                 </section>
               </section>
@@ -99,30 +107,9 @@ const navigate = async (action: (() => boolean) | (() => void)) => {
 </template>
 
 <style scoped>
-h3 {
-  font-size: 1.5rem;
-}
-.survey-page h4,
-.survey-page h5,
-.survey-page h6 {
-  font-family: Lato, Arial, sans-serif;
-  color: var(--portal-ink);
-  font-weight: 700;
-  line-height: 1.4;
-  margin: 0 0 0.8rem;
-}
-.survey-page h4 {
-  font-size: 1.3rem;
-}
-.survey-page h5 {
-  font-size: 1.2rem;
-}
-.survey-page h6 {
-  font-size: 1.125rem;
-}
 .survey-page .content-section {
   border-top: 0;
   padding-top: 0;
-  margin-top: 1.5rem;
+  margin-top: var(--gcds-spacing-300);
 }
 </style>

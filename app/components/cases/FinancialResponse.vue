@@ -27,15 +27,14 @@ const fillZero = () => {
 </script>
 <template>
   <section>
-    <h2>{{ c(item.kind) }}</h2>
-    <p>
+    <PortalHeading tag="h2">{{ c(item.kind) }}</PortalHeading>
+    <PortalText>
       {{ c('agreementNumber') }}: {{ snapshot.case?.agreementNumber }} · {{ c('fiscalYear') }}:
       {{ fiscalYear }}
-    </p>
-    <p>{{ c('balancesHint') }}</p>
-    <p v-if="!readonly">{{ c('moneyHint') }}</p>
-    <fieldset v-if="item.kind === 'claim'" class="portal-form" :disabled="readonly">
-      <legend>{{ c('claim') }}</legend>
+    </PortalText>
+    <PortalText>{{ c('balancesHint') }}</PortalText>
+    <PortalText v-if="!readonly">{{ c('moneyHint') }}</PortalText>
+    <PortalFieldset v-if="item.kind === 'claim'" class="portal-form" :legend="c('claim')">
       <PortalSelect
         :id="`${prefix}-start`"
         :disabled="readonly"
@@ -66,12 +65,12 @@ const fillZero = () => {
         required
         @update:model-value="item.isFinalForYear = $event === 'yes'"
       />
-    </fieldset>
+    </PortalFieldset>
     <section v-for="line in budget" :key="line.id" class="content-section">
-      <h3>
+      <PortalHeading tag="h3">
         {{ localized(line) }} <span class="metadata">{{ line.currency.toUpperCase() }}</span>
-      </h3>
-      <p>{{ line.costCategory }} / {{ line.costSubsection }}</p>
+      </PortalHeading>
+      <PortalText>{{ line.costCategory }} / {{ line.costSubsection }}</PortalText>
       <dl class="balance-facts">
         <template
           v-for="field in [
@@ -87,8 +86,7 @@ const fillZero = () => {
         >
       </dl>
       <PortalNotice v-if="!balanceFor(line.id)?.available">{{ c('lineUnavailable') }}</PortalNotice>
-      <fieldset class="portal-form" :disabled="readonly">
-        <legend>{{ c('amount') }} — {{ localized(line) }}</legend>
+      <PortalFieldset class="portal-form" :legend="`${c('amount')} — ${localized(line)}`">
         <template v-for="(entry, index) in item.lines" :key="index">
           <template v-if="entry.budgetLineId === line.id">
             <PortalInput
@@ -110,7 +108,7 @@ const fillZero = () => {
             />
           </template>
         </template>
-      </fieldset>
+      </PortalFieldset>
     </section>
     <PortalButton v-if="!readonly" variant="secondary" @click="fillZero">{{
       c('fillZero')

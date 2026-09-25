@@ -79,8 +79,8 @@ const editable = computed(
 const manager = computed(() => response.value?.status === 'draft' && allowed('manager'))
 const back = computed(() =>
   response.value?.snapshot.application
-    ? `/funding/${organizationId}`
-    : `/organizations/${organizationId}/work`
+    ? `/organizations/${organizationId}?section=funding`
+    : `/organizations/${organizationId}?section=work`
 )
 const attachmentChange = (result: {
   revision: number
@@ -174,17 +174,21 @@ const changePosition = async (next: number) => {
       <PortalButton @click="reload">{{ c('reload') }}</PortalButton></PortalNotice
     >
     <template v-if="response">
-      <h1>{{ localized(response.snapshot) }}</h1>
+      <PortalHeading tag="h1">{{ localized(response.snapshot) }}</PortalHeading>
       <PortalBadge>{{ c(response.status) }}</PortalBadge>
-      <p>{{ c(response.status === 'submitted' ? 'finalNotice' : 'sharedDraft') }}</p>
+      <PortalText>{{
+        c(response.status === 'submitted' ? 'finalNotice' : 'sharedDraft')
+      }}</PortalText>
       <PortalNotice v-if="error" variant="error"
         >{{ error }}
-        <PortalButton variant="link" @click="reload">{{ c('reload') }}</PortalButton></PortalNotice
+        <PortalButton variant="secondary" @click="reload">{{
+          c('reload')
+        }}</PortalButton></PortalNotice
       >
       <PortalNotice v-if="success" variant="success">{{ success }}</PortalNotice>
-      <section v-if="review" class="confirmation" aria-labelledby="review-heading">
-        <h2 id="review-heading">{{ c('confirmTitle') }}</h2>
-        <p>{{ c('confirmHint') }}</p>
+      <section v-if="review" class="confirmation" :aria-label="c('confirmTitle')">
+        <PortalHeading id="review-heading" tag="h2">{{ c('confirmTitle') }}</PortalHeading>
+        <PortalText>{{ c('confirmHint') }}</PortalText>
         <PortalNotice
           v-for="warning in review.warnings"
           :key="`${warning.kind}-${warning.budgetLineId}`"
@@ -201,17 +205,19 @@ const changePosition = async (next: number) => {
           {{ c('amount') }}: {{ warning.amount }}; {{ c('balance') }}:
           {{ warning.balance ?? c('unknown') }}
         </PortalNotice>
-        <p v-if="review.warnings.length">{{ c('warningHint') }}</p>
+        <PortalText v-if="review.warnings.length">{{ c('warningHint') }}</PortalText>
         <div class="form-actions">
-          <PortalButton :disabled="uploading || busy" @click="submit">{{ c('submit') }}</PortalButton
+          <PortalButton :disabled="uploading || busy" @click="submit">{{
+            c('submit')
+          }}</PortalButton
           ><PortalButton variant="secondary" :disabled="uploading || busy" @click="review = null">{{
             c('cancel')
           }}</PortalButton>
         </div>
       </section>
-      <p v-if="response.snapshot.case && response.status === 'submitted'">
+      <PortalText v-if="response.snapshot.case && response.status === 'submitted'">
         {{ c(recorded ? 'recordedBalances' : 'latestBalances') }}
-      </p>
+      </PortalText>
       <PortalButton
         v-if="submittedBalances && !recorded"
         variant="secondary"
@@ -219,7 +225,7 @@ const changePosition = async (next: number) => {
         >{{ c('recordedBalances') }}</PortalButton
       >
       <div id="response-item" tabindex="-1">
-        <p>{{ c('item') }} {{ position + 1 }} / {{ response.items.length }}</p>
+        <PortalText>{{ c('item') }} {{ position + 1 }} / {{ response.items.length }}</PortalText>
         <template v-if="current && published">
           <ResponseSurvey
             v-if="current.kind === 'survey' && published.survey"
@@ -267,7 +273,7 @@ const changePosition = async (next: number) => {
           >{{ c('nextItem') }}</PortalButton
         >
       </div>
-      <p v-if="dirty">{{ c('dirty') }}</p>
+      <PortalText v-if="dirty">{{ c('dirty') }}</PortalText>
       <div class="form-actions">
         <PortalButton v-if="editable" :disabled="uploading || busy" @click="save">{{
           c('saveDraft')
@@ -294,7 +300,7 @@ const changePosition = async (next: number) => {
         >
       </div>
       <section v-if="deleting" class="confirmation">
-        <p>{{ c('deleteConfirm') }}</p>
+        <PortalText>{{ c('deleteConfirm') }}</PortalText>
         <div class="form-actions">
           <PortalButton :disabled="uploading || busy" @click="remove">{{
             c('deleteDraft')

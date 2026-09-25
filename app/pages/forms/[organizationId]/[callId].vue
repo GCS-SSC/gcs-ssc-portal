@@ -18,7 +18,9 @@ useHead(() => ({ title: s('view') }))
 </script>
 <template>
   <section>
-    <PortalLink :to="`/funding/${route.params.organizationId}`">{{ s('back') }}</PortalLink>
+    <PortalLink :to="`/organizations/${route.params.organizationId}?section=funding`">{{
+      s('back')
+    }}</PortalLink>
     <PortalNotice v-if="error" variant="error"
       >{{ message(error) }}
       <PortalButton variant="secondary" @click="refresh()">{{
@@ -26,7 +28,9 @@ useHead(() => ({ title: s('view') }))
       }}</PortalButton></PortalNotice
     >
     <template v-else-if="data"
-      ><h1>{{ data.survey[locale === 'en' ? 'nameEn' : 'nameFr'] }}</h1>
+      ><PortalHeading tag="h1">{{
+        data.survey[locale === 'en' ? 'nameEn' : 'nameFr']
+      }}</PortalHeading>
       <SurveyPreview :definition="data.survey.definition"
     /></template>
   </section>
