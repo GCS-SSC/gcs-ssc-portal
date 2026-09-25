@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import type { SubmissionSet, SetResponse } from '~~/shared/types/cases'
+import type { SubmissionSet, SetResponse } from '~~/shared/types/agreements'
 import type { Organization } from '~~/shared/types/api'
-import { setSubjects } from '~~/shared/schemas/cases'
+import { setSubjects } from '~~/shared/schemas/agreements'
 import { hasAccess } from '~~/shared/utils/permissions'
 import SurveyPreview from '~/components/survey/SurveyPreview.vue'
 definePageMeta({ key: (route) => route.fullPath })
@@ -10,10 +10,10 @@ const route = useRoute(),
   setId = String(route.params.setId),
   base = `/api/organizations/${id}`
 const api = usePortalApi(),
-  { c, errorMessage } = useCaseLocale(),
+  { c, errorMessage } = useAgreementLocale(),
   { localized } = useGovernmentLocale(),
   { locale } = useLocale()
-const { busy, error, perform } = useCaseAction()
+const { busy, error, perform } = useAgreementAction()
 const {
   data,
   error: loadError,
@@ -36,7 +36,7 @@ const start = () =>
 </script>
 <template>
   <section>
-    <PortalLink :to="`/organizations/${id}?section=work`">{{ c('back') }}</PortalLink>
+    <PortalLink :to="`/organizations/${id}?section=agreements`">{{ c('back') }}</PortalLink>
     <PortalNotice v-if="loadError" variant="error"
       >{{ errorMessage(loadError) }}
       <PortalButton @click="refresh()">{{ c('reload') }}</PortalButton></PortalNotice
@@ -44,8 +44,8 @@ const start = () =>
     <PortalNotice v-if="error" variant="error">{{ error }}</PortalNotice>
     <template v-if="data?.set.snapshot">
       <PortalHeading tag="h1">{{ localized(data.set) }}</PortalHeading>
-      <PortalText v-if="data.set.snapshot.caseReference">
-        {{ c('agreementNumber') }}: {{ data.set.snapshot.caseReference.agreementNumber }}
+      <PortalText v-if="data.set.snapshot.agreementReference">
+        {{ c('agreementNumber') }}: {{ data.set.snapshot.agreementReference.agreementNumber }}
       </PortalText>
       <ol>
         <li v-for="entry in data.set.snapshot.items" :key="entry.item.id">

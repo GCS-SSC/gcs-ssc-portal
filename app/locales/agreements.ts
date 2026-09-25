@@ -1,11 +1,11 @@
-export const casesEn = {
+export const agreementsEn = {
   recordedBalances: 'Balances recorded at submission',
   latestBalances: 'Latest reported balances',
   timestampHint:
     'UTC date and time, for example 2026-09-19T12:00:00Z. Use a newer timestamp when balances change.',
-  cases: 'Cases and submissions',
-  caseTitle: 'Case',
-  newCase: 'Create a case',
+  agreements: 'Agreements',
+  agreementTitle: 'Agreement',
+  newAgreement: 'Create an agreement',
   agreementNumber: 'Agreement number',
   organizationId: 'Organization ID',
   organizationHint: 'Use the organization ID supplied by its administrator.',
@@ -42,7 +42,7 @@ export const casesEn = {
   newSet: 'Create a form set',
   scope: 'Publish under',
   orgScope: 'Organization',
-  caseScope: 'Case',
+  agreementScope: 'Agreement',
   items: 'Ordered items',
   addItem: 'Add item',
   survey: 'Designed form',
@@ -122,18 +122,18 @@ export const casesEn = {
   dirty: 'You have unsaved changes. Leave this page?',
   item: 'Item',
   fillZero: 'Fill blank amounts with zero',
-  caseSaved: 'Case saved.',
+  agreementSaved: 'Agreement saved.',
   viewOnly: 'Read-only access. A contributor can prepare drafts and a manager can submit them.',
   refreshBalances: 'Refresh balances'
 } as const
-export const casesFr: Record<keyof typeof casesEn, string> = {
+export const agreementsFr: Record<keyof typeof agreementsEn, string> = {
   recordedBalances: 'Soldes enregistrés lors de la soumission',
   latestBalances: 'Derniers soldes déclarés',
   timestampHint:
     'Date et heure UTC, par exemple 2026-09-19T12:00:00Z. Utilisez une date plus récente lors de la modification des soldes.',
-  cases: 'Dossiers et soumissions',
-  caseTitle: 'Dossier',
-  newCase: 'Créer un dossier',
+  agreements: 'Ententes',
+  agreementTitle: 'Entente',
+  newAgreement: 'Créer une entente',
   agreementNumber: 'Numéro d’entente',
   organizationId: 'Identifiant de l’organisation',
   organizationHint: 'Utilisez l’identifiant fourni par l’administrateur de l’organisation.',
@@ -170,7 +170,7 @@ export const casesFr: Record<keyof typeof casesEn, string> = {
   newSet: 'Créer un ensemble de formulaires',
   scope: 'Publier sous',
   orgScope: 'Organisation',
-  caseScope: 'Dossier',
+  agreementScope: 'Entente',
   items: 'Éléments dans l’ordre',
   addItem: 'Ajouter un élément',
   survey: 'Formulaire conçu',
@@ -252,7 +252,7 @@ export const casesFr: Record<keyof typeof casesEn, string> = {
   dirty: 'Vous avez des modifications non enregistrées. Quitter cette page?',
   item: 'Élément',
   fillZero: 'Remplir les montants vides par zéro',
-  caseSaved: 'Dossier enregistré.',
+  agreementSaved: 'Entente enregistrée.',
   viewOnly:
     'Accès en lecture seule. Un contributeur peut préparer les brouillons et un gestionnaire peut les soumettre.',
   refreshBalances: 'Actualiser les soldes'

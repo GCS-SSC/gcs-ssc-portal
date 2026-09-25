@@ -1,5 +1,6 @@
 /** Shared integration contracts for the GC Design System components. */
 export interface PortalButtonProps {
+  size?: 'regular' | 'small'
   type?: 'button' | 'submit' | 'reset'
   variant?: 'primary' | 'secondary' | 'danger'
   disabled?: boolean
@@ -18,6 +19,14 @@ export interface PortalInputProps {
   error?: string
   minlength?: number
   maxlength?: number
+}
+export interface PortalTextareaProps {
+  id: string
+  modelValue: string
+  label: string
+  hint?: string
+  maxlength?: number
+  rows?: number
 }
 export interface PortalSelectProps {
   id: string

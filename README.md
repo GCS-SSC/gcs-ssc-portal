@@ -50,7 +50,7 @@ All demo accounts use **`password123`**. These are public development credential
 | `viewer@portal.com`      | Organization viewer for all four subjects; read-only                                       | `/login`       |
 | `user@portal.com`        | Organization member with base user access only                                             | `/login`       |
 
-The migration also creates **Demo Community Organization**, a bilingual agency/program/stream hierarchy, a three-question bilingual application form, and a published **Demo community funding call** open through 2099. Attachments are disabled on this sample form so it works without S3. The future extension can update forms and configure cases, budgets, claims, forecasts and additional forms through the agency API.
+The migration also creates **Demo Community Organization**, a bilingual agency/program/stream hierarchy, a three-question bilingual application form, and a published **Demo community funding call** open through 2099. Attachments are disabled on this sample form so it works without S3. The future extension can update forms and configure agreements, budgets, claims, forecasts and additional forms through the agency API.
 
 Try the flow: sign in as the contributor, open the organization and **Apply for funding**, start the demo application, answer the questions and save. Sign in as the owner in another browser session to review and submit the shared draft. The future extension can retrieve submitted applications with its agency key. The viewer can read; the base user cannot access funding. Owners can create further invitation links through the organization's invitations screen; the seed does not manufacture invitation tokens or send email.
 
@@ -87,7 +87,7 @@ Owner status and permissions are organization-specific. Owning or administering 
 
 Administrators sign in at `/admin/login`. Their credentials and sessions are stored separately from organization accounts, so neither identity can enter the other portal. The demo seed creates `admin@portal.com`; several administrators may exist. The administrator UI registers agencies and issues or revokes agency-scoped keys. For a non-demo database, create an administrator with `ADMIN_NAME`, `ADMIN_EMAIL`, `ADMIN_PASSWORD` and `bun run admin:create`; first-launch provisioning is planned.
 
-The future GCS–SSC extension uses a key to push programs, streams, calls, forms, cases and sets through `/api/government`. That API accepts bearer keys only. Existing organization responses and published funding remain available in the companion app. See [administrator access and the API contract](architecture/government.md).
+The future GCS–SSC extension uses a key to push programs, streams, calls, forms, agreements and sets through `/api/government`. That API accepts bearer keys only. Existing organization responses and published funding remain available in the companion app. See [administrator access and the API contract](architecture/government.md).
 
 ## Shared survey provider
 
@@ -122,7 +122,7 @@ The tests cover server authorization, UUIDv7 creation, ownership, permission iso
 
 The application uses the official [GC Design System Vue components](https://github.com/cds-snc/gcds-components/tree/main/packages/vue). See [GC Design System architecture](architecture/gcdesign.md) for component selection, sizing, and layout policy. Vendor styles reference external fonts; system-font fallbacks keep content usable when those hosts are unavailable.
 
-Agency-scoped extension keys can configure cases, budget lines and ordered sets of designed forms, claims and forecasts. Organizations use subject-specific viewer/contributor/manager permissions; managers review current balances and can submit with acknowledged warnings. See [case workflows and integration contracts](architecture/cases.md).
+Agency-scoped extension keys can configure agreements, budget lines and ordered sets of designed forms, claims and forecasts. Organizations use subject-specific viewer/contributor/manager permissions; managers review current balances and can submit with acknowledged warnings. See [agreement workflows and integration contracts](architecture/agreements.md).
 
 See [private attachments](architecture/attachments.md) for app-wide S3 configuration, per-form opt-in and download/cleanup contracts.
 

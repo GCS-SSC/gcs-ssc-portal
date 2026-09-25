@@ -1,5 +1,5 @@
-import type { CaseConfig, ResponseItem, SetInput, SetSnapshot } from '../schemas/cases'
-export interface FundingCase {
+import type { AgreementConfig, ResponseItem, SetInput, SetSnapshot } from '../schemas/agreements'
+export interface FundingAgreement {
   id: string
   organizationId: string
   agencyId: string
@@ -7,7 +7,7 @@ export interface FundingCase {
   nameEn: string
   nameFr: string
   agreementNumber: string
-  config: CaseConfig
+  config: AgreementConfig
   revision: number
   createdAt: string
 }

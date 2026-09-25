@@ -40,7 +40,7 @@ const submit = async () => {
         :maxlength="120"
         required
       />
-      <PortalInput
+      <PortalTextarea
         id="organization-description"
         v-model="description"
         :label="t('organizationDescription')"

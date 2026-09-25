@@ -1,7 +1,7 @@
 <script setup lang="ts">
 const { t } = useLocale()
 const route = useRoute()
-const { governmentAccount, refresh } = usePortalSession()
+const { user, loaded, governmentAccount, refresh } = usePortalSession()
 const message = useApiMessage()
 const email = ref(import.meta.dev ? 'owner@portal.com' : '')
 const password = ref(import.meta.dev ? 'password123' : '')
@@ -15,6 +15,14 @@ const destination = computed(() => {
     ? next
     : '/organizations'
 })
+watch(
+  [loaded, user],
+  () => {
+    if (loaded.value && user.value && !governmentAccount.value && !pending.value)
+      void navigateTo(destination.value)
+  },
+  { immediate: true }
+)
 useHead(() => ({ title: t('signIn') }))
 const submit = async () => {
   if (pending.value) return

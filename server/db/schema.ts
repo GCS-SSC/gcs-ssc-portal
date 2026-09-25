@@ -1,4 +1,9 @@
-import type { CaseConfig, SetItem, SetSnapshot, ResponseItem } from '../../shared/schemas/cases'
+import type {
+  AgreementConfig,
+  SetItem,
+  SetSnapshot,
+  ResponseItem
+} from '../../shared/schemas/agreements'
 import type { SurveyDefinition } from '@gcs-ssc/survey'
 import type { ColumnType, Generated } from 'kysely'
 type Timestamp = ColumnType<Date, Date, Date>
@@ -116,7 +121,7 @@ export interface Database {
     definition: ColumnType<SurveyDefinition, SurveyDefinition, never>
     createdAt: Timestamp
   }
-  funding_case: {
+  funding_agreement: {
     id: string
     organizationId: string
     agencyId: string
@@ -124,7 +129,7 @@ export interface Database {
     nameEn: string
     nameFr: string
     agreementNumber: string
-    config: ColumnType<CaseConfig, CaseConfig, CaseConfig>
+    config: ColumnType<AgreementConfig, AgreementConfig, AgreementConfig>
     sourceSystem: string
     foreignSystemId: string | null
     revision: number
@@ -135,7 +140,7 @@ export interface Database {
     id: string
     organizationId: string
     agencyId: string
-    caseId: string | null
+    agreementId: string | null
     nameEn: string
     nameFr: string
     sourceSystem: string

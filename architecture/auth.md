@@ -4,7 +4,7 @@ Better Auth owns email/password accounts and opaque cookie sessions. The server 
 
 The browser uses Better Auth's native JSON endpoints: `POST /api/auth/sign-up/email` with `{name,email,password}`, `POST /api/auth/sign-in/email` with `{email,password}`, and `POST /api/auth/sign-out`. Cookie credentials stay on the same origin. Passwords are hashed by Better Auth; this project never stores plaintext passwords. Password recovery and verification emails are intentionally not configured because there is no email service.
 
-`GET /api/session` returns `{user:{id,name,email}|null,governmentAccount}`. The latter only marks legacy government identities so they cannot enter the organization domain. All other portal operations require a session except invitation previews. Portal mutation requests must carry a trusted `Origin`; cross-site requests are rejected. Authentication and ordinary portal bodies are limited to 16 KiB by counting actual streamed bytes. Response JSON allows 3 MiB, government survey/case/set JSON allows 256 KiB, and authorized attachment uploads use the app-wide attachment limit. Responses are not cached and invitation API responses set `Referrer-Policy: no-referrer`.
+`GET /api/session` returns `{user:{id,name,email}|null,governmentAccount}`. The latter only marks legacy government identities so they cannot enter the organization domain. All other portal operations require a session except invitation previews. Portal mutation requests must carry a trusted `Origin`; cross-site requests are rejected. Authentication and ordinary portal bodies are limited to 16 KiB by counting actual streamed bytes. Response JSON allows 3 MiB, government survey/agreement/set JSON allows 256 KiB, and authorized attachment uploads use the app-wide attachment limit. Responses are not cached and invitation API responses set `Referrer-Policy: no-referrer`.
 
 ## Organization permissions
 
@@ -43,4 +43,4 @@ Better Auth rate limiting reads only the internal `x-portal-client-ip` header. T
 
 Administrator credentials and sessions are stored separately from organization users. `/admin/login` and `/api/admin/*` are the only human administrative entrypoints; administrator cookies have no organization or extension authority. Legacy `government_user` rows remain as deny markers, and their password accounts and sessions are revoked by migration 006. An `application:viewer`, `application:contributor` or `application:manager` grant is required to read the published funding catalogue. See [administrator access](government.md).
 
-Business subjects use viewer/contributor/manager levels independently of base user/admin types. Contributors edit drafts; managers submit or delete. See [case permissions and submission rules](cases.md).
+Business subjects use viewer/contributor/manager levels independently of base user/admin types. Contributors edit drafts; managers submit or delete. See [agreement permissions and submission rules](agreements.md).

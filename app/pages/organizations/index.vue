@@ -12,7 +12,6 @@ useHead(() => ({ title: t('organizations') }))
   <section>
     <div class="page-heading">
       <div>
-        <PortalText size="small" text-role="secondary">GCS–SSC</PortalText>
         <PortalHeading tag="h1">{{ t('organizations') }}</PortalHeading>
         <PortalText>{{ t('organizationIntro') }}</PortalText>
       </div>

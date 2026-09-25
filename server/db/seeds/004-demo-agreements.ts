@@ -1,6 +1,6 @@
 import { sql, type Kysely } from 'kysely'
 import { v7 as uuid } from 'uuid'
-import { caseInput, setInput, type SetSnapshot } from '../../../shared/schemas/cases'
+import { agreementInput, setInput, type SetSnapshot } from '../../../shared/schemas/agreements'
 import type { Database } from '../schema'
 
 const examples = [
@@ -9,8 +9,18 @@ const examples = [
     nameEn: 'Community Food Access Agreement',
     nameFr: 'Entente pour l’accès communautaire à l’alimentation',
     lines: [
-      { id: 'food', nameEn: 'Food and supplies', nameFr: 'Aliments et fournitures', amount: '80000.00' },
-      { id: 'delivery', nameEn: 'Community delivery', nameFr: 'Livraison communautaire', amount: '40000.00' }
+      {
+        id: 'food',
+        nameEn: 'Food and supplies',
+        nameFr: 'Aliments et fournitures',
+        amount: '80000.00'
+      },
+      {
+        id: 'delivery',
+        nameEn: 'Community delivery',
+        nameFr: 'Livraison communautaire',
+        amount: '40000.00'
+      }
     ]
   },
   {
@@ -18,8 +28,18 @@ const examples = [
     nameEn: 'Digital Skills Training Agreement',
     nameFr: 'Entente de formation en compétences numériques',
     lines: [
-      { id: 'training', nameEn: 'Training sessions', nameFr: 'Séances de formation', amount: '60000.00' },
-      { id: 'equipment', nameEn: 'Learning equipment', nameFr: 'Équipement d’apprentissage', amount: '30000.00' }
+      {
+        id: 'training',
+        nameEn: 'Training sessions',
+        nameFr: 'Séances de formation',
+        amount: '60000.00'
+      },
+      {
+        id: 'equipment',
+        nameEn: 'Learning equipment',
+        nameFr: 'Équipement d’apprentissage',
+        amount: '30000.00'
+      }
     ]
   },
   {
@@ -27,8 +47,18 @@ const examples = [
     nameEn: 'Neighbourhood Green Spaces Agreement',
     nameFr: 'Entente pour les espaces verts de quartier',
     lines: [
-      { id: 'landscaping', nameEn: 'Landscaping', nameFr: 'Aménagement paysager', amount: '100000.00' },
-      { id: 'outreach', nameEn: 'Community outreach', nameFr: 'Mobilisation communautaire', amount: '50000.00' }
+      {
+        id: 'landscaping',
+        nameEn: 'Landscaping',
+        nameFr: 'Aménagement paysager',
+        amount: '100000.00'
+      },
+      {
+        id: 'outreach',
+        nameEn: 'Community outreach',
+        nameFr: 'Mobilisation communautaire',
+        amount: '50000.00'
+      }
     ]
   }
 ] as const
@@ -68,8 +98,8 @@ export const demoAgreementsMigration = {
     const fiscalYear = now.getUTCFullYear()
 
     for (const example of examples) {
-      const caseId = uuid()
-      const config = caseInput.parse({
+      const agreementId = uuid()
+      const config = agreementInput.parse({
         organizationId: organization.id,
         streamId: call.streamId,
         nameEn: example.nameEn,
@@ -99,9 +129,9 @@ export const demoAgreementsMigration = {
         }
       })
       await db
-        .insertInto('funding_case')
+        .insertInto('funding_agreement')
         .values({
-          id: caseId,
+          id: agreementId,
           organizationId: organization.id,
           agencyId: call.agencyId,
           streamId: call.streamId,
@@ -116,11 +146,11 @@ export const demoAgreementsMigration = {
         })
         .execute()
 
-      // Each agreement has a published claim/forecast set so it can be used from Cases and forms.
+      // Each agreement has a published claim/forecast set accessible from Agreements.
       const set = setInput.parse({
         organizationId: organization.id,
         agencyId: call.agencyId,
-        caseId,
+        agreementId,
         nameEn: `${example.nameEn} — Claims and forecasts`,
         nameFr: `${example.nameFr} — Demandes de remboursement et prévisions`,
         sourceSystem: 'demo',
@@ -133,8 +163,8 @@ export const demoAgreementsMigration = {
       const snapshot: SetSnapshot = {
         schemaVersion: 1,
         publicationId: uuid(),
-        caseReference: {
-          id: caseId,
+        agreementReference: {
+          id: agreementId,
           agreementNumber: example.agreementNumber,
           sourceSystem: 'demo',
           foreignSystemId: null,
@@ -146,7 +176,12 @@ export const demoAgreementsMigration = {
         sourceSystem: 'demo',
         foreignSystemId: null,
         items: set.items.map((item) => ({ item })),
-        case: { id: caseId, revision: 1, agreementNumber: example.agreementNumber, config: config.config }
+        agreement: {
+          id: agreementId,
+          revision: 1,
+          agreementNumber: example.agreementNumber,
+          config: config.config
+        }
       }
       await db
         .insertInto('submission_set')
@@ -154,7 +189,7 @@ export const demoAgreementsMigration = {
           id: uuid(),
           organizationId: organization.id,
           agencyId: call.agencyId,
-          caseId,
+          agreementId,
           callId: null,
           nameEn: set.nameEn,
           nameFr: set.nameFr,

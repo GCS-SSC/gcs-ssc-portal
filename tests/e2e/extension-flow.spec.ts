@@ -115,14 +115,13 @@ test('extension key publishes a pinned form for an authorized organization', asy
     const workspaceUrl = applicant.url()
     const menu = applicant.locator('gcds-side-nav')
     await expect(menu.getByRole('navigation', { name: /^Manage organization/ })).toBeVisible()
-    await menu.getByRole('link', { name: 'Cases and submissions', exact: true }).click()
-    await expect(
-      applicant.getByRole('heading', { level: 2, name: 'Cases and submissions' })
-    ).toBeVisible()
-    await expect(
-      menu.getByRole('link', { name: 'Cases and submissions', exact: true })
-    ).toHaveAttribute('aria-current', 'page')
-    await expect(applicant).toHaveURL(`${workspaceUrl}?section=work`)
+    await menu.getByRole('link', { name: 'Agreements', exact: true }).click()
+    await expect(applicant.getByRole('heading', { level: 2, name: 'Agreements' })).toBeVisible()
+    await expect(menu.getByRole('link', { name: 'Agreements', exact: true })).toHaveAttribute(
+      'aria-current',
+      'page'
+    )
+    await expect(applicant).toHaveURL(`${workspaceUrl}?section=agreements`)
     await menu.getByRole('link', { name: 'Apply for funding', exact: true }).click()
     await expect(applicant.getByRole('heading', { name: `Funding call ${suffix}` })).toBeVisible()
     await expect(
@@ -135,9 +134,7 @@ test('extension key publishes a pinned form for an authorized organization', asy
     await applicant.reload()
     await expect(applicant.getByRole('heading', { name: `Funding call ${suffix}` })).toBeVisible()
     await applicant.goBack()
-    await expect(
-      applicant.getByRole('heading', { level: 2, name: 'Cases and submissions' })
-    ).toBeVisible()
+    await expect(applicant.getByRole('heading', { level: 2, name: 'Agreements' })).toBeVisible()
     await applicant.goForward()
     await expect(applicant.getByRole('heading', { name: `Funding call ${suffix}` })).toBeVisible()
     await expect(

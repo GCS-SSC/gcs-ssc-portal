@@ -1,6 +1,6 @@
 import { sql, type Kysely, type Selectable } from 'kysely'
 import { v7 as uuid } from 'uuid'
-import { caseInput, caseUpdateInput } from '../../shared/schemas/cases'
+import { agreementInput, agreementUpdateInput } from '../../shared/schemas/agreements'
 import type { Database } from '../db/schema'
 import {
   governmentFail as fail,
@@ -8,32 +8,36 @@ import {
   type GovernmentActor,
   type GovernmentDb
 } from './government-access'
-import { lockOrganization, requireBusinessAccess } from './case-access'
+import { lockOrganization, requireBusinessAccess } from './agreement-access'
 import { hasAccess, subjects } from '../../shared/utils/permissions'
-const map = (row: Selectable<Database['funding_case']>) => ({
+const map = (row: Selectable<Database['funding_agreement']>) => ({
   ...row,
   createdAt: new Date(row.createdAt).toISOString()
 })
-export const caseRow = async (db: GovernmentDb, id: string) => {
+export const agreementRow = async (db: GovernmentDb, id: string) => {
   const row = await db
-    .selectFrom('funding_case')
+    .selectFrom('funding_agreement')
     .selectAll()
     .where('id', '=', id)
     .executeTakeFirst()
-  if (!row) return fail(404, 'CASE_NOT_FOUND')
+  if (!row) return fail(404, 'AGREEMENT_NOT_FOUND')
   return row
 }
-export const getCase = async (db: GovernmentDb, actor: GovernmentActor, id: string) => {
-  const row = await caseRow(db, id)
+export const getAgreement = async (db: GovernmentDb, actor: GovernmentActor, id: string) => {
+  const row = await agreementRow(db, id)
   await requireGovernment(db, actor, { agencyId: row.agencyId })
-  return { case: map(row) }
+  return { agreement: map(row) }
 }
-export const listCases = async (db: GovernmentDb, actor: GovernmentActor, agencyId: string) => {
+export const listAgreements = async (
+  db: GovernmentDb,
+  actor: GovernmentActor,
+  agencyId: string
+) => {
   await requireGovernment(db, actor, { agencyId })
   return {
-    cases: (
+    agreements: (
       await db
-        .selectFrom('funding_case')
+        .selectFrom('funding_agreement')
         .selectAll()
         .where('agencyId', '=', agencyId)
         .orderBy('createdAt', 'desc')
@@ -41,14 +45,14 @@ export const listCases = async (db: GovernmentDb, actor: GovernmentActor, agency
     ).map(map)
   }
 }
-export const saveCase = async (
+export const saveAgreement = async (
   db: Kysely<Database>,
   actor: GovernmentActor,
   body: unknown,
   id?: string
 ) => {
-  const update = id ? caseUpdateInput.parse(body) : null
-  const input = update?.value ?? caseInput.parse(body)
+  const update = id ? agreementUpdateInput.parse(body) : null
+  const input = update?.value ?? agreementInput.parse(body)
   const parent = await db
     .selectFrom('stream as s')
     .innerJoin('program as p', 'p.id', 's.programId')
@@ -67,24 +71,25 @@ export const saveCase = async (
     const now = new Date()
     const duplicate = input.config.foreignSystemId
       ? await tx
-          .selectFrom('funding_case')
+          .selectFrom('funding_agreement')
           .select('id')
           .where('agencyId', '=', parent.agencyId)
           .where('sourceSystem', '=', input.config.sourceSystem)
           .where('foreignSystemId', '=', input.config.foreignSystemId)
           .executeTakeFirst()
       : null
-    if (duplicate && duplicate.id !== id) return fail(409, 'EXTERNAL_CASE_EXISTS')
+    if (duplicate && duplicate.id !== id) return fail(409, 'EXTERNAL_AGREEMENT_EXISTS')
     if (id) {
       const previous = await tx
-        .selectFrom('funding_case')
+        .selectFrom('funding_agreement')
         .selectAll()
         .where('id', '=', id)
         .forUpdate()
         .executeTakeFirst()
-      if (!previous || previous.agencyId !== parent.agencyId) return fail(404, 'CASE_NOT_FOUND')
+      if (!previous || previous.agencyId !== parent.agencyId)
+        return fail(404, 'AGREEMENT_NOT_FOUND')
       if (previous.organizationId !== input.organizationId || previous.streamId !== input.streamId)
-        return fail(409, 'CASE_SCOPE_IMMUTABLE')
+        return fail(409, 'AGREEMENT_SCOPE_IMMUTABLE')
       if (previous.revision !== update!.expectedRevision) return fail(409, 'REVISION_CONFLICT')
       const before = previous.config,
         after = input.config
@@ -130,7 +135,7 @@ export const saveCase = async (
           return fail(409, 'BALANCE_TIMESTAMP_CONFLICT')
       }
       await tx
-        .updateTable('funding_case')
+        .updateTable('funding_agreement')
         .set({
           ...input,
           config: sql`${JSON.stringify(input.config)}::jsonb`,
@@ -143,7 +148,7 @@ export const saveCase = async (
     } else {
       id = uuid()
       await tx
-        .insertInto('funding_case')
+        .insertInto('funding_agreement')
         .values({
           ...input,
           id,
@@ -156,10 +161,10 @@ export const saveCase = async (
         })
         .execute()
     }
-    return getCase(tx, actor, id)
+    return getAgreement(tx, actor, id)
   })
 }
-export const organizationCases = async (
+export const organizationAgreements = async (
   db: GovernmentDb,
   organizationId: string,
   userId: string
@@ -168,8 +173,8 @@ export const organizationCases = async (
   if (!subjects.some((subject) => subject !== 'application' && hasAccess(permissions, subject)))
     return fail(403, 'BUSINESS_PERMISSION_REQUIRED')
   return {
-    cases: await db
-      .selectFrom('funding_case')
+    agreements: await db
+      .selectFrom('funding_agreement')
       .select(['id', 'nameEn', 'nameFr', 'agreementNumber', 'streamId'])
       .where('organizationId', '=', organizationId)
       .orderBy('createdAt', 'desc')
@@ -183,14 +188,14 @@ export const updateBalances = async (
   id: string,
   body: unknown
 ) => {
-  const { balancesInput } = await import('../../shared/schemas/cases')
+  const { balancesInput } = await import('../../shared/schemas/agreements')
   const input = balancesInput.parse(body),
-    parent = await caseRow(db, id)
+    parent = await agreementRow(db, id)
   return db.transaction().execute(async (tx) => {
     await requireGovernment(tx, actor, { agencyId: parent.agencyId, lock: true })
     await lockOrganization(tx, parent.organizationId)
     const current = await tx
-      .selectFrom('funding_case')
+      .selectFrom('funding_agreement')
       .selectAll()
       .where('id', '=', id)
       .forUpdate()
@@ -206,13 +211,13 @@ export const updateBalances = async (
       Object.assign(line, update, { balanceAsOf: input.asOf })
     }
     await tx
-      .updateTable('funding_case')
+      .updateTable('funding_agreement')
       .set({
         config: sql`${JSON.stringify(current.config)}::jsonb`,
         revision: current.revision + 1
       })
       .where('id', '=', id)
       .execute()
-    return getCase(tx, actor, id)
+    return getAgreement(tx, actor, id)
   })
 }

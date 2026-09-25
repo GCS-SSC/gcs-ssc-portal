@@ -4,13 +4,13 @@ import type {
   LineBalance,
   SubmissionCheck,
   ResponseResult
-} from '~~/shared/types/cases'
+} from '~~/shared/types/agreements'
 import type { Organization } from '~~/shared/types/api'
-import { responseSubjects, attachmentsAllowed } from '~~/shared/schemas/cases'
+import { responseSubjects, attachmentsAllowed } from '~~/shared/schemas/agreements'
 import { hasAccess } from '~~/shared/utils/permissions'
-import FinancialResponse from '~/components/cases/FinancialResponse.vue'
-import ResponseAttachments from '~/components/cases/ResponseAttachments.vue'
-import ResponseSurvey from '~/components/cases/ResponseSurvey.vue'
+import FinancialResponse from '~/components/agreements/FinancialResponse.vue'
+import ResponseAttachments from '~/components/agreements/ResponseAttachments.vue'
+import ResponseSurvey from '~/components/agreements/ResponseSurvey.vue'
 definePageMeta({ key: (route) => route.fullPath })
 const route = useRoute(),
   organizationId = String(route.params.id),
@@ -18,9 +18,9 @@ const route = useRoute(),
 const base = `/api/organizations/${organizationId}`,
   endpoint = `${base}/responses/${id}`
 const api = usePortalApi(),
-  { c, errorMessage } = useCaseLocale(),
+  { c, errorMessage } = useAgreementLocale(),
   { localized } = useGovernmentLocale()
-const { busy, error, success, perform } = useCaseAction()
+const { busy, error, success, perform } = useAgreementAction()
 const {
   data,
   error: loadError,
@@ -80,7 +80,7 @@ const manager = computed(() => response.value?.status === 'draft' && allowed('ma
 const back = computed(() =>
   response.value?.snapshot.application
     ? `/organizations/${organizationId}?section=funding`
-    : `/organizations/${organizationId}?section=work`
+    : `/organizations/${organizationId}?section=agreements`
 )
 const attachmentChange = (result: {
   revision: number
@@ -196,7 +196,7 @@ const changePosition = async (next: number) => {
           {{ c(warning.kind) }} —
           {{
             localized(
-              response.snapshot.case!.config.budgetLines.find(
+              response.snapshot.agreement!.config.budgetLines.find(
                 (line) => line.id === warning.budgetLineId
               )!
             )
@@ -215,7 +215,7 @@ const changePosition = async (next: number) => {
           }}</PortalButton>
         </div>
       </section>
-      <PortalText v-if="response.snapshot.case && response.status === 'submitted'">
+      <PortalText v-if="response.snapshot.agreement && response.status === 'submitted'">
         {{ c(recorded ? 'recordedBalances' : 'latestBalances') }}
       </PortalText>
       <PortalButton
@@ -285,7 +285,7 @@ const changePosition = async (next: number) => {
           >{{ c('reviewSubmit') }}</PortalButton
         >
         <PortalButton
-          v-if="response.snapshot.case"
+          v-if="response.snapshot.agreement"
           variant="secondary"
           :disabled="uploading || busy"
           @click="updateBalances"

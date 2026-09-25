@@ -25,7 +25,7 @@ import {
   cleanupAttachments
 } from '../../server/utils/attachments'
 import { sha256, type AttachmentStorage } from '../../server/utils/attachment-storage'
-import { attachmentsAllowed } from '../../shared/schemas/cases'
+import { attachmentsAllowed } from '../../shared/schemas/agreements'
 let db: Kysely<Database>, actor: GovernmentActor, agencyId: string, streamId: string, orgId: string
 const names = { nameEn: 'Applications', nameFr: 'Demandes' }
 const definition: SurveyDefinition = {

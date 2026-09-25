@@ -1,5 +1,5 @@
 import { sql, type Kysely } from 'kysely'
-export const caseMigration = {
+export const agreementMigration = {
   up: async (db: Kysely<unknown>) => {
     const statements = `
 ALTER TABLE agency ADD COLUMN "sourceSystem" text NOT NULL DEFAULT 'gcs-ssc';
@@ -24,18 +24,18 @@ UPDATE stream SET "agencyId" = program."agencyId" FROM program WHERE program.id 
 ALTER TABLE stream ALTER COLUMN "agencyId" SET NOT NULL;
 ALTER TABLE stream ADD CONSTRAINT stream_program_agency FOREIGN KEY ("programId", "agencyId") REFERENCES program(id, "agencyId");
 ALTER TABLE stream ADD CONSTRAINT stream_agency_identity UNIQUE (id, "agencyId");
-CREATE TABLE funding_case (
+CREATE TABLE funding_agreement (
  id uuid PRIMARY KEY, "organizationId" uuid NOT NULL REFERENCES organization(id), "agencyId" uuid NOT NULL REFERENCES agency(id), "streamId" uuid NOT NULL REFERENCES stream(id),
  "nameEn" text NOT NULL, "nameFr" text NOT NULL, "agreementNumber" text NOT NULL, config jsonb NOT NULL,
  "sourceSystem" text NOT NULL, "foreignSystemId" text, revision integer NOT NULL CHECK (revision > 0), "createdAt" timestamptz NOT NULL,
  FOREIGN KEY ("streamId", "agencyId") REFERENCES stream(id, "agencyId"), UNIQUE (id, "organizationId", "agencyId"), UNIQUE ("agencyId", "sourceSystem", "foreignSystemId")
 );
-CREATE INDEX funding_case_organization ON funding_case ("organizationId");
+CREATE INDEX funding_agreement_organization ON funding_agreement ("organizationId");
 CREATE TABLE submission_set (
- id uuid PRIMARY KEY, "organizationId" uuid NOT NULL REFERENCES organization(id), "agencyId" uuid NOT NULL REFERENCES agency(id), "caseId" uuid,
+ id uuid PRIMARY KEY, "organizationId" uuid NOT NULL REFERENCES organization(id), "agencyId" uuid NOT NULL REFERENCES agency(id), "agreementId" uuid,
  "nameEn" text NOT NULL, "nameFr" text NOT NULL, "sourceSystem" text NOT NULL, "foreignSystemId" text,
  items jsonb NOT NULL, snapshot jsonb, revision integer NOT NULL CHECK (revision > 0), published boolean NOT NULL DEFAULT false, "createdAt" timestamptz NOT NULL,
- FOREIGN KEY ("caseId", "organizationId", "agencyId") REFERENCES funding_case(id, "organizationId", "agencyId"),
+ FOREIGN KEY ("agreementId", "organizationId", "agencyId") REFERENCES funding_agreement(id, "organizationId", "agencyId"),
  CHECK (NOT published OR snapshot IS NOT NULL), UNIQUE (id, "organizationId"), UNIQUE ("agencyId", "sourceSystem", "foreignSystemId")
 );
 CREATE INDEX submission_set_organization ON submission_set ("organizationId");

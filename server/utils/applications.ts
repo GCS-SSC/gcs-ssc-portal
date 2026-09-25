@@ -1,9 +1,9 @@
 import { sql, type Kysely } from 'kysely'
 import { v7 as uuid } from 'uuid'
 import type { Database } from '../db/schema'
-import { startResponseInput, type SetItem, type SetSnapshot } from '../../shared/schemas/cases'
+import { startResponseInput, type SetItem, type SetSnapshot } from '../../shared/schemas/agreements'
 import { governmentFail as fail } from './government-access'
-import { lockOrganization, requireBusinessAccess } from './case-access'
+import { lockOrganization, requireBusinessAccess } from './agreement-access'
 import { requireOpenCall, calendarText } from './response-publication'
 import { createResponseDraft } from './response-records'
 import { getResponse } from './set-responses'
@@ -68,8 +68,8 @@ export const startApplication = async (
         nameFr: call.nameFr,
         sourceSystem: call.sourceSystem,
         foreignSystemId: call.foreignSystemId,
-        case: null,
-        caseReference: null,
+        agreement: null,
+        agreementReference: null,
         items: [{ item, survey: survey.definition }],
         application: {
           callId,
@@ -107,7 +107,7 @@ export const startApplication = async (
             id: uuid(),
             organizationId,
             agencyId: call.agencyId,
-            caseId: null,
+            agreementId: null,
             callId,
             sourceSystem: call.sourceSystem,
             foreignSystemId: null,

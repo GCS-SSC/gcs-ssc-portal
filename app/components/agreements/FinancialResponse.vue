@@ -1,21 +1,21 @@
 <script setup lang="ts">
-import type { ResponseItem, SetSnapshot } from '~~/shared/schemas/cases'
-import type { LineBalance } from '~~/shared/types/cases'
+import type { ResponseItem, SetSnapshot } from '~~/shared/schemas/agreements'
+import type { LineBalance } from '~~/shared/types/agreements'
 const props = defineProps<{ snapshot: SetSnapshot; balances: LineBalance[]; readonly: boolean }>()
 const item = defineModel<Exclude<ResponseItem, { kind: 'survey' }>>({ required: true })
-const { c, months } = useCaseLocale(),
+const { c, months } = useAgreementLocale(),
   { localized } = useGovernmentLocale()
 const prefix = useId()
 const budget = computed(
   () =>
-    props.snapshot.case?.config.budgetLines.filter((line) =>
+    props.snapshot.agreement?.config.budgetLines.filter((line) =>
       item.value.lines.some((entry) => entry.budgetLineId === line.id)
     ) ?? []
 )
 const fiscalYear = computed(() => {
   const definition = props.snapshot.items.find((entry) => entry.item.id === item.value.id)?.item
   if (!definition || definition.kind === 'survey') return ''
-  const year = props.snapshot.case?.config.fiscalYears.find(
+  const year = props.snapshot.agreement?.config.fiscalYears.find(
     (entry) => entry.id === definition.fiscalYearId
   )
   return year ? `${year.startYear}–${year.startYear + 1}` : ''
@@ -29,7 +29,7 @@ const fillZero = () => {
   <section>
     <PortalHeading tag="h2">{{ c(item.kind) }}</PortalHeading>
     <PortalText>
-      {{ c('agreementNumber') }}: {{ snapshot.case?.agreementNumber }} · {{ c('fiscalYear') }}:
+      {{ c('agreementNumber') }}: {{ snapshot.agreement?.agreementNumber }} · {{ c('fiscalYear') }}:
       {{ fiscalYear }}
     </PortalText>
     <PortalText>{{ c('balancesHint') }}</PortalText>

@@ -25,12 +25,14 @@ const text = computed(() =>
         portal: 'Portail GCS-SSC',
         account: 'Compte',
         organizations: 'Organisations',
+        signin: 'Se connecter',
         signout: 'Se déconnecter'
       }
     : {
-        portal: 'GCS-SSC portal',
+        portal: 'GCS–SSC portal',
         account: 'Account',
         organizations: 'Organizations',
+        signin: 'Sign in',
         signout: 'Sign out'
       }
 )
@@ -48,7 +50,7 @@ const text = computed(() =>
         @click.prevent="emit('locale', locale === 'en' ? 'fr' : 'en')"
       />
       <GcdsTopNav slot="menu" :label="text.portal" alignment="end" :lang="locale">
-        <GcdsNavLink slot="home" href="/" :current="currentPath === '/'">
+        <GcdsNavLink slot="home" href="/">
           {{ portalTitle || text.portal }}
         </GcdsNavLink>
         <GcdsNavGroup
@@ -67,9 +69,18 @@ const text = computed(() =>
           >
         </GcdsNavGroup>
         <GcdsButton
+          v-if="!signedIn"
+          type="link"
+          size="small"
+          class="gc-nav-account"
+          :href="currentPath.startsWith('/admin') ? '/admin/login' : '/login'"
+        >
+          {{ text.signin }}
+        </GcdsButton>
+        <GcdsButton
           v-if="signedIn"
-          size="regular"
-          class="gc-nav-signout"
+          size="small"
+          class="gc-nav-account"
           @gcds-click="emit('signout')"
         >
           {{ text.signout }}
@@ -77,7 +88,7 @@ const text = computed(() =>
       </GcdsTopNav>
       <!-- eslint-enable vue/no-deprecated-slot-attribute -->
     </GcdsHeader>
-    <GcdsContainer v-if="breadcrumbs?.length" layout="page">
+    <GcdsContainer v-if="breadcrumbs?.length" layout="page" class="gc-breadcrumbs">
       <GcdsBreadcrumbs :lang="locale" hide-canada-link>
         <GcdsBreadcrumbsItem v-for="item in breadcrumbs" :key="item.to" :href="item.to">{{
           item.label

@@ -1,12 +1,12 @@
-import type { SetSnapshot, ResponseItem } from '../../shared/schemas/cases'
+import type { SetSnapshot, ResponseItem } from '../../shared/schemas/agreements'
 import { moneyCents, centsMoney } from '../../shared/utils/money'
-import { caseRow } from './cases'
+import { agreementRow } from './agreements'
 import type { GovernmentDb } from './government-access'
 export const currentBalances = async (db: GovernmentDb, snapshot: SetSnapshot) => {
-  if (!snapshot.case) return []
-  const current = await caseRow(db, snapshot.case.id)
-  return snapshot.case.config.budgetLines.map((original) => {
-    const originalYear = snapshot.case!.config.fiscalYears.find(
+  if (!snapshot.agreement) return []
+  const current = await agreementRow(db, snapshot.agreement.id)
+  return snapshot.agreement.config.budgetLines.map((original) => {
+    const originalYear = snapshot.agreement!.config.fiscalYears.find(
       (year) => year.id === original.fiscalYearId
     )
     const liveYear = current.config.fiscalYears.find((year) => year.id === original.fiscalYearId)
@@ -23,7 +23,7 @@ export const currentBalances = async (db: GovernmentDb, snapshot: SetSnapshot) =
               : line.id === original.id) &&
             line.currency === original.currency &&
             line.fiscalYearId === original.fiscalYearId &&
-            current.config.sourceSystem === snapshot.case!.config.sourceSystem
+            current.config.sourceSystem === snapshot.agreement!.config.sourceSystem
         )
       : undefined
     return {

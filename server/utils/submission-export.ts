@@ -1,5 +1,5 @@
 import { v7 as uuid } from 'uuid'
-import type { ResponseItem, SetSnapshot } from '../../shared/schemas/cases'
+import type { ResponseItem, SetSnapshot } from '../../shared/schemas/agreements'
 /** Frozen interchange. Foreign IDs refer to GCS stable budget lineage; no remote writes occur here. */
 export const buildSubmissionExport = (options: {
   submissionId: string
@@ -23,8 +23,8 @@ export const buildSubmissionExport = (options: {
   sourceSystem: options.snapshot.sourceSystem,
   foreignSystemId: options.snapshot.foreignSystemId,
   application: options.snapshot.application ?? null,
-  case: options.snapshot.case,
-  caseReference: options.snapshot.caseReference,
+  agreement: options.snapshot.agreement,
+  agreementReference: options.snapshot.agreementReference,
   publicationId: options.snapshot.publicationId,
   items: options.items.map((item, position) => {
     const itemSubmissionId = uuid()
@@ -39,7 +39,7 @@ export const buildSubmissionExport = (options: {
       }
     if (definition.item.kind === 'survey') throw new Error('Mismatched frozen response')
     const fiscalYearId = definition.item.fiscalYearId
-    const config = options.snapshot.case!.config
+    const config = options.snapshot.agreement!.config
     const fiscalYear = config.fiscalYears.find((year) => year.id === fiscalYearId)!
     const lines = item.lines.map((line) => {
       const budget = config.budgetLines.find((allowed) => allowed.id === line.budgetLineId)!

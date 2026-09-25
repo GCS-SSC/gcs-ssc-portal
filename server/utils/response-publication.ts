@@ -1,4 +1,4 @@
-import type { SetSnapshot } from '../../shared/schemas/cases'
+import type { SetSnapshot } from '../../shared/schemas/agreements'
 import { governmentFail as fail, type GovernmentDb } from './government-access'
 import { setRow } from './submission-sets'
 export const calendarText = (value: Date | string) =>

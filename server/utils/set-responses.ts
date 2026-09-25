@@ -2,9 +2,9 @@ import { attachmentConfig } from './attachment-config'
 import { attachmentMetadata } from './attachment-records'
 import { responseRow, createResponseDraft } from './response-records'
 import { requireResponsePublication } from './response-publication'
-import type { LineBalance } from '../../shared/types/cases'
-import { caseRow } from './cases'
-import { currentBalances, balanceWarnings } from './case-balances'
+import type { LineBalance } from '../../shared/types/agreements'
+import { agreementRow } from './agreements'
+import { currentBalances, balanceWarnings } from './agreement-balances'
 import { sql, type Kysely, type Selectable } from 'kysely'
 import { v7 as uuid } from 'uuid'
 import {
@@ -13,7 +13,7 @@ import {
   versionInput,
   submitResponseInput,
   responseSubjects
-} from '../../shared/schemas/cases'
+} from '../../shared/schemas/agreements'
 import type { Database } from '../db/schema'
 import {
   governmentFail as fail,
@@ -21,7 +21,7 @@ import {
   type GovernmentActor,
   type GovernmentDb
 } from './government-access'
-import { lockOrganization, requireBusinessAccess } from './case-access'
+import { lockOrganization, requireBusinessAccess } from './agreement-access'
 import { hasAccess, type AccessLevel } from '../../shared/utils/permissions'
 import { setRow } from './submission-sets'
 import { validateResponseItems } from './response-validation'
@@ -162,8 +162,8 @@ export const mutateResponse = async (
         .execute()
     else {
       const submissionId = uuid()
-      const balanceRevision = row.snapshot.case
-        ? (await caseRow(tx, row.snapshot.case.id)).revision
+      const balanceRevision = row.snapshot.agreement
+        ? (await agreementRow(tx, row.snapshot.agreement.id)).revision
         : null
       if (submit!.balanceRevision !== balanceRevision) return fail(409, 'BALANCE_CHANGED')
       const balances = await currentBalances(tx, row.snapshot)
@@ -224,7 +224,7 @@ export const listSubmissions = async (
       'r.submissionId',
       'r.id as responseId',
       'r.setId',
-      's.caseId',
+      's.agreementId',
       's.callId',
       'r.organizationId',
       'r.submittedAt'
@@ -286,8 +286,8 @@ export const checkResponse = async (
       return fail(409, 'ATTACHMENTS_PENDING')
     const balances = await currentBalances(tx, row.snapshot)
     return {
-      balanceRevision: row.snapshot.case
-        ? (await caseRow(tx, row.snapshot.case.id)).revision
+      balanceRevision: row.snapshot.agreement
+        ? (await agreementRow(tx, row.snapshot.agreement.id)).revision
         : null,
       balances,
       warnings: balanceWarnings(items, balances)

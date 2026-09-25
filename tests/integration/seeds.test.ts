@@ -153,7 +153,11 @@ it('creates usable credentials and scoped sample data once, preserving edits on 
   const verifiedMembers = await db
     .selectFrom('user')
     .select('emailVerified')
-    .where('email', 'in', members.map((member) => member.email))
+    .where(
+      'email',
+      'in',
+      members.map((member) => member.email)
+    )
     .execute()
   expect(verifiedMembers.every((member) => member.emailVerified)).toBe(true)
   const viewer = await db
@@ -169,27 +173,36 @@ it('creates usable credentials and scoped sample data once, preserving edits on 
     .select('id')
     .where('email', '=', 'contributor@portal.com')
     .executeTakeFirstOrThrow()
-  expect((await getOrganization(db, org.id, contributor.id)).organization.permissions)
-    .toContain('application:contributor')
+  expect((await getOrganization(db, org.id, contributor.id)).organization.permissions).toContain(
+    'application:contributor'
+  )
   const member = await db
     .selectFrom('user')
     .select('id')
     .where('email', '=', 'user@portal.com')
     .executeTakeFirstOrThrow()
   expect((await getOrganization(db, org.id, member.id)).organization.permissions).toEqual(['user'])
-  const cases = await db.selectFrom('funding_case').selectAll().orderBy('agreementNumber').execute()
-  expect(cases.map((item) => item.agreementNumber)).toEqual([
+  const agreements = await db
+    .selectFrom('funding_agreement')
+    .selectAll()
+    .orderBy('agreementNumber')
+    .execute()
+  expect(agreements.map((item) => item.agreementNumber)).toEqual([
     'DEMO-001',
     'DEMO-002',
     'DEMO-003'
   ])
-  expect(cases.every((item) => item.organizationId === org.id && item.config.budgetLines.length === 2))
-    .toBe(true)
+  expect(
+    agreements.every(
+      (item) => item.organizationId === org.id && item.config.budgetLines.length === 2
+    )
+  ).toBe(true)
   const sets = (await organizationSets(db, org.id, org.ownerId)).sets
   expect(sets).toHaveLength(3)
-  expect(sets.every((set) => set.published && set.caseId && set.items.length === 2)).toBe(true)
-  expect((await startResponse(db, org.id, org.ownerId, sets[0]!.id, { locale: 'en' })).response.status)
-    .toBe('draft')
+  expect(sets.every((set) => set.published && set.agreementId && set.items.length === 2)).toBe(true)
+  expect(
+    (await startResponse(db, org.id, org.ownerId, sets[0]!.id, { locale: 'en' })).response.status
+  ).toBe('draft')
   const call = await db.selectFrom('funding_call').selectAll().executeTakeFirstOrThrow()
   expect(call.published).toBe(true)
   expect(call.surveyId).toBeTruthy()
@@ -197,26 +210,42 @@ it('creates usable credentials and scoped sample data once, preserving edits on 
   const draft = await startApplication(db, org.id, org.ownerId, call.id, { locale: 'en' })
   expect(draft.response.status).toBe('draft')
   expect(draft.response.snapshot.items[0]!.survey!.title.fr).toBe('Demande de projet communautaire')
-  const savedApplication = await mutateResponse(db, org.id, org.ownerId, draft.response.id, 'save', {
-    expectedRevision: draft.response.revision,
-    items: [{
-      id: 'application',
-      kind: 'survey',
-      answers: {
-        project_name: 'Neighbourhood food garden',
-        project_summary: 'Build a shared food garden for local residents.',
-        participants: '50'
-      }
-    }]
-  })
+  const savedApplication = await mutateResponse(
+    db,
+    org.id,
+    org.ownerId,
+    draft.response.id,
+    'save',
+    {
+      expectedRevision: draft.response.revision,
+      items: [
+        {
+          id: 'application',
+          kind: 'survey',
+          answers: {
+            project_name: 'Neighbourhood food garden',
+            project_summary: 'Build a shared food garden for local residents.',
+            participants: '50'
+          }
+        }
+      ]
+    }
+  )
   const review = await checkResponse(db, org.id, org.ownerId, draft.response.id, {
     expectedRevision: savedApplication.response.revision
   })
-  const submittedApplication = await mutateResponse(db, org.id, org.ownerId, draft.response.id, 'submit', {
-    expectedRevision: savedApplication.response.revision,
-    balanceRevision: review.balanceRevision,
-    warningsAcknowledged: true
-  })
+  const submittedApplication = await mutateResponse(
+    db,
+    org.id,
+    org.ownerId,
+    draft.response.id,
+    'submit',
+    {
+      expectedRevision: savedApplication.response.revision,
+      balanceRevision: review.balanceRevision,
+      warningsAcknowledged: true
+    }
+  )
   expect(submittedApplication.response.status).toBe('submitted')
   expect(await db.selectFrom('administrator').select(['email']).execute()).toEqual([
     { email: 'admin@portal.com' }

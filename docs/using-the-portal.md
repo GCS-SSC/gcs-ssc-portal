@@ -6,17 +6,17 @@ Register an account, create an organization, then open its people page. The crea
 
 A viewer can read. A contributor can start and edit shared drafts and their attachments. A manager can also submit and delete drafts. Financial sets containing both claims and forecasts require both permissions. Designed forms included in a financial set inherit that financial access; standalone forms use form access.
 
-Create an invitation with the colleague’s email and share its link yourself. The portal does not send email. The recipient registers or signs in with that address and accepts the link. Links expire after the app-wide configured period. New members start with user access; grant business permissions separately. Only the current owner can transfer ownership, and the recipient must already be a member. Organization administrators can copy the organization UUID for the GCS–SSC extension configuring a case.
+Create an invitation with the colleague’s email and share its link yourself. The portal does not send email. The recipient registers or signs in with that address and accepts the link. Links expire after the app-wide configured period. New members start with user access; grant business permissions separately. Only the current owner can transfer ownership, and the recipient must already be a member. Organization administrators can copy the organization UUID for the GCS–SSC extension configuring an agreement.
 
 ## System administrators and extension setup
 
 The demo seed creates a system administrator. For a separate database, use `bun run admin:create` with `ADMIN_NAME`, `ADMIN_EMAIL`, and `ADMIN_PASSWORD`. Sign in at `/admin/login`, register each agency with names in both languages, then create and copy its integration key. Only the key hash is stored; the secret is shown once. Several administrators may exist, and their credentials are separate from organization accounts.
 
-Give each agency its own key through a secure channel. The future GCS–SSC extension uses the agency API to provide programs, streams, funding calls, forms, cases, budgets, and form sets. This companion app does not offer government staff sign-in or manual configuration screens. The extension is not implemented in this repository.
+Give each agency its own key through a secure channel. The future GCS–SSC extension uses the agency API to provide programs, streams, funding calls, forms, agreements, budgets, and form sets. This companion app does not offer government staff sign-in or manual configuration screens. The extension is not implemented in this repository.
 
 ## Applications and other responses
 
-Choose **Apply for funding** to preview published calls and start an application during its date window. Choose **Cases and forms** for published case or organization sets. Each organization shares one draft per call/set. Save deliberately, and reload if another contributor changed the revision; the portal rejects silent overwrites.
+Choose **Apply for funding** to preview published calls and start an application during its date window. Choose **Agreements** to see an agreement's published forms or forms published directly to the organization. Each organization shares one draft per call or set. Save deliberately, and reload if another contributor changed the revision; the portal rejects silent overwrites.
 
 Upload optional attachments under each enabled form or financial item. Unsaved answer edits remain in place when a file is added or removed. A failed upload can advance the response revision; copy unsaved answers and reload before retrying. Files remain private and are available only to authorized viewers.
 

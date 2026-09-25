@@ -35,7 +35,7 @@ export const budgetLineSchema = bilingualName.extend({
   balanceAsOf: z.iso.datetime().nullable().default(null),
   currency: z.enum(currencyCodes)
 })
-export const caseConfigSchema = z
+export const agreementConfigSchema = z
   .object({
     sourceSystem: z.string().trim().min(1).max(100).default('gcs-ssc'),
     foreignSystemId: externalId.nullable().default(null),
@@ -71,14 +71,14 @@ export const caseConfigSchema = z
       if (!value.fiscalYears.some((year) => year.id === line.fiscalYearId))
         fail('Budget line requires an available fiscal year')
   })
-export const caseInput = bilingualName.extend({
+export const agreementInput = bilingualName.extend({
   organizationId: z.uuid(),
   streamId: z.uuid(),
   agreementNumber: z.string().trim().min(1).max(15),
-  config: caseConfigSchema
+  config: agreementConfigSchema
 })
-export const caseUpdateInput = z
-  .object({ expectedRevision: z.number().int().positive(), value: caseInput })
+export const agreementUpdateInput = z
+  .object({ expectedRevision: z.number().int().positive(), value: agreementInput })
   .strict()
 const financialItem = z
   .object({ id: key, fiscalYearId: key, attachments: attachmentPolicySchema.optional() })
@@ -99,7 +99,7 @@ export const setInput = bilingualName
   .extend({
     organizationId: z.uuid(),
     agencyId: z.uuid(),
-    caseId: z.uuid().nullable(),
+    agreementId: z.uuid().nullable(),
     sourceSystem: z.string().trim().min(1).max(100).default('gcs-ssc'),
     foreignSystemId: externalId.nullable().default(null),
     items: z
@@ -109,7 +109,7 @@ export const setInput = bilingualName
       .refine((items) => new Set(items.map((item) => item.id)).size === items.length)
   })
   .superRefine((value, ctx) => {
-    if (!value.caseId && value.items.some((item) => item.kind !== 'survey'))
+    if (!value.agreementId && value.items.some((item) => item.kind !== 'survey'))
       ctx.addIssue({ code: 'custom', message: 'Organization sets may only contain designed forms' })
   })
 export const setUpdateInput = z
@@ -156,8 +156,8 @@ export const responseInput = z
   })
   .strict()
 export const startResponseInput = z.object({ locale: z.enum(['en', 'fr']) }).strict()
-export type CaseConfig = z.infer<typeof caseConfigSchema>
-export type CaseInput = z.infer<typeof caseInput>
+export type AgreementConfig = z.infer<typeof agreementConfigSchema>
+export type AgreementInput = z.infer<typeof agreementInput>
 export type SetInput = z.infer<typeof setInput>
 export type SetItem = z.infer<typeof setItemSchema>
 export type ResponseItem = z.infer<typeof responseItemSchema>
@@ -180,7 +180,7 @@ export interface SetSnapshot {
   }
   schemaVersion: 1
   publicationId: string
-  caseReference: {
+  agreementReference: {
     id: string
     agreementNumber: string
     sourceSystem: string
@@ -191,7 +191,12 @@ export interface SetSnapshot {
   nameEn: string
   nameFr: string
   items: PublishedItem[]
-  case: { id: string; revision: number; agreementNumber: string; config: CaseConfig } | null
+  agreement: {
+    id: string
+    revision: number
+    agreementNumber: string
+    config: AgreementConfig
+  } | null
   sourceSystem: string
   foreignSystemId: string | null
 }

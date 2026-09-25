@@ -2,7 +2,7 @@ import { startApplication } from '../utils/applications'
 import * as attachments from '../utils/attachments'
 import { attachmentConfig } from '../utils/attachment-config'
 import { sendAttachment } from '../utils/attachment-download'
-import { organizationCases } from '../utils/cases'
+import { organizationAgreements } from '../utils/agreements'
 import { organizationSets, organizationSet } from '../utils/submission-sets'
 import * as responses from '../utils/set-responses'
 import { applicantSurvey } from '../utils/surveys'
@@ -14,10 +14,7 @@ import { useDatabase } from '../utils/database'
 import { isPortalOriginAllowed } from '../utils/config'
 import { parseJsonBody, readBoundedBody, toBoundedRequest } from '../utils/request-body'
 import * as portal from '../utils/portal'
-import {
-  isGovernmentAccount,
-  requireOrganizationAccount
-} from '../utils/government-access'
+import { isGovernmentAccount, requireOrganizationAccount } from '../utils/government-access'
 import { fundingCatalogue } from '../utils/government-structure'
 export default defineEventHandler(async (event) => {
   setHeader(event, 'Cache-Control', 'no-store')
@@ -89,7 +86,7 @@ export default defineEventHandler(async (event) => {
       } else {
         const id = organizationId.parse(path[1])
         if (path.length === 3 && method === 'GET') {
-          if (path[2] === 'cases') return await organizationCases(db, id, user.id)
+          if (path[2] === 'agreements') return await organizationAgreements(db, id, user.id)
           if (path[2] === 'sets') return await organizationSets(db, id, user.id)
           if (path[2] === 'responses') return await responses.listResponses(db, id, user.id)
         }

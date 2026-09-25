@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { hasAccess } from '~~/shared/utils/permissions'
-import type { ResponseResult } from '~~/shared/types/cases'
+import type { ResponseResult } from '~~/shared/types/agreements'
 import type { FundingCall } from '~~/shared/types/government'
 import type { Organization } from '~~/shared/types/api'
 const props = defineProps<{ organizationId: string; embedded?: boolean }>()
@@ -9,11 +9,12 @@ const { g, localized } = useGovernmentLocale()
 const { t } = useLocale()
 const { s } = useSurveyLocale()
 const { a } = useAttachmentLocale(),
-  { c } = useCaseLocale(),
+  { c } = useAgreementLocale(),
   { locale } = useLocale()
-const { busy, error: actionError, perform } = useCaseAction()
+const { busy, error: actionError, perform } = useAgreementAction()
 const api = usePortalApi(),
   message = useApiMessage()
+const search = ref('')
 const {
   data,
   error,
@@ -37,6 +38,25 @@ const status = (call: FundingCall) => {
   const today = new Date().toISOString().slice(0, 10)
   return today < call.startDate ? 'upcoming' : today > call.endDate ? 'closed' : 'open'
 }
+const agencyGroups = computed(() => {
+  const query = search.value.trim().toLocaleLowerCase()
+  const groups = new Map<string, { name: string; calls: FundingCall[] }>()
+  for (const call of data.value?.calls ?? []) {
+    const agencyName = localized({ nameEn: call.agencyNameEn, nameFr: call.agencyNameFr })
+    const searchable = [
+      agencyName,
+      localized(call),
+      localized({ nameEn: call.programNameEn, nameFr: call.programNameFr }),
+      localized({ nameEn: call.streamNameEn, nameFr: call.streamNameFr })
+    ]
+      .join(' ')
+      .toLocaleLowerCase()
+    if (query && !searchable.includes(query)) continue
+    if (!groups.has(call.agencyId)) groups.set(call.agencyId, { name: agencyName, calls: [] })
+    groups.get(call.agencyId)!.calls.push(call)
+  }
+  return [...groups.values()].sort((a, b) => a.name.localeCompare(b.name))
+})
 const start = (callId: string) =>
   perform(async () => {
     const result = await api<ResponseResult>(
@@ -74,45 +94,49 @@ const start = (callId: string) =>
       <PortalText>{{ g('fundingIntro') }}</PortalText>
       <PortalText>{{ g('fundingScope') }}</PortalText>
       <PortalText v-if="!data.calls.length">{{ g('noFunding') }}</PortalText>
-      <section v-for="call in data.calls" :key="call.id" class="content-section">
-        <PortalText size="small" text-role="secondary">
-          {{ localized({ nameEn: call.agencyNameEn, nameFr: call.agencyNameFr }) }}
-        </PortalText>
-        <PortalHeading :tag="embedded ? 'h3' : 'h2'">{{ localized(call) }}</PortalHeading>
-        <PortalLink v-if="call.surveyId" :to="`/forms/${id}/${call.id}`">{{
-          s('view')
-        }}</PortalLink>
-        <PortalButton
-          v-if="
-            call.surveyId &&
-            status(call) === 'open' &&
-            hasAccess(data.organization.permissions, 'application', 'contributor')
-          "
-          :disabled="busy"
-          @click="start(call.id)"
-          >{{ a('start') }}</PortalButton
-        >
-        <PortalBadge :tone="status(call) === 'open' ? 'success' : 'neutral'">{{
-          g(status(call))
-        }}</PortalBadge>
-        <dl class="detail-list">
-          <div>
-            <dt>{{ g('program') }}</dt>
-            <dd>{{ localized({ nameEn: call.programNameEn, nameFr: call.programNameFr }) }}</dd>
+      <PortalInput
+        v-if="data.calls.length"
+        id="funding-search"
+        v-model="search"
+        :label="g('searchCalls')"
+      />
+      <PortalText v-if="data.calls.length && !agencyGroups.length" role="status">{{
+        g('noMatchingCalls')
+      }}</PortalText>
+      <section v-for="group in agencyGroups" :key="group.name" class="content-section">
+        <PortalHeading :tag="embedded ? 'h3' : 'h2'" margin-top="0">{{ group.name }}</PortalHeading>
+        <section v-for="call in group.calls" :key="call.id" class="funding-call">
+          <PortalHeading :tag="embedded ? 'h4' : 'h3'" margin-top="0">{{
+            localized(call)
+          }}</PortalHeading>
+          <PortalText size="small" text-role="secondary" margin-bottom="100">
+            {{ localized({ nameEn: call.programNameEn, nameFr: call.programNameFr }) }} ·
+            {{ localized({ nameEn: call.streamNameEn, nameFr: call.streamNameFr }) }}
+          </PortalText>
+          <PortalText size="small" text-role="secondary" margin-bottom="100">
+            {{ g('startDate') }}: {{ call.startDate }} · {{ g('endDate') }}: {{ call.endDate }}
+          </PortalText>
+          <div class="form-actions funding-actions">
+            <PortalBadge :tone="status(call) === 'open' ? 'success' : 'neutral'">{{
+              g(status(call))
+            }}</PortalBadge>
+            <PortalLink v-if="call.surveyId" :to="`/forms/${id}/${call.id}`">{{
+              s('view')
+            }}</PortalLink>
+            <PortalButton
+              v-if="
+                call.surveyId &&
+                status(call) === 'open' &&
+                hasAccess(data.organization.permissions, 'application', 'contributor')
+              "
+              size="small"
+              variant="secondary"
+              :disabled="busy"
+              @click="start(call.id)"
+              >{{ a('start') }}</PortalButton
+            >
           </div>
-          <div>
-            <dt>{{ g('stream') }}</dt>
-            <dd>{{ localized({ nameEn: call.streamNameEn, nameFr: call.streamNameFr }) }}</dd>
-          </div>
-          <div>
-            <dt>{{ g('startDate') }}</dt>
-            <dd>{{ call.startDate }}</dd>
-          </div>
-          <div>
-            <dt>{{ g('endDate') }}</dt>
-            <dd>{{ call.endDate }}</dd>
-          </div>
-        </dl>
+        </section>
       </section>
     </template>
   </section>

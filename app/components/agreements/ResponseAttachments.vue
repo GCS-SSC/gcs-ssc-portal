@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { AttachmentLimits, ResponseAttachment } from '~~/shared/types/cases'
+import type { AttachmentLimits, ResponseAttachment } from '~~/shared/types/agreements'
 const props = defineProps<{
   endpoint: string
   itemId: string
@@ -15,7 +15,7 @@ const emit = defineEmits<{
 }>()
 const api = usePortalApi(),
   { a } = useAttachmentLocale(),
-  { errorMessage } = useCaseLocale()
+  { errorMessage } = useAgreementLocale()
 const file = shallowRef<File | null>(null),
   busy = ref(false),
   error = ref(''),

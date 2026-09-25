@@ -2,7 +2,7 @@
 
 A published funding call can pin one bilingual survey revision. The extension creates and attaches it through the agency API. Organization application viewers can preview published forms and read their organization's saved applications. Contributors start and edit a shared draft; managers review, submit or delete drafts. `admin` alone does not grant application access.
 
-**Apply for funding** lists published calls with agency, program, stream and inclusive UTC start/end dates. **Start application** creates or resumes the organization's shared draft. Saved applications remain listed even if their call closes or is withdrawn. Draft answer validation, bilingual routing, pages/sections/subsections, branching and optional attachments reuse the same provider and response engine as case forms. Preview answers are deliberately separate and never saved.
+**Apply for funding** lists published calls with agency, program, stream and inclusive UTC start/end dates. **Start application** creates or resumes the organization's shared draft. Saved applications remain listed even if their call closes or is withdrawn. Draft answer validation, bilingual routing, pages/sections/subsections, branching and optional attachments reuse the same provider and response engine as agreement forms. Preview answers are deliberately separate and never saved.
 
 `POST /api/organizations/:organizationId/funding-calls/:callId/applications` accepts `{locale:'en'|'fr'}` and returns the standard response result. Organization response save/read/check/submit/delete routes apply unchanged. Starting, editing, file mutations, review and submission require a published call in its UTC date window. Read access and manager draft deletion remain available after closing/withdrawal.
 

@@ -2,14 +2,14 @@ import { z } from 'zod'
 import { v7 as uuid } from 'uuid'
 import type { Kysely } from 'kysely'
 import type { Database } from '../db/schema'
-import { attachmentsAllowed, responseSubjects, versionInput } from '../../shared/schemas/cases'
+import { attachmentsAllowed, responseSubjects, versionInput } from '../../shared/schemas/agreements'
 import {
   governmentFail as fail,
   requireGovernment,
   type GovernmentActor,
   type GovernmentDb
 } from './government-access'
-import { lockOrganization, requireBusinessAccess } from './case-access'
+import { lockOrganization, requireBusinessAccess } from './agreement-access'
 import { responseRow } from './response-records'
 import { requireResponsePublication } from './response-publication'
 import { attachmentMetadata } from './attachment-records'

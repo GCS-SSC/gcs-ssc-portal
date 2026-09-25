@@ -33,7 +33,7 @@ Update the relevant document whenever a change alters a runtime boundary, reques
 
 - [Headless surveys, form authoring and import API](surveys.md)
 
-- [Cases, claims, forecasts and form sets](cases.md)
+- [Agreements, claims, forecasts and form sets](agreements.md)
 
 - [Funding applications](applications.md)
 - [Private S3 attachments](attachments.md)

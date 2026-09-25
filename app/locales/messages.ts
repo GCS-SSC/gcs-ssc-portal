@@ -17,7 +17,6 @@ export const en = {
   stepTwoText: 'Create an organization and become its first administrator and owner.',
   stepThree: 'Invite your team',
   stepThreeText: 'Share a secure invitation link and manage access as your team grows.',
-  serviceLabel: 'GCS–SSC services',
   accountTitle: 'Create your account',
   accountIntro: 'One account lets you work with all of your organizations.',
   fullName: 'Full name',
@@ -57,7 +56,6 @@ export const en = {
   onePerson: 'person',
   created: 'Created',
   organizationId: 'Organization ID',
-  yourAccess: 'Your access',
   manageOrganization: 'Manage organization',
   openOrganization: 'Open organization',
   teamIntro:
@@ -90,6 +88,8 @@ export const en = {
   grantAdmin: 'Make administrator',
   removeAdmin: 'Remove administrator',
   updatePermissions: 'Update permissions',
+  editAccess: 'Edit access',
+  edit: 'Edit',
   permissionsSaved: 'Permissions updated.',
   adminConfirm:
     'Grant administrator access? This person will be able to invite people and manage permissions.',
@@ -139,10 +139,6 @@ export const en = {
   confirmTitle: 'Confirm this change',
   confirm: 'Confirm',
   dismiss: 'Dismiss',
-  accessIntro: 'Your permissions apply only to this organization.',
-  ownerText: 'You can manage this organization and transfer its ownership.',
-  adminText: 'You can manage organization details, invitations, and people’s permissions.',
-  userText: 'You are a member of this organization. Contact an administrator to change access.',
   helpTitle: 'Joining an existing organization?',
   helpText:
     'Ask an administrator to share an invitation link. Invitations are sent directly by your team.',
@@ -172,7 +168,6 @@ export const fr: Record<MessageKey, string> = {
   stepTwoText: 'Créez une organisation et devenez son premier administrateur et propriétaire.',
   stepThree: 'Invitez votre équipe',
   stepThreeText: 'Partagez un lien d’invitation sécurisé et gérez les accès de votre équipe.',
-  serviceLabel: 'Services GCS–SSC',
   accountTitle: 'Créez votre compte',
   accountIntro: 'Un seul compte vous permet de travailler avec toutes vos organisations.',
   fullName: 'Nom complet',
@@ -212,7 +207,6 @@ export const fr: Record<MessageKey, string> = {
   onePerson: 'personne',
   created: 'Créée',
   organizationId: 'Identifiant de l’organisation',
-  yourAccess: 'Votre accès',
   manageOrganization: 'Gérer l’organisation',
   openOrganization: 'Ouvrir l’organisation',
   teamIntro:
@@ -246,6 +240,8 @@ export const fr: Record<MessageKey, string> = {
   grantAdmin: 'Nommer administrateur',
   removeAdmin: 'Retirer l’accès administrateur',
   updatePermissions: 'Modifier les permissions',
+  editAccess: 'Modifier les accès',
+  edit: 'Modifier',
   permissionsSaved: 'Permissions modifiées.',
   adminConfirm:
     'Accorder l’accès administrateur? Cette personne pourra inviter des membres et gérer les permissions.',
@@ -296,11 +292,6 @@ export const fr: Record<MessageKey, string> = {
   confirmTitle: 'Confirmer cette modification',
   confirm: 'Confirmer',
   dismiss: 'Fermer',
-  accessIntro: 'Vos permissions s’appliquent uniquement à cette organisation.',
-  ownerText: 'Vous pouvez gérer cette organisation et transférer sa propriété.',
-  adminText: 'Vous pouvez gérer les détails, les invitations et les permissions des membres.',
-  userText:
-    'Vous êtes membre de cette organisation. Contactez un administrateur pour modifier votre accès.',
   helpTitle: 'Vous rejoignez une organisation existante?',
   helpText:
     'Demandez un lien d’invitation à un administrateur. Votre équipe partage les invitations directement.',

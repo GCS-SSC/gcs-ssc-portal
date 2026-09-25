@@ -10,7 +10,7 @@ ALTER TABLE funding_call ADD CONSTRAINT call_stream_agency FOREIGN KEY ("streamI
 ALTER TABLE funding_call ADD CONSTRAINT call_agency_identity UNIQUE (id, "agencyId");
 ALTER TABLE submission_set ADD COLUMN "callId" uuid;
 ALTER TABLE submission_set ADD CONSTRAINT set_call_agency FOREIGN KEY ("callId", "agencyId") REFERENCES funding_call(id, "agencyId");
-ALTER TABLE submission_set ADD CONSTRAINT set_application_scope CHECK ("callId" IS NULL OR "caseId" IS NULL);
+ALTER TABLE submission_set ADD CONSTRAINT set_application_scope CHECK ("callId" IS NULL OR "agreementId" IS NULL);
 CREATE UNIQUE INDEX application_organization_call ON submission_set ("organizationId", "callId");
 CREATE TABLE response_attachment (
  id uuid PRIMARY KEY, "responseId" uuid REFERENCES set_response(id) ON DELETE SET NULL,

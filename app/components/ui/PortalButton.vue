@@ -12,7 +12,7 @@ const handleClick = (event: Event) => {
 <template>
   <!-- GCDS bridges submit/reset to the containing native form itself. -->
   <GcdsButton
-    size="regular"
+    :size="size ?? 'regular'"
     :type="type ?? 'button'"
     :button-role="variant ?? 'primary'"
     :disabled="disabled || loading"

@@ -11,7 +11,7 @@ import { createAgency, createProgram, createStream } from '../../server/utils/go
 import { createOrganization, updatePermissions } from '../../server/utils/portal'
 import type { GovernmentActor } from '../../server/utils/government-access'
 import { createSurvey } from '../../server/utils/surveys'
-import { saveCase, updateBalances, getCase } from '../../server/utils/cases'
+import { saveAgreement, updateBalances, getAgreement } from '../../server/utils/agreements'
 import { saveSet, publishSet } from '../../server/utils/submission-sets'
 import {
   startResponse,
@@ -20,17 +20,17 @@ import {
   getResponse,
   exportSubmission
 } from '../../server/utils/set-responses'
-import { caseInput, money, externalId, setSubjects } from '../../shared/schemas/cases'
-import type { FundingCase } from '../../shared/types/cases'
+import { agreementInput, money, externalId, setSubjects } from '../../shared/schemas/agreements'
+import type { FundingAgreement } from '../../shared/types/agreements'
 let db: Kysely<Database>,
   root: GovernmentActor,
   organizationId: string,
   agencyId: string,
   streamId: string
-const owner = 'case-owner',
-  viewer = 'case-viewer',
-  contributor = 'case-contributor',
-  manager = 'case-manager'
+const owner = 'agreement-owner',
+  viewer = 'agreement-viewer',
+  contributor = 'agreement-contributor',
+  manager = 'agreement-manager'
 const names = (name: string) => ({ nameEn: name, nameFr: name + ' FR' })
 beforeAll(async () => {
   const url = process.env.PORTAL_TEST_DATABASE_URL
@@ -51,7 +51,7 @@ beforeAll(async () => {
   db = await createDatabase({ url })
   const account = await createAdministrator(db, {
     name: 'Root',
-    email: 'root@cases.test',
+    email: 'root@agreements.test',
     password: 'Root-test-only-2026!'
   })
   root = { kind: 'administrator', administratorId: account.id }
@@ -61,14 +61,17 @@ beforeAll(async () => {
       .values({
         id,
         name: id,
-        email: id + '@cases.test',
+        email: id + '@agreements.test',
         emailVerified: false,
         image: null,
         createdAt: new Date(),
         updatedAt: new Date()
       })
       .execute()
-  const org = await createOrganization(db, owner, { name: 'Case organization', description: '' })
+  const org = await createOrganization(db, owner, {
+    name: 'Agreement organization',
+    description: ''
+  })
   organizationId = org.organization.id
   for (const userId of [viewer, contributor, manager]) {
     await db
@@ -88,9 +91,9 @@ beforeAll(async () => {
 afterAll(async () => {
   await db?.destroy()
 })
-const newCase = async (): Promise<FundingCase> =>
+const newAgreement = async (): Promise<FundingAgreement> =>
   (
-    await saveCase(db, root, {
+    await saveAgreement(db, root, {
       ...names('Agreement'),
       organizationId,
       streamId,
@@ -119,20 +122,20 @@ const newCase = async (): Promise<FundingCase> =>
         ]
       }
     })
-  ).case
-const newSet = async (fundingCase: FundingCase, kind: 'claim' | 'forecast' = 'claim') => {
+  ).agreement
+const newSet = async (fundingAgreement: FundingAgreement, kind: 'claim' | 'forecast' = 'claim') => {
   const result = await saveSet(db, root, {
     ...names('Submission'),
     organizationId,
     agencyId,
-    caseId: fundingCase.id,
+    agreementId: fundingAgreement.id,
     items: [{ id: 'financial', kind, fiscalYearId: 'fy' }]
   })
   return (
     await publishSet(db, root, result.set.id, { expectedRevision: result.set.revision }, true)
   ).set
 }
-describe('case submissions and reconciliation', () => {
+describe('agreement submissions and reconciliation', () => {
   it('preserves exact decimal money and stable bigint identifiers', () => {
     expect(money.parse('99999999999999999.99')).toBe('99999999999999999.99')
     expect(money.parse('-1.2')).toBe('-1.20')
@@ -144,8 +147,8 @@ describe('case submissions and reconciliation', () => {
       expect(externalId.safeParse(value).success).toBe(false)
   })
   it('gives contributors drafts, reserves final actions for managers, and allows acknowledged balance warnings', async () => {
-    const fundingCase = await newCase(),
-      set = await newSet(fundingCase)
+    const fundingAgreement = await newAgreement(),
+      set = await newSet(fundingAgreement)
     await expect(
       startResponse(db, organizationId, owner, set.id, { locale: 'en' })
     ).rejects.toMatchObject({ statusCode: 403 })
@@ -205,7 +208,7 @@ describe('case submissions and reconciliation', () => {
         {
           mappingComplete: true,
           claim: {
-            agreementId: fundingCase.config.foreignSystemId,
+            agreementId: fundingAgreement.config.foreignSystemId,
             streamId: '9223372036854775806',
             fiscalYearId: '91',
             periodStart: 0,
@@ -215,7 +218,7 @@ describe('case submissions and reconciliation', () => {
         }
       ]
     })
-    await updateBalances(db, root, fundingCase.id, {
+    await updateBalances(db, root, fundingAgreement.id, {
       expectedRevision: 1,
       asOf: '2026-09-02T00:00:00Z',
       lines: [
@@ -238,8 +241,8 @@ describe('case submissions and reconciliation', () => {
     ).rejects.toMatchObject({ statusCode: 409 })
   })
   it('invalidates review on reconciliation, prevents stale balance writes and enforces optimistic draft concurrency', async () => {
-    const fundingCase = await newCase(),
-      set = await newSet(fundingCase)
+    const fundingAgreement = await newAgreement(),
+      set = await newSet(fundingAgreement)
     const initial = await startResponse(db, organizationId, contributor, set.id, { locale: 'fr' }),
       id = initial.response.id
     const item = initial.response.items[0]!
@@ -260,7 +263,7 @@ describe('case submissions and reconciliation', () => {
       asOf: '2026-09-03T00:00:00Z',
       lines: [{ foreignSystemId: '9007199254740993', budgetedAmount: '200', balance: '50' }]
     }
-    await updateBalances(db, root, fundingCase.id, change)
+    await updateBalances(db, root, fundingAgreement.id, change)
     await expect(
       mutateResponse(db, organizationId, manager, id, 'submit', {
         expectedRevision: 2,
@@ -269,7 +272,7 @@ describe('case submissions and reconciliation', () => {
       })
     ).rejects.toMatchObject({ statusCode: 409, data: { code: 'BALANCE_CHANGED' } })
     await expect(
-      updateBalances(db, root, fundingCase.id, { ...change, expectedRevision: 2 })
+      updateBalances(db, root, fundingAgreement.id, { ...change, expectedRevision: 2 })
     ).rejects.toMatchObject({ statusCode: 409 })
     const reviewed = await checkResponse(db, organizationId, manager, id, { expectedRevision: 2 })
     expect(reviewed.balanceRevision).toBe(2)
@@ -293,8 +296,8 @@ describe('case submissions and reconciliation', () => {
     })
   })
   it('rejects forged budget rows, retains twelve fiscal months and exports forecast identifiers', async () => {
-    const fundingCase = await newCase(),
-      set = await newSet(fundingCase, 'forecast')
+    const fundingAgreement = await newAgreement(),
+      set = await newSet(fundingAgreement, 'forecast')
     const initial = await startResponse(db, organizationId, contributor, set.id, { locale: 'en' }),
       item = initial.response.items[0]!
     if (item.kind !== 'forecast') throw new Error('Expected forecast')
@@ -351,8 +354,8 @@ describe('case submissions and reconciliation', () => {
     })
   })
   it('protects organization and government scopes, publication and established foreign identities', async () => {
-    const fundingCase = await newCase(),
-      set = await newSet(fundingCase)
+    const fundingAgreement = await newAgreement(),
+      set = await newSet(fundingAgreement)
     const otherOrg = (
       await createOrganization(db, owner, { name: 'Other organization', description: '' })
     ).organization.id
@@ -360,19 +363,19 @@ describe('case submissions and reconciliation', () => {
       startResponse(db, otherOrg, owner, set.id, { locale: 'en' })
     ).rejects.toMatchObject({ statusCode: 404 })
     await expect(
-      getCase(db, { kind: 'integration', tokenHash: 'not-a-token' }, fundingCase.id)
+      getAgreement(db, { kind: 'integration', tokenHash: 'not-a-token' }, fundingAgreement.id)
     ).rejects.toMatchObject({ statusCode: 401 })
-    const value = caseInput.parse({
-      nameEn: fundingCase.nameEn,
-      nameFr: fundingCase.nameFr,
+    const value = agreementInput.parse({
+      nameEn: fundingAgreement.nameEn,
+      nameFr: fundingAgreement.nameFr,
       organizationId,
       streamId,
-      agreementNumber: fundingCase.agreementNumber,
-      config: fundingCase.config
+      agreementNumber: fundingAgreement.agreementNumber,
+      config: fundingAgreement.config
     })
     value.config.budgetLines[0]!.foreignSystemId = '99'
     await expect(
-      saveCase(db, root, { expectedRevision: 1, value }, fundingCase.id)
+      saveAgreement(db, root, { expectedRevision: 1, value }, fundingAgreement.id)
     ).rejects.toMatchObject({ statusCode: 409 })
     const initial = await startResponse(db, organizationId, contributor, set.id, { locale: 'en' })
     await publishSet(db, root, set.id, { expectedRevision: set.revision }, false)
@@ -386,8 +389,8 @@ describe('case submissions and reconciliation', () => {
       expectedRevision: 1
     })
   })
-  it('keeps case identity for standalone forms, pins definitions and rejects superseded drafts', async () => {
-    const fundingCase = await newCase()
+  it('keeps agreement identity for standalone forms, pins definitions and rejects superseded drafts', async () => {
+    const fundingAgreement = await newAgreement()
     const survey = (
       await createSurvey(db, root, {
         agencyId,
@@ -407,10 +410,10 @@ describe('case submissions and reconciliation', () => {
       })
     ).survey
     const value = {
-      ...names('Case report'),
+      ...names('Agreement report'),
       organizationId,
       agencyId,
-      caseId: fundingCase.id,
+      agreementId: fundingAgreement.id,
       sourceSystem: 'gcs-ssc',
       foreignSystemId: '710',
       items: [{ id: 'report', kind: 'survey', surveyId: survey.id, surveyRevision: 1 }]
@@ -419,10 +422,10 @@ describe('case submissions and reconciliation', () => {
     set = (await publishSet(db, root, set.id, { expectedRevision: set.revision }, true)).set
     const draft = (await startResponse(db, organizationId, contributor, set.id, { locale: 'en' }))
       .response
-    expect(draft.snapshot.case).toBeNull()
-    expect(draft.snapshot.caseReference).toMatchObject({
-      id: fundingCase.id,
-      foreignSystemId: fundingCase.config.foreignSystemId
+    expect(draft.snapshot.agreement).toBeNull()
+    expect(draft.snapshot.agreementReference).toMatchObject({
+      id: fundingAgreement.id,
+      foreignSystemId: fundingAgreement.config.foreignSystemId
     })
     expect(
       setSubjects([{ id: 'form', kind: 'survey', surveyId: survey.id, surveyRevision: 1 }])
@@ -478,7 +481,7 @@ describe('case submissions and reconciliation', () => {
     expect(
       (await exportSubmission(db, root, final.response.submissionId!)).submission
     ).toMatchObject({
-      caseReference: { id: fundingCase.id },
+      agreementReference: { id: fundingAgreement.id },
       items: [
         {
           answers: { report: 'Nouveau rapport' },
@@ -486,8 +489,8 @@ describe('case submissions and reconciliation', () => {
         }
       ]
     })
-    const orgSet = await saveSet(db, root, { ...value, caseId: null, foreignSystemId: null })
-    expect(orgSet.set.caseId).toBeNull()
+    const orgSet = await saveSet(db, root, { ...value, agreementId: null, foreignSystemId: null })
+    expect(orgSet.set.agreementId).toBeNull()
   })
   it('upgrades existing stream ancestry and application grants without resetting supported data', async () => {
     const old = new Kysely<Database>({ dialect: pgliteDialect('memory://') })
@@ -503,7 +506,7 @@ describe('case submissions and reconciliation', () => {
         .values({
           id: 'legacy',
           name: 'Legacy user',
-          email: 'legacy@cases.test',
+          email: 'legacy@agreements.test',
           emailVerified: false,
           image: null,
           createdAt: now,
@@ -571,7 +574,7 @@ describe('case submissions and reconciliation', () => {
         .execute()
       await expect(
         old
-          .insertInto('funding_case')
+          .insertInto('funding_agreement')
           .values({
             id: uuid(),
             organizationId: org,

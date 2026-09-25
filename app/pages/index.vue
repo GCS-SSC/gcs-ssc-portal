@@ -6,7 +6,6 @@ useHead(() => ({ title: t('portal') }))
 <template>
   <div class="landing">
     <section class="landing-intro">
-      <PortalText size="small" text-role="secondary">{{ t('serviceLabel') }}</PortalText>
       <PortalHeading tag="h1">{{ t('portal') }}</PortalHeading>
       <PortalText>{{ t('intro') }}</PortalText>
       <div class="start-actions">
@@ -23,20 +22,23 @@ useHead(() => ({ title: t('portal') }))
     <section class="landing-process" :aria-label="t('howTitle')">
       <PortalHeading id="getting-started" tag="h2">{{ t('howTitle') }}</PortalHeading>
       <PortalText text-role="secondary">{{ t('howIntro') }}</PortalText>
-      <PortalGrid tag="ol" columns="1fr" columns-tablet="repeat(3, minmax(0, 1fr))" class="steps">
+      <PortalGrid
+        tag="ol"
+        columns="1fr"
+        columns-desktop="repeat(3, minmax(0, 1fr))"
+        gap="300"
+        class="steps"
+      >
         <li>
-          <span class="step-number" aria-hidden="true">01</span>
-          <PortalHeading tag="h3">{{ t('stepOne') }}</PortalHeading>
+          <PortalHeading tag="h3" margin-top="0">{{ t('stepOne') }}</PortalHeading>
           <PortalText>{{ t('stepOneText') }}</PortalText>
         </li>
         <li>
-          <span class="step-number" aria-hidden="true">02</span>
-          <PortalHeading tag="h3">{{ t('stepTwo') }}</PortalHeading>
+          <PortalHeading tag="h3" margin-top="0">{{ t('stepTwo') }}</PortalHeading>
           <PortalText>{{ t('stepTwoText') }}</PortalText>
         </li>
         <li>
-          <span class="step-number" aria-hidden="true">03</span>
-          <PortalHeading tag="h3">{{ t('stepThree') }}</PortalHeading>
+          <PortalHeading tag="h3" margin-top="0">{{ t('stepThree') }}</PortalHeading>
           <PortalText>{{ t('stepThreeText') }}</PortalText>
         </li>
       </PortalGrid>

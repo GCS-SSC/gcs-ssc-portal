@@ -51,9 +51,29 @@ test('registration, invitation access, per-organization permissions and ownershi
   await page.setViewportSize({ width: 1440, height: 1050 })
   await page.goto('/')
   await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
+  await expect(page.locator('gcds-top-nav').getByRole('link', { name: 'Sign in' })).toBeVisible()
+  const navBand = await page.locator('gcds-top-nav').boundingBox()
+  const navSignIn = await page
+    .locator('gcds-top-nav')
+    .getByRole('link', { name: 'Sign in' })
+    .boundingBox()
+  expect(navBand).not.toBeNull()
+  expect(navSignIn).not.toBeNull()
+  expect(
+    Math.abs(navSignIn!.y + navSignIn!.height / 2 - (navBand!.y + navBand!.height / 2))
+  ).toBeLessThan(2)
+  await expect(page.locator('gcds-top-nav gcds-nav-link[slot="home"]')).not.toHaveAttribute(
+    'current',
+    ''
+  )
   await expect(
     page.getByRole('region', { name: 'A shared space for your organization', exact: true })
   ).toBeVisible()
+  await expect(
+    page
+      .getByRole('region', { name: 'A shared space for your organization', exact: true })
+      .getByRole('listitem')
+  ).toHaveCount(3)
   await screenshot(page, 'home-desktop')
   await page.goto('/register')
   await signUp(page, 'Alex Owner', ownerEmail)
@@ -81,7 +101,7 @@ test('registration, invitation access, per-organization permissions and ownershi
   const createHeight = await page
     .getByRole('button', { name: 'Create invitation link' })
     .evaluate((button) => button.getBoundingClientRect().height)
-  expect(createHeight).toBe(signoutHeight)
+  expect(signoutHeight).toBeLessThan(createHeight)
   await page.getByLabel(/^Email address/).fill(memberEmail)
   await page.getByLabel(/^Full name/).fill('Sam Member')
   await page.getByRole('button', { name: 'Create invitation link' }).click()
@@ -169,7 +189,9 @@ test('registration, invitation access, per-organization permissions and ownershi
     const memberRow = page.getByRole('row', { name: new RegExp(memberEmail) })
     await expect(memberRow).toBeVisible()
     await page.setViewportSize({ width: 390, height: 844 })
-    await page.getByRole('button', { name: 'Permissions — Sam Member', exact: true }).click()
+    await page
+      .getByRole('button', { name: `Edit permissions — ${memberEmail}`, exact: true })
+      .click()
     await page.getByRole('combobox', { name: 'Applications', exact: true }).selectOption('viewer')
     await expect(page.getByText('Permissions updated.', { exact: true })).toBeVisible()
     const updatedPeople = await (
@@ -182,12 +204,10 @@ test('registration, invitation access, per-organization permissions and ownershi
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
     await screenshot(page, 'people-mobile')
     await page.setViewportSize({ width: 1440, height: 1050 })
-    await page
-      .getByRole('button', { name: `Make administrator — ${memberEmail}`, exact: true })
-      .click()
+    await page.getByRole('button', { name: 'Make administrator', exact: true }).click()
     await confirm(page)
     await expect(
-      page.getByRole('button', { name: `Remove administrator — ${memberEmail}`, exact: true })
+      page.getByRole('button', { name: 'Remove administrator', exact: true })
     ).toBeVisible()
     await memberPage.reload()
     await expect(memberPage.getByRole('link', { name: 'Settings', exact: true })).toBeVisible()

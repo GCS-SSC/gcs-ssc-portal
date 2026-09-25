@@ -1,6 +1,6 @@
 # Administrator access and agency integration
 
-The companion portal does not authenticate government officials. Configuration for programs, streams, calls, surveys, cases, and submission sets is supplied by the future GCS–SSC extension through agency-scoped bearer credentials. Organization users retain their own Better Auth accounts and cannot access administrator or integration APIs.
+The companion portal does not authenticate government officials. Configuration for programs, streams, calls, surveys, agreements, and submission sets is supplied by the future GCS–SSC extension through agency-scoped bearer credentials. Organization users retain their own Better Auth accounts and cannot access administrator or integration APIs.
 
 ## Administrators
 
@@ -12,20 +12,20 @@ Migration `006_administrators` adds the separate administrator tables and revoke
 
 ## Extension API
 
-Every `/api/government/*` request requires `Authorization: Bearer gcs_…`. Missing, invalid, expired, or revoked credentials return 401. A key can manage only its agency's configuration and read that agency's submitted exports. It cannot create an agency, issue keys, or access organization APIs. Write transactions recheck and lock the key before mutating data. Foreign browser Origins are rejected; bodies are bounded at 16 KiB or 256 KiB for survey, case, and set writes. Responses are `no-store`.
+Every `/api/government/*` request requires `Authorization: Bearer gcs_…`. Missing, invalid, expired, or revoked credentials return 401. A key can manage only its agency's configuration and read that agency's submitted exports. It cannot create an agency, issue keys, or access organization APIs. Write transactions recheck and lock the key before mutating data. Foreign browser Origins are rejected; bodies are bounded at 16 KiB or 256 KiB for survey, agreement, and set writes. Responses are `no-store`.
 
-The agency hierarchy is `agency → program → stream → funding_call`. Calls start as drafts and are published explicitly. Published calls are visible to organization members with an explicit `application:viewer` or higher permission; ownership and `admin` alone do not grant it. See [surveys](surveys.md), [cases](cases.md), and [applications](applications.md) for the remaining machine contracts.
+The agency hierarchy is `agency → program → stream → funding_call`. Calls start as drafts and are published explicitly. Published calls are visible to organization members with an explicit `application:viewer` or higher permission; ownership and `admin` alone do not grant it. See [surveys](surveys.md), [agreements](agreements.md), and [applications](applications.md) for the remaining machine contracts.
 
-| Method/path after `/api/government` | Purpose |
-| --- | --- |
-| GET /agencies, GET /agencies/:id | List and read agencies within key scope |
-| PATCH /agencies/:id | Update the key's agency |
-| POST /programs, PATCH /programs/:id | Manage programs in the key's agency |
-| POST /streams, PATCH /streams/:id | Manage streams in the key's agency |
-| POST /calls, PUT /calls/:id, PATCH /calls/:id/publication | Manage and publish calls |
-| GET/POST/PUT surveys and call survey assignment | Manage pinned form definitions |
-| GET/POST/PUT cases and sets, case balances, set publication | Manage case configuration and form sets |
-| GET agency submissions and submission exports/attachments | Retrieve submitted data |
+| Method/path after `/api/government`                                   | Purpose                                      |
+| --------------------------------------------------------------------- | -------------------------------------------- |
+| GET /agencies, GET /agencies/:id                                      | List and read agencies within key scope      |
+| PATCH /agencies/:id                                                   | Update the key's agency                      |
+| POST /programs, PATCH /programs/:id                                   | Manage programs in the key's agency          |
+| POST /streams, PATCH /streams/:id                                     | Manage streams in the key's agency           |
+| POST /calls, PUT /calls/:id, PATCH /calls/:id/publication             | Manage and publish calls                     |
+| GET/POST/PUT surveys and call survey assignment                       | Manage pinned form definitions               |
+| GET/POST/PUT agreements and sets, agreement balances, set publication | Manage agreement configuration and form sets |
+| GET agency submissions and submission exports/attachments             | Retrieve submitted data                      |
 
 The future extension should keep each returned portal ID and reconcile before retrying an ambiguous create request; creation is not idempotent. A request example:
 

@@ -15,7 +15,7 @@ Performed on 2026-09-19 against the user's HTTP LAN address with Nuxt developmen
 5. Created an agency, program and stream; designed a bilingual required form with attachments; attached its saved revision to a call and published it.
 6. The invited contributor started the application, entered answers, uploaded evidence and saved the shared draft. Submission controls were unavailable to that contributor.
 7. The manager opened that same draft, downloaded the evidence, reviewed and submitted it. Staff opened the received response and downloaded the attachment. Both downloaded files had the same SHA-256 as the original.
-8. Staff created a case with fiscal year, budget line, balances and stable foreign IDs, then published an ordered set: designed form → claim → forecast → designed form.
+8. Staff created an agreement with fiscal year, budget line, balances and stable foreign IDs, then published an ordered set: designed form → claim → forecast → designed form.
 9. The contributor filled all four items and attached claim evidence. The manager reviewed an over-balance warning and submitted. Staff verified both designed-form answers, claim amount and forecast amount in the received response.
 10. Downloaded the financial JSON through the staff screen and checked item order, exact claim amount, stable budget-line ID, fiscal-year mapping and attachment metadata.
 11. Published a separate organization-level form. The contributor saved it, the manager submitted, and staff received the correct answers and organization context.
@@ -33,4 +33,4 @@ Test credentials, invitation tokens, local database files, downloads and screens
 
 ## Current regression coverage
 
-`bun run test:e2e` builds GC Design System and verifies administrator agency/key provisioning, extension publication and form preview, and organization registration, invitation and access flows. The database integration suite covers cases, submissions, attachment authority, publication and financial rules that no longer have a government staff screen.
+`bun run test:e2e` builds GC Design System and verifies administrator agency/key provisioning, extension publication and form preview, and organization registration, invitation and access flows. The database integration suite covers agreements, submissions, attachment authority, publication and financial rules that no longer have a government staff screen.

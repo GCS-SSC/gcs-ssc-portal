@@ -1,7 +1,7 @@
 import { governmentAttachment } from '../../utils/attachments'
 import { sendAttachment } from '../../utils/attachment-download'
 import { getQuery, createError, defineEventHandler, getHeader, getRequestURL, setHeader } from 'h3'
-import * as cases from '../../utils/cases'
+import * as agreements from '../../utils/agreements'
 import * as sets from '../../utils/submission-sets'
 import * as responses from '../../utils/set-responses'
 import { ZodError, z } from 'zod'
@@ -43,7 +43,7 @@ export default defineEventHandler(async (event) => {
   const body = mutation
     ? await readBoundedBody(
         request,
-        ['surveys', 'cases', 'sets'].includes(path[0] ?? '') ? 256 * 1024 : undefined
+        ['surveys', 'agreements', 'sets'].includes(path[0] ?? '') ? 256 * 1024 : undefined
       )
     : undefined
   const db = await useDatabase()
@@ -76,7 +76,7 @@ export default defineEventHandler(async (event) => {
     )
       return await responses.governmentResponse(db, actor, id)
     if (id && path.length === 3 && path[0] === 'agencies' && method === 'GET') {
-      if (path[2] === 'cases') return await cases.listCases(db, actor, id)
+      if (path[2] === 'agreements') return await agreements.listAgreements(db, actor, id)
       if (path[2] === 'sets') return await sets.listSets(db, actor, id)
       if (path[2] === 'submissions')
         return await responses.listSubmissions(
@@ -87,13 +87,15 @@ export default defineEventHandler(async (event) => {
         )
     }
     if (path.length === 1 && method === 'POST') {
-      if (path[0] === 'cases') return await cases.saveCase(db, actor, parseJsonBody(body))
+      if (path[0] === 'agreements')
+        return await agreements.saveAgreement(db, actor, parseJsonBody(body))
       if (path[0] === 'sets') return await sets.saveSet(db, actor, parseJsonBody(body))
     }
     if (id && path.length === 2) {
-      if (path[0] === 'cases' && method === 'GET') return await cases.getCase(db, actor, id)
-      if (path[0] === 'cases' && method === 'PUT')
-        return await cases.saveCase(db, actor, parseJsonBody(body), id)
+      if (path[0] === 'agreements' && method === 'GET')
+        return await agreements.getAgreement(db, actor, id)
+      if (path[0] === 'agreements' && method === 'PUT')
+        return await agreements.saveAgreement(db, actor, parseJsonBody(body), id)
       if (path[0] === 'sets' && method === 'GET') return await sets.getSet(db, actor, id)
       if (path[0] === 'sets' && method === 'PUT')
         return await sets.saveSet(db, actor, parseJsonBody(body), id)
@@ -103,11 +105,11 @@ export default defineEventHandler(async (event) => {
     if (
       id &&
       path.length === 3 &&
-      path[0] === 'cases' &&
+      path[0] === 'agreements' &&
       path[2] === 'balances' &&
       method === 'PUT'
     )
-      return await cases.updateBalances(db, actor, id, parseJsonBody(body))
+      return await agreements.updateBalances(db, actor, id, parseJsonBody(body))
     if (
       id &&
       path.length === 3 &&

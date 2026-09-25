@@ -6,7 +6,7 @@ import {
   versionInput,
   setSubjects,
   type SetSnapshot
-} from '../../shared/schemas/cases'
+} from '../../shared/schemas/agreements'
 import type { Database } from '../db/schema'
 import {
   governmentFail as fail,
@@ -14,9 +14,9 @@ import {
   type GovernmentActor,
   type GovernmentDb
 } from './government-access'
-import { lockOrganization, requireBusinessAccess } from './case-access'
+import { lockOrganization, requireBusinessAccess } from './agreement-access'
 import { hasAccess } from '../../shared/utils/permissions'
-import { caseRow } from './cases'
+import { agreementRow } from './agreements'
 const map = (row: Selectable<Database['submission_set']>) => ({
   ...row,
   createdAt: new Date(row.createdAt).toISOString()
@@ -54,10 +54,10 @@ export const saveSet = async (
   return db.transaction().execute(async (tx) => {
     await requireGovernment(tx, actor, { agencyId: input.agencyId, lock: true })
     await lockOrganization(tx, input.organizationId)
-    if (input.caseId) {
-      const parent = await caseRow(tx, input.caseId)
+    if (input.agreementId) {
+      const parent = await agreementRow(tx, input.agreementId)
       if (parent.organizationId !== input.organizationId || parent.agencyId !== input.agencyId)
-        return fail(404, 'CASE_NOT_FOUND')
+        return fail(404, 'AGREEMENT_NOT_FOUND')
     }
     if (input.foreignSystemId) {
       const duplicate = await tx
@@ -78,7 +78,10 @@ export const saveSet = async (
         .executeTakeFirst()
       if (!previous || previous.callId || previous.agencyId !== input.agencyId)
         return fail(404, 'SET_NOT_FOUND')
-      if (previous.organizationId !== input.organizationId || previous.caseId !== input.caseId)
+      if (
+        previous.organizationId !== input.organizationId ||
+        previous.agreementId !== input.agreementId
+      )
         return fail(409, 'SET_SCOPE_IMMUTABLE')
       if (
         previous.sourceSystem !== input.sourceSystem ||
@@ -139,18 +142,18 @@ export const publishSet = async (
       const snapshot: SetSnapshot = {
         schemaVersion: 1,
         publicationId: uuid(),
-        caseReference: null,
+        agreementReference: null,
         nameEn: row.nameEn,
         nameFr: row.nameFr,
         sourceSystem: row.sourceSystem,
         foreignSystemId: row.foreignSystemId,
         items: [],
-        case: null
+        agreement: null
       }
       const hasFinancial = row.items.some((item) => item.kind !== 'survey')
-      if (row.caseId) {
-        const owner = await caseRow(tx, row.caseId)
-        snapshot.caseReference = {
+      if (row.agreementId) {
+        const owner = await agreementRow(tx, row.agreementId)
+        snapshot.agreementReference = {
           id: owner.id,
           agreementNumber: owner.agreementNumber,
           sourceSystem: owner.config.sourceSystem,
@@ -159,7 +162,7 @@ export const publishSet = async (
           externalApplicantRecipientId: owner.config.externalApplicantRecipientId
         }
         if (hasFinancial)
-          snapshot.case = {
+          snapshot.agreement = {
             id: owner.id,
             revision: owner.revision,
             agreementNumber: owner.agreementNumber,
@@ -179,7 +182,7 @@ export const publishSet = async (
           if (!form) return fail(404, 'SURVEY_NOT_FOUND')
           snapshot.items.push({ item, survey: form.definition })
         } else {
-          const config = snapshot.case?.config
+          const config = snapshot.agreement?.config
           if (
             !config?.fiscalYears.some((year) => year.id === item.fiscalYearId) ||
             !config.budgetLines.some((line) => line.fiscalYearId === item.fiscalYearId)

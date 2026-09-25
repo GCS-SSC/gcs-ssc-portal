@@ -1,5 +1,5 @@
 import { applicationMigration } from './application-migration'
-import { caseMigration } from './case-migration'
+import { agreementMigration } from './agreement-migration'
 import { surveyMigration } from './survey-migration'
 import { governmentMigration } from './government-migration'
 import { administratorMigration } from './administrator-migration'
@@ -24,7 +24,7 @@ export const migrate = async (db: Kysely<Database>, target?: string) => {
       getMigrations: async () => ({
         '002_government': governmentMigration,
         '003_surveys': surveyMigration,
-        '004_cases': caseMigration,
+        '004_agreements': agreementMigration,
         '005_applications_attachments': applicationMigration,
         '006_administrators': administratorMigration,
         '001_initial': {

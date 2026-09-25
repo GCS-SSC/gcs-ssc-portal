@@ -1,5 +1,5 @@
 import { validateSurveyAnswers, answersSchema } from '@gcs-ssc/survey'
-import { money, type ResponseItem, type SetSnapshot } from '../../shared/schemas/cases'
+import { money, type ResponseItem, type SetSnapshot } from '../../shared/schemas/agreements'
 import { governmentFail as fail } from './government-access'
 /** Both drafts and submissions are checked against the exact published configuration. */
 export const validateResponseItems = (
@@ -28,7 +28,8 @@ export const validateResponseItems = (
     if (published.item.kind === 'survey') return fail(400, 'RESPONSE_INVALID')
     const fiscalYearId = published.item.fiscalYearId
     const budget =
-      snapshot.case?.config.budgetLines.filter((line) => line.fiscalYearId === fiscalYearId) ?? []
+      snapshot.agreement?.config.budgetLines.filter((line) => line.fiscalYearId === fiscalYearId) ??
+      []
     const expectedCount = budget.length * (item.kind === 'forecast' ? 12 : 1)
     if (item.lines.length !== expectedCount) return fail(400, 'RESPONSE_INVALID')
     const keys = item.lines.map(
@@ -55,7 +56,7 @@ export const validateResponseItems = (
 export const initialResponseItems = (snapshot: SetSnapshot, locale: 'en' | 'fr'): ResponseItem[] =>
   snapshot.items.map(({ item }) => {
     if (item.kind === 'survey') return { id: item.id, kind: 'survey', answers: {} }
-    const budget = snapshot.case!.config.budgetLines.filter(
+    const budget = snapshot.agreement!.config.budgetLines.filter(
       (line) => line.fiscalYearId === item.fiscalYearId
     )
     if (item.kind === 'claim')

@@ -1,8 +1,8 @@
-export const useCaseAction = () => {
+export const useAgreementAction = () => {
   const busy = ref(false),
     error = ref(''),
     success = ref('')
-  const { c, errorMessage } = useCaseLocale()
+  const { c, errorMessage } = useAgreementLocale()
   const perform = async (action: () => Promise<unknown>) => {
     if (busy.value) return
     busy.value = true

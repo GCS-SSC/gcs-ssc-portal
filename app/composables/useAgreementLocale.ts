@@ -1,13 +1,17 @@
-import { casesEn, casesFr } from '~/locales/cases'
+import { agreementsEn, agreementsFr } from '~/locales/agreements'
 import type { Permission } from '~~/shared/types/api'
-export const useCaseLocale = () => {
+export const useAgreementLocale = () => {
   const { a } = useAttachmentLocale()
   const { locale, t } = useLocale(),
     apiMessage = useApiMessage()
-  const c = (key: keyof typeof casesEn) => (locale.value === 'fr' ? casesFr : casesEn)[key]
+  const c = (key: keyof typeof agreementsEn) =>
+    (locale.value === 'fr' ? agreementsFr : agreementsEn)[key]
   const permissionLabel = (permission: Permission) => {
     if (permission === 'user' || permission === 'admin') return t(permission)
-    const [subject, level] = permission.split(':') as [keyof typeof casesEn, keyof typeof casesEn]
+    const [subject, level] = permission.split(':') as [
+      keyof typeof agreementsEn,
+      keyof typeof agreementsEn
+    ]
     return `${c(subject)} — ${c(level)}`
   }
   const errorMessage = (error: unknown) => {
