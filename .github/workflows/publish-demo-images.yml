@@ -1,21 +1,6 @@
 name: Build and publish portal demo image
 on:
   workflow_dispatch:
-  push:
-    branches: [main]
-    paths:
-      - 'app/**'
-      - 'server/**'
-      - 'shared/**'
-      - 'public/**'
-      - 'scripts/**'
-      - 'deployment/start.mjs'
-      - 'Dockerfile'
-      - '.dockerignore'
-      - 'nuxt.config.ts'
-      - 'package.json'
-      - 'bun.lock'
-      - '.github/workflows/publish-demo-images.yml'
 permissions:
   contents: read
   packages: write

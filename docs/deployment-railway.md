@@ -4,11 +4,11 @@ The private portal repository builds one private GHCR package:
 
 - `ghcr.io/gcs-ssc/gcs-ssc-portal-demo-gcdesign`
 
-The [publish workflow](../.github/workflows/publish-demo-images.yml) runs on relevant `main` changes or manual dispatch. It builds the image once for `linux/amd64`, tests that exact image with isolated PostgreSQL, then pushes it and uploads an `image-gcdesign` artifact containing its digest and source commit. Its smoke test checks database migrations, owner/administrator sign-in and preservation of edited data after container restart. GitHub uses its scoped `GITHUB_TOKEN` (`packages:write`); no Railway token is needed and the workflow never deploys to Railway. Package visibility is not changed to public.
+The [publish workflow](../.github/workflows/publish-demo-images.yml) runs only when manually dispatched from GitHub Actions. Pushing to `main` does not build or publish an image. The workflow builds the selected commit once for `linux/amd64`, tests that exact image with isolated PostgreSQL, then pushes it and uploads an `image-gcdesign` artifact containing its digest and source commit. Its smoke test checks database migrations, owner/administrator sign-in and preservation of edited data after container restart. GitHub uses its scoped `GITHUB_TOKEN` (`packages:write`); no Railway token is needed and the workflow never deploys to Railway. Package visibility is not changed to public.
 
 ## Promote a verified release
 
-After the publish job succeeds:
+Run **Build and publish portal demo image** from the repository's GitHub Actions page when an image release is needed. Select the source branch, then wait for the publish job to succeed:
 
 ```sh
 gh run list --workflow publish-demo-images.yml

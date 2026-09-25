@@ -58,7 +58,7 @@ This is an explicit, transactional data migration with its own `portal_demo_migr
 
 ## Container images and Railway
 
-GitHub Actions builds and tests one GC Design System demo image, publishes it to a private GHCR package, and produces a digest artifact. Railway uses the pinned digest in `deployment/demo-images.json`; it never builds from source or follows a mutable tag. Demo images migrate and seed before listening, preserving data on restart. See [the Railway/image runbook](docs/deployment-railway.md) for release promotion, credentials and IaC setup. Committing this setup does not deploy to Railway.
+The manually dispatched GitHub Actions workflow builds and tests one GC Design System demo image, publishes it to a private GHCR package, and produces a digest artifact. Pushing code does not build or publish an image. Railway uses the pinned digest in `deployment/demo-images.json`; it never builds from source or follows a mutable tag. Demo images migrate and seed before listening, preserving data on restart. See [the Railway/image runbook](docs/deployment-railway.md) for release promotion, credentials and IaC setup. Committing this setup does not deploy to Railway.
 
 ## Build and run
 
