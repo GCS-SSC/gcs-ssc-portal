@@ -58,19 +58,31 @@ const start = (set: SubmissionSet) =>
     <template v-if="data">
       <template v-if="!selectedAgreement">
         <PortalText v-if="!data.agreements.length">{{ c('empty') }}</PortalText>
-        <ul class="organization-list">
-          <li v-for="agreement in data.agreements" :key="agreement.id">
-            <div>
-              <PortalLink
-                :to="`/organizations/${id}?section=agreements&agreement=${agreement.id}`"
-                >{{ localized(agreement) }}</PortalLink
-              >
-              <PortalText size="small" text-role="secondary"
+        <ul class="record-summary-list">
+          <RecordSummary
+            v-for="agreement in data.agreements"
+            :key="agreement.id"
+            as="li"
+            :heading-tag="embedded ? 'h3' : 'h2'"
+          >
+            <template #title>{{ localized(agreement) }}</template>
+            <template #details>
+              <PortalText size="small" text-role="secondary" margin-bottom="100"
                 >{{ c('agreementNumber') }}:
                 <code>{{ agreement.agreementNumber }}</code></PortalText
               >
-            </div>
-          </li>
+            </template>
+            <template #cta>
+              <PortalLink
+                variant="button"
+                size="small"
+                button-role="secondary"
+                :to="`/organizations/${id}?section=agreements&agreement=${agreement.id}`"
+                :aria-label="`${c('openAgreement')}: ${localized(agreement)}`"
+                >{{ c('openAgreement') }}</PortalLink
+              >
+            </template>
+          </RecordSummary>
         </ul>
         <section v-if="standaloneSets.length" class="content-section">
           <PortalHeading :tag="embedded ? 'h3' : 'h2'" margin-top="0">{{
