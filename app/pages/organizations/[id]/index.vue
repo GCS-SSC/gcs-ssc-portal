@@ -385,7 +385,7 @@ await load()
             <section
               v-if="editingMember"
               id="member-permissions"
-              class="content-section"
+              class="content-section member-permissions-section"
               tabindex="-1"
               :aria-label="`${t('permissions')} — ${editingMember.name}`"
             >
@@ -495,6 +495,7 @@ await load()
                   <template #actions="{ row: invitation }">
                     <PortalButton
                       v-if="invitation.status === 'pending'"
+                      size="small"
                       variant="secondary"
                       :disabled="busy"
                       @click="revoke(invitation)"

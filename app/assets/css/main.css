@@ -54,6 +54,9 @@ body {
   margin-top: var(--gcds-spacing-400);
   padding-top: var(--gcds-spacing-200);
 }
+.member-permissions-section {
+  border-top: 0;
+}
 .portal-form {
   display: flex;
   flex-direction: column;
