@@ -19,11 +19,13 @@ Shared form and shell props are defined in `shared/types/ui.ts`; the layout, nav
 | `PortalFile`   | Optional file selector emitting `File` or `null`; callers own upload policy and network state.                                                                                                                         |
 | `PortalNotice` | Variant, title, content, and appropriate live announcement.                                                                                                                                                            |
 | `PortalBadge`  | Readable status text; the bounded fallback documented in the GC architecture.                                                                                                                                          |
-| `PortalLink`   | Internal/external destination and normal link/keyboard semantics.                                                                                                                                                      |
+| `PortalLink`   | Internal/external destination and normal link/keyboard semantics; button-style destinations use GCDS size and role options.                                                                                            |
 
 The shell provides `portal-locale` for localized adapter copy. Vendor imports belong in these integration components and the registration plugin, not in business pages. Business components own data loading and actions and compose the shared integration components.
 
 Layout and content adapters are `PortalContainer`, `PortalGrid`, `PortalHeading` (explicit `tag`), `PortalText`, `PortalScreenreaderOnly`, `PortalFieldset`, and `PortalDetails` (optional disclosure with a distinct title). They expose native documented options without visual overrides. `PortalSideNav` receives labelled destinations/current state and bridges ordinary activation to Nuxt. `PortalTable` receives typed rows, named columns, a caption, and live scoped cell slots.
+
+`RecordSummary` is a shared composition of those adapters rather than a new control. Callers provide `title`, `details`, optional supporting `actions`, and an optional right-side `cta` button through slots; it does not own destinations or authorization.
 
 ## Styling and verification
 

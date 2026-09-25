@@ -31,24 +31,40 @@ useHead(() => ({ title: t('organizations') }))
       <PortalText>{{ t('noOrganizationsText') }}</PortalText>
       <PortalLink to="/organizations/new">{{ t('createOrg') }}</PortalLink>
     </div>
-    <ul v-else class="organization-list">
-      <li v-for="organization in data.organizations" :key="organization.id">
-        <div>
-          <PortalHeading tag="h2">{{ organization.name }}</PortalHeading>
-          <PortalText v-if="organization.description">{{ organization.description }}</PortalText>
-          <PortalText class="metadata">
-            {{ organization.memberCount }}
-            {{ organization.memberCount === 1 ? t('onePerson') : t('people') }}
-          </PortalText>
-        </div>
-        <div class="organization-action">
-          <PortalLink
-            :to="`/organizations/${organization.id}`"
-            :aria-label="`${t('openOrganization')}: ${organization.name}`"
-            >{{ t('openOrganization') }} <span aria-hidden="true">→</span></PortalLink
-          >
-        </div>
-      </li>
-    </ul>
+    <div v-else>
+      <ul class="record-summary-list">
+        <RecordSummary
+          v-for="organization in data.organizations"
+          :key="organization.id"
+          as="li"
+          heading-tag="h2"
+        >
+          <template #title>{{ organization.name }}</template>
+          <template #details>
+            <PortalText
+              v-if="organization.description"
+              size="small"
+              text-role="secondary"
+              margin-bottom="100"
+              >{{ organization.description }}</PortalText
+            >
+            <PortalText size="small" text-role="secondary" margin-bottom="100">
+              {{ organization.memberCount }}
+              {{ organization.memberCount === 1 ? t('onePerson') : t('people') }}
+            </PortalText>
+          </template>
+          <template #cta>
+            <PortalLink
+              variant="button"
+              size="small"
+              button-role="secondary"
+              :to="`/organizations/${organization.id}`"
+              :aria-label="`${t('openOrganization')}: ${organization.name}`"
+              >{{ t('openOrganization') }}</PortalLink
+            >
+          </template>
+        </RecordSummary>
+      </ul>
+    </div>
   </section>
 </template>

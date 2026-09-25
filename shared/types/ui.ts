@@ -47,6 +47,8 @@ export interface PortalBadgeProps {
 }
 export interface PortalLinkProps {
   variant?: 'button'
+  size?: 'regular' | 'small'
+  buttonRole?: 'primary' | 'secondary' | 'danger'
   to: string
   external?: boolean
 }

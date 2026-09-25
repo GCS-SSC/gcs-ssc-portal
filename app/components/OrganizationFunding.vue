@@ -105,38 +105,47 @@ const start = (callId: string) =>
       }}</PortalText>
       <section v-for="group in agencyGroups" :key="group.name" class="content-section">
         <PortalHeading :tag="embedded ? 'h3' : 'h2'" margin-top="0">{{ group.name }}</PortalHeading>
-        <section v-for="call in group.calls" :key="call.id" class="funding-call">
-          <PortalHeading :tag="embedded ? 'h4' : 'h3'" margin-top="0">{{
-            localized(call)
-          }}</PortalHeading>
-          <PortalText size="small" text-role="secondary" margin-bottom="100">
-            {{ localized({ nameEn: call.programNameEn, nameFr: call.programNameFr }) }} ·
-            {{ localized({ nameEn: call.streamNameEn, nameFr: call.streamNameFr }) }}
-          </PortalText>
-          <PortalText size="small" text-role="secondary" margin-bottom="100">
-            {{ g('startDate') }}: {{ call.startDate }} · {{ g('endDate') }}: {{ call.endDate }}
-          </PortalText>
-          <div class="form-actions funding-actions">
+        <RecordSummary
+          v-for="call in group.calls"
+          :key="call.id"
+          as="section"
+          :heading-tag="embedded ? 'h4' : 'h3'"
+        >
+          <template #title>{{ localized(call) }}</template>
+          <template #details>
+            <PortalText size="small" text-role="secondary" margin-bottom="100">
+              {{ localized({ nameEn: call.programNameEn, nameFr: call.programNameFr }) }} ·
+              {{ localized({ nameEn: call.streamNameEn, nameFr: call.streamNameFr }) }}
+            </PortalText>
+            <PortalText size="small" text-role="secondary" margin-bottom="100">
+              {{ g('startDate') }}: {{ call.startDate }} · {{ g('endDate') }}: {{ call.endDate }}
+            </PortalText>
+          </template>
+          <template #actions>
             <PortalBadge :tone="status(call) === 'open' ? 'success' : 'neutral'">{{
               g(status(call))
             }}</PortalBadge>
             <PortalLink v-if="call.surveyId" :to="`/forms/${id}/${call.id}`">{{
               s('view')
             }}</PortalLink>
+          </template>
+          <template
+            v-if="
+              call.surveyId &&
+              status(call) === 'open' &&
+              hasAccess(data.organization.permissions, 'application', 'contributor')
+            "
+            #cta
+          >
             <PortalButton
-              v-if="
-                call.surveyId &&
-                status(call) === 'open' &&
-                hasAccess(data.organization.permissions, 'application', 'contributor')
-              "
               size="small"
               variant="secondary"
               :disabled="busy"
               @click="start(call.id)"
               >{{ a('start') }}</PortalButton
             >
-          </div>
-        </section>
+          </template>
+        </RecordSummary>
       </section>
     </template>
   </section>

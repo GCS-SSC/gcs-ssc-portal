@@ -13,7 +13,7 @@ import { administratorSeed } from '../../server/db/seeds/003-administrator'
 import { startApplication } from '../../server/utils/applications'
 import { organizationSets } from '../../server/utils/submission-sets'
 import { checkResponse, mutateResponse, startResponse } from '../../server/utils/set-responses'
-import { getOrganization } from '../../server/utils/portal'
+import { getOrganization, listOrganizations } from '../../server/utils/portal'
 let db: Kysely<Database>
 beforeAll(async () => {
   const url = process.env.PORTAL_TEST_DATABASE_URL
@@ -133,8 +133,33 @@ it('creates usable credentials and scoped sample data once, preserving edits on 
     )
     expect(result.status).toBe(200)
   }
-  const org = await db.selectFrom('organization').selectAll().executeTakeFirstOrThrow()
+  const org = await db
+    .selectFrom('organization')
+    .selectAll()
+    .where('name', '=', 'Demo Community Organization')
+    .executeTakeFirstOrThrow()
   expect(org.id).toMatch(/^[0-9a-f-]{14}7[0-9a-f-]{21}$/)
+  const ownerOrganizations = (await listOrganizations(db, org.ownerId)).organizations
+  expect(ownerOrganizations.map((item) => item.name)).toEqual([
+    'Demo Community Organization',
+    'Demo Harbour Community Services',
+    'Demo Atlantic Skills Network'
+  ])
+  expect(ownerOrganizations.map((item) => item.memberCount)).toEqual([4, 1, 1])
+  expect(ownerOrganizations.every((item) => item.ownerId === org.ownerId)).toBe(true)
+  expect(
+    ownerOrganizations.every((item) =>
+      (
+        [
+          'admin',
+          'application:manager',
+          'claim:manager',
+          'forecast:manager',
+          'form:manager'
+        ] as const
+      ).every((permission) => item.permissions.includes(permission))
+    )
+  ).toBe(true)
   const owner = (await getOrganization(db, org.id, org.ownerId)).organization
   expect(owner.permissions).toContain('application:manager')
   const members = await db
@@ -258,9 +283,16 @@ it('creates usable credentials and scoped sample data once, preserving edits on 
     .execute()
   const accounts = await db.selectFrom('account').selectAll().orderBy('id').execute()
   expect(await seedDemo(db)).toBe(false)
-  expect((await db.selectFrom('organization').selectAll().executeTakeFirstOrThrow()).name).toBe(
-    'Edited demo organization'
-  )
+  expect(
+    (
+      await db
+        .selectFrom('organization')
+        .select('name')
+        .where('id', '=', org.id)
+        .executeTakeFirstOrThrow()
+    ).name
+  ).toBe('Edited demo organization')
+  expect((await listOrganizations(db, org.ownerId)).organizations).toHaveLength(3)
   expect(await db.selectFrom('account').selectAll().orderBy('id').execute()).toEqual(accounts)
   expect(await db.selectFrom('user').selectAll().execute()).toHaveLength(demoAccounts.length - 2)
 })

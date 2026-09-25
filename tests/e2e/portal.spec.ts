@@ -94,6 +94,38 @@ test('registration, invitation access, per-organization permissions and ownershi
     /^[a-f0-9]{8}-[a-f0-9]{4}-7[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/
   )
 
+  await page.goto('/organizations')
+  await expect(page.getByRole('heading', { level: 2, name: 'Shared services team' })).toBeVisible()
+  const openOrganization = page.getByRole('link', {
+    name: 'Open organization: Shared services team'
+  })
+  await expect(openOrganization).toBeVisible()
+  const summary = page.locator('li.record-summary').filter({
+    has: page.getByRole('heading', { level: 2, name: 'Shared services team' })
+  })
+  const summaryContent = await summary.locator('.record-summary-content').boundingBox()
+  const summaryCta = await summary.locator('.record-summary-cta').boundingBox()
+  expect(summaryContent).not.toBeNull()
+  expect(summaryCta).not.toBeNull()
+  expect(summaryCta!.x).toBeGreaterThan(summaryContent!.x + summaryContent!.width)
+  expect(
+    Math.abs(
+      summaryCta!.y + summaryCta!.height / 2 - (summaryContent!.y + summaryContent!.height / 2)
+    )
+  ).toBeLessThan(2)
+  await page.setViewportSize({ width: 390, height: 844 })
+  const mobileContent = await summary.locator('.record-summary-content').boundingBox()
+  const mobileCta = await summary.locator('.record-summary-cta').boundingBox()
+  expect(mobileContent).not.toBeNull()
+  expect(mobileCta).not.toBeNull()
+  expect(mobileCta!.y).toBeGreaterThan(mobileContent!.y + mobileContent!.height)
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
+    true
+  )
+  await page.setViewportSize({ width: 1440, height: 1050 })
+  await openOrganization.click()
+  await expect(page).toHaveURL(new RegExp(`/organizations/${organizationId}$`))
+
   await page.getByRole('link', { name: 'Invitations', exact: true }).click()
   const signoutHeight = await page
     .getByRole('button', { name: 'Sign out', exact: true })
