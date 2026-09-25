@@ -82,6 +82,10 @@ test('registration, invitation access, per-organization permissions and ownershi
   await page.getByLabel(/^Description/).fill('A team working together on public services.')
   await page.getByRole('button', { name: 'Create organization', exact: true }).click()
   await expect(page.getByRole('heading', { level: 1, name: 'Shared services team' })).toBeVisible()
+  await expect(page.locator('.entity-heading .gc-status')).toHaveText([
+    'Active',
+    'Pending verification'
+  ])
   await screenshot(page, 'organization-desktop')
   await page.setViewportSize({ width: 390, height: 844 })
   await screenshot(page, 'organization-mobile')
@@ -103,6 +107,7 @@ test('registration, invitation access, per-organization permissions and ownershi
   const summary = page.locator('li.record-summary').filter({
     has: page.getByRole('heading', { level: 2, name: 'Shared services team' })
   })
+  await expect(summary.locator('.gc-status')).toHaveText(['Active', 'Pending verification'])
   const summaryContent = await summary.locator('.record-summary-content').boundingBox()
   const summaryCta = await summary.locator('.record-summary-cta').boundingBox()
   expect(summaryContent).not.toBeNull()

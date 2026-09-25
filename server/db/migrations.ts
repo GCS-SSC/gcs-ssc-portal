@@ -3,6 +3,8 @@ import { agreementMigration } from './agreement-migration'
 import { surveyMigration } from './survey-migration'
 import { governmentMigration } from './government-migration'
 import { administratorMigration } from './administrator-migration'
+import { organizationStatusMigration } from './organization-status-migration'
+import { agreementStatusMigration } from './agreement-status-migration'
 import { Migrator, sql } from 'kysely'
 import type { Kysely, MigrationResult } from 'kysely'
 import type { Database } from './schema'
@@ -27,6 +29,8 @@ export const migrate = async (db: Kysely<Database>, target?: string) => {
         '004_agreements': agreementMigration,
         '005_applications_attachments': applicationMigration,
         '006_administrators': administratorMigration,
+        '007_organization_status': organizationStatusMigration,
+        '008_agreement_status': agreementStatusMigration,
         '001_initial': {
           up: async (connection: Kysely<unknown>) => {
             const statements = `CREATE TABLE "user" (id text PRIMARY KEY, name text NOT NULL, email text UNIQUE NOT NULL, "emailVerified" boolean NOT NULL DEFAULT false, image text, "createdAt" timestamptz NOT NULL, "updatedAt" timestamptz NOT NULL);

@@ -37,6 +37,10 @@ export const en = {
     'Create an organization, or use an invitation link shared by an administrator.',
   organizationName: 'Organization name',
   organizationDescription: 'Description',
+  active: 'Active',
+  inactive: 'Inactive',
+  verified: 'Verified',
+  pendingVerification: 'Pending verification',
   organizationDescriptionHint:
     'A short description to help your team identify this organization. Optional.',
   createOrgIntro:
@@ -188,6 +192,10 @@ export const fr: Record<MessageKey, string> = {
     'Créez une organisation ou utilisez un lien d’invitation partagé par un administrateur.',
   organizationName: 'Nom de l’organisation',
   organizationDescription: 'Description',
+  active: 'Active',
+  inactive: 'Inactive',
+  verified: 'Vérifiée',
+  pendingVerification: 'En attente de vérification',
   organizationDescriptionHint:
     'Une courte description pour aider votre équipe à identifier cette organisation. Facultatif.',
   createOrgIntro:

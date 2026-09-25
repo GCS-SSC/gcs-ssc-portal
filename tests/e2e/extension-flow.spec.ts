@@ -111,12 +111,62 @@ test('extension key publishes a pinned form for an authorized organization', asy
         })
       ).ok()
     ).toBe(true)
+    const agreementResponse = await extension.request.post('/api/government/agreements', {
+      data: {
+        organizationId,
+        streamId: stream.id,
+        nameEn: 'Status agreement',
+        nameFr: 'Entente de statut',
+        agreementNumber: 'AGR-STATUS',
+        active: false,
+        status: { en: 'On hold', fr: 'En suspens', colour: '#245A80' },
+        config: { fiscalYears: [], budgetLines: [] }
+      }
+    })
+    expect(agreementResponse.ok()).toBe(true)
+    expect((await agreementResponse.json()).agreement).toMatchObject({
+      active: false,
+      status: { en: 'On hold', fr: 'En suspens', colour: '#245A80' }
+    })
+    const organizationAgreementsResponse = await applicant.request.get(
+      `/api/organizations/${organizationId}/agreements`
+    )
+    expect(organizationAgreementsResponse.ok()).toBe(true)
+    expect((await organizationAgreementsResponse.json()).agreements).toContainEqual(
+      expect.objectContaining({
+        nameEn: 'Status agreement',
+        agencyNameEn: `Extension agency ${suffix}`,
+        agencyNameFr: `Organisme ${suffix}`
+      })
+    )
     await applicant.goto(`/organizations/${organizationId}`)
     const workspaceUrl = applicant.url()
     const menu = applicant.locator('gcds-side-nav')
     await expect(menu.getByRole('navigation', { name: /^Manage organization/ })).toBeVisible()
     await menu.getByRole('link', { name: 'Agreements', exact: true }).click()
     await expect(applicant.getByRole('heading', { level: 2, name: 'Agreements' })).toBeVisible()
+    const agreementSummary = applicant.locator('li.record-summary').filter({
+      hasText: 'AGR-STATUS'
+    })
+    await expect(agreementSummary).toContainText(`Agency: Extension agency ${suffix}`)
+    await expect(agreementSummary.locator('.gc-status')).toHaveText(['Inactive', 'On hold'])
+    await expect(agreementSummary.locator('.gc-status').last()).toHaveCSS(
+      'background-color',
+      'rgb(36, 90, 128)'
+    )
+    await expect(agreementSummary.locator('.gc-status').last()).toHaveCSS(
+      'color',
+      'rgb(255, 255, 255)'
+    )
+    await applicant.locator('gcds-lang-toggle').getByRole('link').click()
+    await expect(agreementSummary).toContainText(`Organisme: Organisme ${suffix}`)
+    await applicant.locator('gcds-lang-toggle').getByRole('link').click()
+    await agreementSummary.getByRole('link', { name: 'Open agreement: Status agreement' }).click()
+    await expect(applicant.locator('.badges .gc-status').last()).toHaveText('On hold')
+    await applicant.locator('gcds-lang-toggle').getByRole('link').click()
+    await expect(applicant.locator('.badges .gc-status').last()).toHaveText('En suspens')
+    await applicant.locator('gcds-lang-toggle').getByRole('link').click()
+    await applicant.getByRole('link', { name: 'Agreements', exact: true }).last().click()
     await expect(menu.getByRole('link', { name: 'Agreements', exact: true })).toHaveAttribute(
       'aria-current',
       'page'

@@ -4,6 +4,10 @@ A government agency owns agreements under its streams. Each agreement belongs to
 
 The future extension supplies the organization UUID, agreement number, bilingual names, fiscal years and budget lines. Each line has bilingual names, category/subsection, currency, budgeted amount, optional balance/reconciled claimed amount/forecast amount and the source's UTC `balanceAsOf`. Any supplied balance, claimed amount or forecast amount requires a timestamp. Changed financial values require a newer timestamp once one has been recorded.
 
+The extension can also supply `active` (boolean) and `status` (`{en,fr,colour}` or null) on agreement create/update. `colour` is a six-digit `#RRGGBB` value; both localized labels are required when a status is supplied. New and migrated agreements default to active with no published status. Omitted fields on a full agreement update retain their current values, while explicit `status: null` clears the published status. Both fields appear in government responses and the organization agreement list. The portal displays the active flag and the published status text/colour without interpreting the status label or changing agreement access.
+
+The organization agreement list API joins the owning agency and returns `agencyNameEn` and `agencyNameFr` with each agreement summary. The list shows the agency name in the selected interface language.
+
 ## Organization permissions
 
 Each member has base `user` and optionally `admin`. Ownership retains admin; neither implies business permissions. Subjects are `application`, `claim`, `forecast`, and `form`, each with at most one explicit level:

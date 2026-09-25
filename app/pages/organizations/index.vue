@@ -53,6 +53,14 @@ useHead(() => ({ title: t('organizations') }))
               {{ organization.memberCount === 1 ? t('onePerson') : t('people') }}
             </PortalText>
           </template>
+          <template #actions>
+            <PortalBadge :tone="organization.active ? 'success' : 'neutral'">{{
+              t(organization.active ? 'active' : 'inactive')
+            }}</PortalBadge>
+            <PortalBadge :tone="organization.verified ? 'success' : 'warning'">{{
+              t(organization.verified ? 'verified' : 'pendingVerification')
+            }}</PortalBadge>
+          </template>
           <template #cta>
             <PortalLink
               variant="button"

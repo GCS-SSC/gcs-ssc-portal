@@ -71,10 +71,20 @@ export const agreementConfigSchema = z
       if (!value.fiscalYears.some((year) => year.id === line.fiscalYearId))
         fail('Budget line requires an available fiscal year')
   })
+export const agreementStatusSchema = z
+  .object({
+    en: z.string().trim().min(1).max(120),
+    fr: z.string().trim().min(1).max(120),
+    colour: z.string().regex(/^#[0-9a-fA-F]{6}$/)
+  })
+  .strict()
+export type AgreementStatus = z.infer<typeof agreementStatusSchema>
 export const agreementInput = bilingualName.extend({
   organizationId: z.uuid(),
   streamId: z.uuid(),
   agreementNumber: z.string().trim().min(1).max(15),
+  active: z.boolean().optional(),
+  status: agreementStatusSchema.nullable().optional(),
   config: agreementConfigSchema
 })
 export const agreementUpdateInput = z

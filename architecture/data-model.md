@@ -9,7 +9,8 @@ The development wrapper accepts `--clean` as an explicit reset of the default `.
 ## Tables
 
 - `user`, `account`, `session`, and `verification` implement Better Auth's default schema and column names. Accounts reference users; sessions reference users and have unique tokens.
-- `organization` stores server-generated UUIDv7 IDs, display name, description, creator/current owner reference, and creation time. The application generates IDs using `uuid.v7()`; no database ID defaults exist.
+- `organization` stores server-generated UUIDv7 IDs, display name, description, creator/current owner reference, creation time, and `active` / `verified` flags. Migration `007_organization_status` defaults existing and new organizations to active and pending verification. The flags are returned by organization list/detail APIs but cannot be changed through the organization member create/edit API; a future GCS integration will own status updates. The application generates IDs using `uuid.v7()`; no database ID defaults exist.
+- `funding_agreement` gained an `active` boolean and nullable bilingual status JSON in migration `008_agreement_status`. Existing agreements default to active with no published status. The agency-scoped extension API validates and owns updates; see [agreements](agreements.md).
 - `membership` joins users and organizations, with a composite primary key and join time.
 - `permission` holds explicit additive grants; its composite foreign key requires membership. Its current check constraint allows `admin` and `application`; `user` is implicit in membership and cannot be revoked.
 - `invitation` holds server-generated UUIDv7 IDs, organization, normalized invited email, optional display name, creator, unique token hash, timestamps, and pending/accepted/revoked state. Expiration is computed from the stored timestamp, so environment changes do not alter existing links.

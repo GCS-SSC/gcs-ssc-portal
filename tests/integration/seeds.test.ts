@@ -2,13 +2,14 @@ import { afterAll, beforeAll, expect, it, vi } from 'vitest'
 import { betterAuth } from 'better-auth'
 import { hashPassword } from 'better-auth/crypto'
 import { kyselyAdapter } from '@better-auth/kysely-adapter'
-import type { Kysely } from 'kysely'
+import { sql, type Kysely } from 'kysely'
 import pg from 'pg'
 import { createDatabase } from '../../server/utils/database'
 import type { Database } from '../../server/db/schema'
 import { seedDemo } from '../../server/db/seed-migrations'
 import { demoAccounts, demoPassword } from '../../server/db/seeds/001-demo'
 import { simpleCredentialsMigration } from '../../server/db/seeds/002-simple-credentials'
+import { demoAgreementStatusesMigration } from '../../server/db/seeds/008-demo-agreement-statuses'
 import { administratorSeed } from '../../server/db/seeds/003-administrator'
 import { startApplication } from '../../server/utils/applications'
 import { organizationSets } from '../../server/utils/submission-sets'
@@ -217,6 +218,27 @@ it('creates usable credentials and scoped sample data once, preserving edits on 
     'DEMO-002',
     'DEMO-003'
   ])
+  expect(agreements.map((item) => item.status)).toEqual([
+    { en: 'In progress', fr: 'En cours', colour: '#245A80' },
+    { en: 'Under review', fr: 'À l’étude', colour: '#795600' },
+    { en: 'Completed', fr: 'Terminée', colour: '#286A46' }
+  ])
+  const customStatus = { en: 'Custom status', fr: 'Statut personnalisé', colour: '#443366' }
+  await db
+    .updateTable('funding_agreement')
+    .set({ status: sql`${JSON.stringify(customStatus)}::jsonb`, revision: 2 })
+    .where('id', '=', agreements[0]!.id)
+    .execute()
+  await demoAgreementStatusesMigration.up(db as Kysely<unknown>)
+  expect(
+    (
+      await db
+        .selectFrom('funding_agreement')
+        .select('status')
+        .where('id', '=', agreements[0]!.id)
+        .executeTakeFirstOrThrow()
+    ).status
+  ).toEqual(customStatus)
   expect(
     agreements.every(
       (item) => item.organizationId === org.id && item.config.budgetLines.length === 2

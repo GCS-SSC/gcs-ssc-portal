@@ -251,6 +251,14 @@ await load()
     <template v-else-if="organization">
       <div class="entity-heading">
         <PortalHeading tag="h1">{{ organization.name }}</PortalHeading>
+        <div class="badges">
+          <PortalBadge :tone="organization.active ? 'success' : 'neutral'">{{
+            t(organization.active ? 'active' : 'inactive')
+          }}</PortalBadge>
+          <PortalBadge :tone="organization.verified ? 'success' : 'warning'">{{
+            t(organization.verified ? 'verified' : 'pendingVerification')
+          }}</PortalBadge>
+        </div>
       </div>
       <PortalGrid
         class="workspace"

@@ -140,7 +140,7 @@ The 1.6.0 Vue Table slot wrapper does not register the underlying custom element
 
 ## Bounded fallbacks
 
-- `PortalBadge` is readable status text, not an interactive control. The reviewed catalogue has no badge component. It uses official typography, spacing and colour tokens; meaning must remain readable without colour. Recheck the catalogue before extending it.
+- `PortalBadge` is readable status text, not an interactive control. The reviewed catalogue has no badge component. It uses official typography, spacing and colour tokens for fixed tones. Agreement statuses supplied by GCS use a validated six-digit hex background and computed black or white text for readable contrast; this bounded dynamic-colour case cannot use a fixed token. Meaning remains readable without colour. Recheck the catalogue before extending it.
 - Semantic definition lists and inline groups retain native HTML; their spacing uses GCDS tokens. Do not force lists, definitions, forms, or headings into Text, which renders a paragraph.
 - Survey date questions currently accept ISO date strings through Input with a localized format hint. Replacing this with Date input requires an explicit date-parts/string adapter, validation and round-trip tests; a control swap must not change the persisted survey contract.
 

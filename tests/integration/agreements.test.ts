@@ -11,7 +11,12 @@ import { createAgency, createProgram, createStream } from '../../server/utils/go
 import { createOrganization, updatePermissions } from '../../server/utils/portal'
 import type { GovernmentActor } from '../../server/utils/government-access'
 import { createSurvey } from '../../server/utils/surveys'
-import { saveAgreement, updateBalances, getAgreement } from '../../server/utils/agreements'
+import {
+  saveAgreement,
+  updateBalances,
+  getAgreement,
+  organizationAgreements
+} from '../../server/utils/agreements'
 import { saveSet, publishSet } from '../../server/utils/submission-sets'
 import {
   startResponse,
@@ -136,6 +141,65 @@ const newSet = async (fundingAgreement: FundingAgreement, kind: 'claim' | 'forec
   ).set
 }
 describe('agreement submissions and reconciliation', () => {
+  it('stores extension statuses and preserves them when older updates omit the fields', async () => {
+    const created = await newAgreement()
+    expect(created).toMatchObject({ active: true, status: null })
+    const value = agreementInput.parse({
+      ...names('Agreement status'),
+      organizationId,
+      streamId,
+      agreementNumber: created.agreementNumber,
+      config: created.config,
+      active: false,
+      status: { en: 'On hold', fr: 'En suspens', colour: '#245A80' }
+    })
+    const updated = (
+      await saveAgreement(db, root, { expectedRevision: created.revision, value }, created.id)
+    ).agreement
+    expect(updated).toMatchObject({ active: false, status: value.status })
+    expect(
+      (await organizationAgreements(db, organizationId, viewer)).agreements.find(
+        (agreement) => agreement.id === created.id
+      )
+    ).toMatchObject({
+      active: false,
+      status: value.status,
+      agencyNameEn: 'Agency',
+      agencyNameFr: 'Agency FR'
+    })
+    const legacyValue = agreementInput.parse({
+      nameEn: value.nameEn,
+      nameFr: value.nameFr,
+      organizationId,
+      streamId,
+      agreementNumber: value.agreementNumber,
+      config: value.config
+    })
+    const retained = (
+      await saveAgreement(
+        db,
+        root,
+        { expectedRevision: updated.revision, value: legacyValue },
+        created.id
+      )
+    ).agreement
+    expect(retained).toMatchObject({ active: false, status: value.status })
+    const cleared = (
+      await saveAgreement(
+        db,
+        root,
+        { expectedRevision: retained.revision, value: { ...legacyValue, status: null } },
+        created.id
+      )
+    ).agreement
+    expect(cleared).toMatchObject({ active: false, status: null })
+    for (const status of [
+      { en: '', fr: 'Français', colour: '#245A80' },
+      { en: 'English', fr: 'Français', colour: 'red' },
+      { en: 'English', fr: 'Français', colour: '#245A80', unsafe: true }
+    ])
+      expect(agreementInput.safeParse({ ...legacyValue, status }).success).toBe(false)
+  })
   it('preserves exact decimal money and stable bigint identifiers', () => {
     expect(money.parse('99999999999999999.99')).toBe('99999999999999999.99')
     expect(money.parse('-1.2')).toBe('-1.20')
@@ -545,7 +609,32 @@ describe('agreement submissions and reconciliation', () => {
       await sql`INSERT INTO funding_call (id, "streamId", "nameEn", "nameFr", "startDate", "endDate", published, "createdAt") VALUES (${existingCall}, ${stream}, 'Existing call', 'Appel existant', '2020-01-01', '2099-12-31', false, ${now})`.execute(
         old
       )
+      await migrate(old, '007_organization_status')
+      const existingAgreement = uuid()
+      await old
+        .insertInto('funding_agreement')
+        .values({
+          id: existingAgreement,
+          organizationId: org,
+          agencyId: agency,
+          streamId: stream,
+          ...names('Existing agreement'),
+          agreementNumber: 'existing',
+          config: sql`'{}'::jsonb`,
+          sourceSystem: 'gcs-ssc',
+          foreignSystemId: null,
+          revision: 1,
+          createdAt: now
+        })
+        .execute()
       await migrate(old)
+      expect(
+        await old
+          .selectFrom('funding_agreement')
+          .select(['active', 'status'])
+          .where('id', '=', existingAgreement)
+          .executeTakeFirstOrThrow()
+      ).toEqual({ active: true, status: null })
       expect(
         await old
           .selectFrom('funding_call')

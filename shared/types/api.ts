@@ -9,6 +9,8 @@ export interface Organization {
   id: string
   name: string
   description: string
+  active: boolean
+  verified: boolean
   ownerId: string
   permissions: Permission[]
   memberCount: number

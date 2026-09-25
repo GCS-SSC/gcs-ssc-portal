@@ -106,7 +106,11 @@ export const createOrganization = async (db: Kysely<Database>, userId: string, b
   const input = organizationInput.parse(body)
   return db.transaction().execute(async (tx) => {
     const org = { id: uuidv7(), ...input, ownerId: userId, createdAt: new Date() }
-    await tx.insertInto('organization').values(org).execute()
+    const created = await tx
+      .insertInto('organization')
+      .values(org)
+      .returningAll()
+      .executeTakeFirstOrThrow()
     await tx
       .insertInto('membership')
       .values({ organizationId: org.id, userId, joinedAt: new Date() })
@@ -115,7 +119,7 @@ export const createOrganization = async (db: Kysely<Database>, userId: string, b
       .insertInto('permission')
       .values({ organizationId: org.id, userId, permission: 'admin' })
       .execute()
-    return { organization: await mapOrganization(tx, org, userId) }
+    return { organization: await mapOrganization(tx, created, userId) }
   })
 }
 export const updateOrganization = async (

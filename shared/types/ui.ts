@@ -44,6 +44,7 @@ export interface PortalNoticeProps {
 }
 export interface PortalBadgeProps {
   tone?: 'neutral' | 'success' | 'warning'
+  colour?: string
 }
 export interface PortalLinkProps {
   variant?: 'button'

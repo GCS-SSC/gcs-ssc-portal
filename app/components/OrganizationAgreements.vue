@@ -1,5 +1,9 @@
 <script setup lang="ts">
-import type { FundingAgreement, SubmissionSet, SetResponse } from '~~/shared/types/agreements'
+import type {
+  OrganizationAgreementSummary,
+  SubmissionSet,
+  SetResponse
+} from '~~/shared/types/agreements'
 import type { Organization } from '~~/shared/types/api'
 import { setSubjects } from '~~/shared/schemas/agreements'
 import { hasAccess } from '~~/shared/utils/permissions'
@@ -8,7 +12,7 @@ const id = props.organizationId,
   base = `/api/organizations/${id}`
 const api = usePortalApi(),
   { c, errorMessage } = useAgreementLocale(),
-  { localized } = useGovernmentLocale(),
+  { g, localized } = useGovernmentLocale(),
   { locale, t } = useLocale()
 const route = useRoute()
 const { busy, error, perform } = useAgreementAction()
@@ -21,9 +25,7 @@ const {
   const [organization, sets, agreementResult] = await Promise.all([
     api<{ organization: Organization }>(base),
     api<{ sets: SubmissionSet[] }>(`${base}/sets`),
-    api<{ agreements: Pick<FundingAgreement, 'id' | 'nameEn' | 'nameFr' | 'agreementNumber'>[] }>(
-      `${base}/agreements`
-    )
+    api<{ agreements: OrganizationAgreementSummary[] }>(`${base}/agreements`)
   ])
   return { ...organization, ...sets, agreements: agreementResult.agreements }
 })
@@ -68,9 +70,21 @@ const start = (set: SubmissionSet) =>
             <template #title>{{ localized(agreement) }}</template>
             <template #details>
               <PortalText size="small" text-role="secondary" margin-bottom="100"
+                >{{ g('agency') }}:
+                {{ localized({ nameEn: agreement.agencyNameEn, nameFr: agreement.agencyNameFr }) }}
+              </PortalText>
+              <PortalText size="small" text-role="secondary" margin-bottom="100"
                 >{{ c('agreementNumber') }}:
                 <code>{{ agreement.agreementNumber }}</code></PortalText
               >
+            </template>
+            <template #actions>
+              <PortalBadge :tone="agreement.active ? 'success' : 'neutral'">{{
+                t(agreement.active ? 'active' : 'inactive')
+              }}</PortalBadge>
+              <PortalBadge v-if="agreement.status" :colour="agreement.status.colour">{{
+                agreement.status[locale]
+              }}</PortalBadge>
             </template>
             <template #cta>
               <PortalLink
@@ -104,6 +118,14 @@ const start = (set: SubmissionSet) =>
         <PortalHeading :tag="embedded ? 'h3' : 'h2'">{{
           localized(selectedAgreement)
         }}</PortalHeading>
+        <div class="badges">
+          <PortalBadge :tone="selectedAgreement.active ? 'success' : 'neutral'">{{
+            t(selectedAgreement.active ? 'active' : 'inactive')
+          }}</PortalBadge>
+          <PortalBadge v-if="selectedAgreement.status" :colour="selectedAgreement.status.colour">{{
+            selectedAgreement.status[locale]
+          }}</PortalBadge>
+        </div>
         <PortalText
           >{{ c('agreementNumber') }}:
           <code>{{ selectedAgreement.agreementNumber }}</code></PortalText

@@ -1,6 +1,7 @@
 import { sql, type Kysely, type Selectable } from 'kysely'
 import { v7 as uuid } from 'uuid'
 import { agreementInput, agreementUpdateInput } from '../../shared/schemas/agreements'
+import type { AgreementStatus } from '../../shared/schemas/agreements'
 import type { Database } from '../db/schema'
 import {
   governmentFail as fail,
@@ -53,6 +54,15 @@ export const saveAgreement = async (
 ) => {
   const update = id ? agreementUpdateInput.parse(body) : null
   const input = update?.value ?? agreementInput.parse(body)
+  const statusValue =
+    input.status === undefined
+      ? {}
+      : {
+          status:
+            input.status === null
+              ? null
+              : sql<AgreementStatus>`${JSON.stringify(input.status)}::jsonb`
+        }
   const parent = await db
     .selectFrom('stream as s')
     .innerJoin('program as p', 'p.id', 's.programId')
@@ -138,6 +148,7 @@ export const saveAgreement = async (
         .updateTable('funding_agreement')
         .set({
           ...input,
+          ...statusValue,
           config: sql`${JSON.stringify(input.config)}::jsonb`,
           sourceSystem: input.config.sourceSystem,
           foreignSystemId: input.config.foreignSystemId,
@@ -151,6 +162,7 @@ export const saveAgreement = async (
         .insertInto('funding_agreement')
         .values({
           ...input,
+          ...statusValue,
           id,
           agencyId: parent.agencyId,
           config: sql`${JSON.stringify(input.config)}::jsonb`,
@@ -175,9 +187,20 @@ export const organizationAgreements = async (
   return {
     agreements: await db
       .selectFrom('funding_agreement')
-      .select(['id', 'nameEn', 'nameFr', 'agreementNumber', 'streamId'])
-      .where('organizationId', '=', organizationId)
-      .orderBy('createdAt', 'desc')
+      .innerJoin('agency', 'agency.id', 'funding_agreement.agencyId')
+      .select([
+        'funding_agreement.id',
+        'funding_agreement.nameEn',
+        'funding_agreement.nameFr',
+        'funding_agreement.agreementNumber',
+        'funding_agreement.streamId',
+        'funding_agreement.active',
+        'funding_agreement.status',
+        'agency.nameEn as agencyNameEn',
+        'agency.nameFr as agencyNameFr'
+      ])
+      .where('funding_agreement.organizationId', '=', organizationId)
+      .orderBy('funding_agreement.createdAt', 'desc')
       .execute()
   }
 }

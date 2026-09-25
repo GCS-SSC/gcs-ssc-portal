@@ -1,10 +1,11 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import type { Kysely } from 'kysely'
+import { Kysely } from 'kysely'
 import type { Database } from '../../server/db/schema'
 import { createDatabase } from '../../server/utils/database'
 import * as portal from '../../server/utils/portal'
 import pg from 'pg'
 import { migrate } from '../../server/db/migrations'
+import { pgliteDialect } from '../../server/db/pglite-dialect'
 let db: Kysely<Database>
 const owner = { id: 'owner', name: 'Owner', email: 'owner@example.test' }
 const member = { id: 'member', name: 'Member', email: 'member@example.test' }
@@ -50,6 +51,42 @@ afterAll(async () => {
 })
 const inviteToken = (url: string) => url.split('/').at(-1)!
 describe('organization isolation and invitation lifecycle', () => {
+  it('adds status defaults to organizations created before migration 007', async () => {
+    const upgradeDb = new Kysely<Database>({ dialect: pgliteDialect('memory://') })
+    try {
+      await migrate(upgradeDb, '006_administrators')
+      await upgradeDb
+        .insertInto('user')
+        .values({
+          ...owner,
+          emailVerified: false,
+          image: null,
+          createdAt: new Date(),
+          updatedAt: new Date()
+        })
+        .execute()
+      const id = '0199a000-0000-7000-8000-000000000001'
+      await upgradeDb
+        .insertInto('organization')
+        .values({
+          id,
+          name: 'Existing organization',
+          description: '',
+          ownerId: owner.id,
+          createdAt: new Date()
+        })
+        .execute()
+      await migrate(upgradeDb)
+      const upgraded = await upgradeDb
+        .selectFrom('organization')
+        .select(['name', 'active', 'verified'])
+        .where('id', '=', id)
+        .executeTakeFirstOrThrow()
+      expect(upgraded).toEqual({ name: 'Existing organization', active: true, verified: false })
+    } finally {
+      await upgradeDb.destroy()
+    }
+  })
   it('creates UUIDv7 organizations and preserves data across rerun migrations', async () => {
     const { organization } = await portal.createOrganization(db, owner.id, {
       name: 'Federal services'
@@ -57,6 +94,8 @@ describe('organization isolation and invitation lifecycle', () => {
     expect(organization.id[14]).toBe('7')
     expect(organization.permissions).toEqual(['user', 'admin'])
     expect(organization.memberCount).toBe(1)
+    expect(organization.active).toBe(true)
+    expect(organization.verified).toBe(false)
     await migrate(db)
     expect((await portal.getOrganization(db, organization.id, owner.id)).organization.name).toBe(
       'Federal services'
@@ -65,6 +104,23 @@ describe('organization isolation and invitation lifecycle', () => {
       statusCode: 404
     })
     expect((await portal.listOrganizations(db, outsider.id)).organizations).toEqual([])
+    await db
+      .updateTable('organization')
+      .set({ active: false, verified: true })
+      .where('id', '=', organization.id)
+      .execute()
+    await portal.updateOrganization(db, organization.id, owner.id, {
+      name: 'Federal services updated'
+    })
+    const saved = (await portal.getOrganization(db, organization.id, owner.id)).organization
+    expect(saved).toMatchObject({ active: false, verified: true })
+    expect((await portal.listOrganizations(db, owner.id)).organizations).toContainEqual(saved)
+    await expect(
+      portal.updateOrganization(db, organization.id, owner.id, {
+        name: 'Federal services updated',
+        active: true
+      })
+    ).rejects.toThrow()
   })
   it('joins once, enforces email match, grants additive permissions, transfers ownership', async () => {
     const { organization } = await portal.createOrganization(db, owner.id, {

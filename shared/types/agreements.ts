@@ -1,4 +1,10 @@
-import type { AgreementConfig, ResponseItem, SetInput, SetSnapshot } from '../schemas/agreements'
+import type {
+  AgreementConfig,
+  AgreementStatus,
+  ResponseItem,
+  SetInput,
+  SetSnapshot
+} from '../schemas/agreements'
 export interface FundingAgreement {
   id: string
   organizationId: string
@@ -7,9 +13,18 @@ export interface FundingAgreement {
   nameEn: string
   nameFr: string
   agreementNumber: string
+  active: boolean
+  status: AgreementStatus | null
   config: AgreementConfig
   revision: number
   createdAt: string
+}
+export interface OrganizationAgreementSummary extends Pick<
+  FundingAgreement,
+  'id' | 'nameEn' | 'nameFr' | 'agreementNumber' | 'streamId' | 'active' | 'status'
+> {
+  agencyNameEn: string
+  agencyNameFr: string
 }
 export interface SubmissionSet extends SetInput {
   id: string

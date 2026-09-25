@@ -1,5 +1,6 @@
 import type {
   AgreementConfig,
+  AgreementStatus,
   SetItem,
   SetSnapshot,
   ResponseItem
@@ -73,6 +74,8 @@ export interface Database {
     id: string
     name: string
     description: string
+    active: Generated<boolean>
+    verified: Generated<boolean>
     ownerId: string
     createdAt: Timestamp
   }
@@ -129,6 +132,8 @@ export interface Database {
     nameEn: string
     nameFr: string
     agreementNumber: string
+    active: Generated<boolean>
+    status: Generated<AgreementStatus | null>
     config: ColumnType<AgreementConfig, AgreementConfig, AgreementConfig>
     sourceSystem: string
     foreignSystemId: string | null
