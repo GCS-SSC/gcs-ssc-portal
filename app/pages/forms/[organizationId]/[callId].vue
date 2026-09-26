@@ -31,7 +31,9 @@ useHead(() => ({ title: s('view') }))
       ><PortalHeading tag="h1">{{
         data.survey[locale === 'en' ? 'nameEn' : 'nameFr']
       }}</PortalHeading>
-      <SurveyPreview :definition="data.survey.definition"
+      <SurveyPreview
+        :definition="data.survey.definition"
+        :show-title="data.survey.definition.title[locale] !== data.survey[locale === 'en' ? 'nameEn' : 'nameFr']"
     /></template>
   </section>
 </template>

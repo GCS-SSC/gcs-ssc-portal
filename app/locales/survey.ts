@@ -130,7 +130,13 @@ export const surveyEn = {
   dirty: 'You have unsaved form changes. Leave this page?',
   savedRevision: 'Saved revision',
   responseCount: 'Questions',
-  readonly: 'Published calls keep their current form revision.'
+  readonly: 'Published calls keep their current form revision.',
+  addItem: 'Add item',
+  addRow: 'Add row',
+  removeRow: 'Remove row',
+  actions: 'Actions',
+  noRows: 'No rows yet. Add a row to enter data.',
+  tableRows: 'Rows to complete'
 } as const
 export const surveyFr: Record<keyof typeof surveyEn, string> = {
   referencedQuestion:
@@ -266,5 +272,11 @@ export const surveyFr: Record<keyof typeof surveyEn, string> = {
   dirty: 'Le formulaire contient des modifications non enregistrées. Quitter cette page?',
   savedRevision: 'Version enregistrée',
   responseCount: 'Questions',
-  readonly: 'Les appels publiés conservent leur version actuelle du formulaire.'
+  readonly: 'Les appels publiés conservent leur version actuelle du formulaire.',
+  addItem: 'Ajouter un élément',
+  addRow: 'Ajouter une ligne',
+  removeRow: 'Retirer la ligne',
+  actions: 'Actions',
+  noRows: 'Aucune ligne pour le moment. Ajoutez une ligne pour saisir les données.',
+  tableRows: 'Lignes à remplir'
 }

@@ -3,7 +3,7 @@ import { attachmentMetadata } from './attachment-records'
 import { responseRow, createResponseDraft } from './response-records'
 import { requireResponsePublication } from './response-publication'
 import type { LineBalance } from '../../shared/types/agreements'
-import { agreementRow } from './agreements'
+import type { AgreementStatus } from '../../shared/schemas/agreements'
 import { currentBalances, balanceWarnings } from './agreement-balances'
 import { sql, type Kysely, type Selectable } from 'kysely'
 import {
@@ -13,6 +13,7 @@ import {
   submitResponseInput,
   responseSubjects,
   submissionStatusInput,
+  submissionItemOutcomeInput,
   submissionDetailInput,
   governmentDetailInput,
   documentationAttachmentItemId
@@ -79,6 +80,12 @@ const submissionDetails = async (db: GovernmentDb, responseId: number) =>
     sender: createdBy === null ? ('government' as const) : ('organization' as const),
     createdAt: new Date(entry.createdAt).toISOString()
   }))
+const submissionOutcomes = async (db: GovernmentDb, responseId: number) =>
+  (await db.selectFrom('submission_item_outcome').selectAll()
+    .where('responseId', '=', responseId).orderBy('itemSubmissionId').execute())
+    .map(({ responseId: _responseId, ...row }) => ({
+      ...row, updatedAt: new Date(row.updatedAt).toISOString()
+    }))
 export const getResponse = async (
   db: GovernmentDb,
   organizationId: number,
@@ -98,6 +105,7 @@ export const getResponse = async (
         sentDocumentationIds.has(file.id)
     ),
     details,
+    outcomes: await submissionOutcomes(db, row.id),
     attachmentLimits: attachmentConfig(),
     balances: await currentBalances(db, row.snapshot),
     submittedBalances:
@@ -233,9 +241,12 @@ export const mutateResponse = async (
         row.id,
         row.snapshot.items.map((entry) => entry.item.kind)
       )
-      const balanceRevision = row.snapshot.agreement
-        ? (await agreementRow(tx, row.snapshot.agreement.id)).revision
+      const currentAgreement = row.snapshot.agreement
+        ? await tx.selectFrom('funding_agreement').select('revision')
+          .where('id', '=', row.snapshot.agreement.id).forUpdate().executeTakeFirst()
         : null
+      if (row.snapshot.agreement && !currentAgreement) return fail(409, 'AGREEMENT_NOT_FOUND')
+      const balanceRevision = currentAgreement?.revision ?? null
       if (submit!.balanceRevision !== balanceRevision) return fail(409, 'BALANCE_CHANGED')
       const balances = await currentBalances(tx, row.snapshot)
       const warnings = balanceWarnings(items, balances)
@@ -278,6 +289,17 @@ export const mutateResponse = async (
         })
         .where('id', '=', id)
         .execute()
+      const agency = await tx.selectFrom('submission_set').select('agencyId')
+        .where('id', '=', row.setId).executeTakeFirstOrThrow()
+      for (const item of payload.items)
+        await tx.insertInto('integration_delivery').values({
+          agencyId: agency.agencyId,
+          responseId: row.id,
+          kind: 'submission_item',
+          itemSubmissionId: item.itemSubmissionId,
+          detailId: null,
+          createdAt: now
+        }).execute()
     }
     return getResponse(tx, organizationId, userId, id)
   })
@@ -501,11 +523,14 @@ export const checkResponse = async (
     const items = validateResponseItems(row.snapshot, row.items, 'submit')
     if ((await attachmentMetadata(tx, row.id)).some((file) => file.status !== 'ready'))
       return fail(409, 'ATTACHMENTS_PENDING')
+    const currentAgreement = row.snapshot.agreement
+      ? await tx.selectFrom('funding_agreement').select('revision')
+        .where('id', '=', row.snapshot.agreement.id).forUpdate().executeTakeFirst()
+      : null
+    if (row.snapshot.agreement && !currentAgreement) return fail(409, 'AGREEMENT_NOT_FOUND')
     const balances = await currentBalances(tx, row.snapshot)
     return {
-      balanceRevision: row.snapshot.agreement
-        ? (await agreementRow(tx, row.snapshot.agreement.id)).revision
-        : null,
+      balanceRevision: currentAgreement?.revision ?? null,
       balances,
       warnings: balanceWarnings(items, balances)
     }
@@ -544,10 +569,55 @@ export const governmentResponse = async (
         sentIds.has(file.id)
     ),
     details,
+    outcomes: await submissionOutcomes(db, row.id),
     attachmentLimits: attachmentConfig(),
     balances: row.export!.balancesAtSubmission as LineBalance[],
     submittedBalances: row.export!.balancesAtSubmission as LineBalance[]
   }
+}
+
+/** GCS review metadata is separate from the immutable submission export. */
+export const updateSubmissionItemOutcome = async (
+  db: Kysely<Database>, actor: GovernmentActor,
+  responseId: number, itemSubmissionId: string, body: unknown
+) => {
+  const input = submissionItemOutcomeInput.parse(body)
+  const parent = await db.selectFrom('set_response as response')
+    .innerJoin('submission_set as submissionSet', 'submissionSet.id', 'response.setId')
+    .select(['response.organizationId', 'submissionSet.agencyId'])
+    .where('response.id', '=', responseId).executeTakeFirst()
+  if (!parent) return fail(404, 'RESPONSE_NOT_FOUND')
+  return db.transaction().execute(async (transaction) => {
+    await requireGovernment(transaction, actor, { agencyId: parent.agencyId, lock: true })
+    await lockOrganization(transaction, parent.organizationId)
+    const response = await transaction.selectFrom('set_response').selectAll()
+      .where('id', '=', responseId).forUpdate().executeTakeFirst()
+    if (!response || response.status === 'draft' || !response.export)
+      return fail(404, 'RESPONSE_NOT_FOUND')
+    const exportedItems = response.export.items
+    if (!Array.isArray(exportedItems) || !exportedItems.some((entry) =>
+      entry && typeof entry === 'object' && 'itemSubmissionId' in entry && entry.itemSubmissionId === itemSubmissionId))
+      return fail(404, 'ITEM_NOT_FOUND')
+    const existing = await transaction.selectFrom('submission_item_outcome').selectAll()
+      .where('responseId', '=', responseId)
+      .where('itemSubmissionId', '=', itemSubmissionId).forUpdate().executeTakeFirst()
+    if ((existing?.revision ?? 0) !== input.expectedRevision) return fail(409, 'REVISION_CONFLICT')
+    if (existing?.remoteReference && existing.remoteReference !== input.remoteReference)
+      return fail(409, 'EXTERNAL_IDENTITY_IMMUTABLE')
+    const updatedAt = new Date()
+    const values = {
+      remoteReference: input.remoteReference,
+      gcsStatus: input.gcsStatus ? sql<AgreementStatus>`${JSON.stringify(input.gcsStatus)}::jsonb` : null,
+      revision: (existing?.revision ?? 0) + 1,
+      updatedAt
+    }
+    if (existing) await transaction.updateTable('submission_item_outcome').set(values)
+      .where('responseId', '=', responseId).where('itemSubmissionId', '=', itemSubmissionId).execute()
+    else await transaction.insertInto('submission_item_outcome')
+      .values({ responseId, itemSubmissionId, ...values }).execute()
+    return { outcome: { itemSubmissionId, remoteReference: input.remoteReference,
+      gcsStatus: input.gcsStatus, revision: values.revision, updatedAt: updatedAt.toISOString() } }
+  })
 }
 
 /** Government review metadata is separate from the immutable submission export. */
@@ -690,7 +760,7 @@ export const addSubmissionDetail = async (
       .executeTakeFirstOrThrow()
     const senderName = author.name.trim().slice(0, 200)
     if (!senderName) return fail(409, 'SENDER_NAME_REQUIRED')
-    await tx
+    const sent = await tx
       .insertInto('submission_detail')
       .values({
         responseId,
@@ -701,7 +771,17 @@ export const addSubmissionDetail = async (
         senderName,
         createdAt: new Date()
       })
-      .execute()
+      .returning('id').executeTakeFirstOrThrow()
+    const agency = await tx.selectFrom('submission_set').select('agencyId')
+      .where('id', '=', row.setId).executeTakeFirstOrThrow()
+    await tx.insertInto('integration_delivery').values({
+      agencyId: agency.agencyId,
+      responseId,
+      kind: 'organization_detail',
+      itemSubmissionId: null,
+      detailId: sent.id,
+      createdAt: new Date()
+    }).execute()
     await tx
       .updateTable('set_response')
       .set({ revision: row.revision + 1, updatedBy: userId, updatedAt: new Date() })

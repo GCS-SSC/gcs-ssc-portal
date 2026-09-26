@@ -145,6 +145,12 @@ export const demoAgreementsMigration = {
         .returning('id')
         .executeTakeFirstOrThrow()
       const agreementId = agreement.id
+      await db.insertInto('agreement_organization').values({
+        agreementId,
+        organizationId: organization.id,
+        agencyId: call.agencyId,
+        foreignApplicantRecipientId: null
+      }).execute()
 
       for (const kind of ['claim', 'forecast'] as const) {
         const set = setInput.parse({

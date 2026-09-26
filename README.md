@@ -68,7 +68,7 @@ bun run build
 
 The build writes `.output/`. Start the result with `bun run preview` after providing runtime environment variables. A production Node process does not automatically read `.env`; inject its variables or use `node --env-file=.env.production .output/server/index.mjs` with a production configuration.
 
-Production requires an explicit HTTPS `APP_URL`, a random `BETTER_AUTH_SECRET` of at least 32 characters, and persistent database storage. Set `DATABASE_URL` for PostgreSQL; otherwise mount `PGLITE_DATA_DIR` on durable storage and run only one instance. Ordered migrations run before database-dependent requests are served. There is no email delivery service or connection to the main GCS–SSC application's APIs yet.
+Production requires an explicit HTTPS `APP_URL`, a random `BETTER_AUTH_SECRET` of at least 32 characters, and persistent database storage. Set `DATABASE_URL` for PostgreSQL; otherwise mount `PGLITE_DATA_DIR` on durable storage and run only one instance. Ordered migrations run before database-dependent requests are served. There is no email delivery service. The separately installed `gcs-ssc-portal-connector` extension uses agency integration keys; no connection is active until an operator installs and configures it.
 
 ## Organizations and permissions
 

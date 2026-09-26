@@ -4,7 +4,12 @@ import pg from 'pg'
 import { createDatabase } from '../../server/utils/database'
 import type { Database } from '../../server/db/schema'
 import type { GovernmentActor } from '../../server/utils/government-access'
-import { upgradeSurvey, type SurveyDefinition } from '@gcs-ssc/survey'
+import {
+  upgradeSurvey,
+  validateSurveyAnswers,
+  type AdvancedSurvey,
+  type SurveyDefinition
+} from '@gcs-ssc/survey'
 import * as surveys from '../../server/utils/surveys'
 import * as structure from '../../server/utils/government-structure'
 import { createAdministrator } from '../../server/utils/administrator-accounts'
@@ -216,5 +221,63 @@ describe('survey persistence and access', () => {
     await expect(
       surveys.updateSurvey(db, machine, survey.id, { expectedRevision: 2, definition })
     ).rejects.toMatchObject({ statusCode: 401 })
+  })
+  it('persists a nested v3 form and validates repeated answers at the portal boundary', async () => {
+    const label = (en: string, fr: string) => ({ en, fr })
+    const advanced: AdvancedSurvey = {
+      schemaVersion: 3,
+      title: label('Project plan', 'Plan de projet'),
+      questions: [
+        {
+          id: 'projects',
+          type: 'list',
+          label: label('Projects', 'Projets'),
+          required: true,
+          maxItems: 5
+        },
+        { id: 'tasks', type: 'list', label: label('Tasks', 'Tâches'), required: true, maxItems: 5 },
+        { id: 'cost', type: 'number', label: label('Cost', 'Coût'), required: true }
+      ],
+      pages: [
+        {
+          id: 'overview',
+          title: label('Overview', 'Aperçu'),
+          questionIds: ['projects'],
+          groups: [
+            {
+              id: 'project',
+              title: label('Project {{item}}', 'Projet {{item}}'),
+              repeatFor: 'projects',
+              questionIds: ['tasks'],
+              groups: [
+                {
+                  id: 'task',
+                  title: label('Task {{item}}', 'Tâche {{item}}'),
+                  repeatFor: 'tasks',
+                  questionIds: ['cost'],
+                  groups: []
+                }
+              ]
+            }
+          ],
+          branches: []
+        }
+      ]
+    }
+    const created = await surveys.createSurvey(db, actor, { agencyId, definition: advanced })
+    expect((await surveys.getSurvey(db, actor, created.survey.id)).survey.definition).toEqual(
+      advanced
+    )
+    const answers = {
+      projects: '[{"id":"r_a","value":"A"}]',
+      'tasks@r_a': '[{"id":"r_b","value":"B"}]',
+      'cost@r_a@r_b': '0'
+    }
+    expect(validateSurveyAnswers(advanced, answers).errors).toEqual({})
+    expect(
+      validateSurveyAnswers(advanced, { ...answers, 'cost@r_a@r_b': 'invalid' }).errors[
+        'cost@r_a@r_b'
+      ]
+    ).toBe('number')
   })
 })

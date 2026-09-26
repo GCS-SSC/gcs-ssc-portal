@@ -1,5 +1,5 @@
 import { sql, type Kysely, type Selectable } from 'kysely'
-import { agreementInput, agreementUpdateInput } from '../../shared/schemas/agreements'
+import { agreementInput, agreementOrganizationInput, agreementUpdateInput } from '../../shared/schemas/agreements'
 import type { AgreementStatus } from '../../shared/schemas/agreements'
 import type { Database } from '../db/schema'
 import {
@@ -77,6 +77,12 @@ export const saveAgreement = async (
   return db.transaction().execute(async (tx) => {
     await requireGovernment(tx, actor, { agencyId: parent.agencyId, lock: true })
     await lockOrganization(tx, input.organizationId)
+    const identity = await tx.selectFrom('organization_agency_identity')
+      .select('foreignApplicantRecipientId')
+      .where('agencyId', '=', parent.agencyId).where('organizationId', '=', input.organizationId)
+      .executeTakeFirst()
+    if (identity && identity.foreignApplicantRecipientId !== input.config.externalApplicantRecipientId)
+      return fail(409, 'AGREEMENT_RECIPIENT_MISMATCH')
     const now = new Date()
     const duplicate = input.config.foreignSystemId
       ? await tx
@@ -100,6 +106,14 @@ export const saveAgreement = async (
       if (previous.organizationId !== input.organizationId || previous.streamId !== input.streamId)
         return fail(409, 'AGREEMENT_SCOPE_IMMUTABLE')
       if (previous.revision !== update!.expectedRevision) return fail(409, 'REVISION_CONFLICT')
+      const organizationLink = await tx.selectFrom('agreement_organization')
+        .select('foreignApplicantRecipientId')
+        .where('agreementId', '=', id)
+        .where('organizationId', '=', input.organizationId)
+        .executeTakeFirst()
+      if (organizationLink?.foreignApplicantRecipientId &&
+        organizationLink.foreignApplicantRecipientId !== input.config.externalApplicantRecipientId)
+        return fail(409, 'EXTERNAL_IDENTITY_IMMUTABLE')
       const before = previous.config,
         after = input.config
       if (
@@ -122,6 +136,9 @@ export const saveAgreement = async (
       for (const line of after.budgetLines) {
         const old = before.budgetLines.find((entry) => entry.id === line.id)
         if (!old) continue
+        const resetAfterBudgetChange = old.budgetedAmount !== line.budgetedAmount &&
+          line.balanceAsOf === null && line.balance === null &&
+          line.claimedAmount === null && line.forecastAmount === null
         if (
           old.currency !== line.currency ||
           old.fiscalYearId !== line.fiscalYearId ||
@@ -130,7 +147,8 @@ export const saveAgreement = async (
           return fail(409, 'EXTERNAL_IDENTITY_IMMUTABLE')
         if (
           old.balanceAsOf &&
-          (!line.balanceAsOf || new Date(line.balanceAsOf) < new Date(old.balanceAsOf))
+          (!line.balanceAsOf || new Date(line.balanceAsOf) < new Date(old.balanceAsOf)) &&
+          !resetAfterBudgetChange
         )
           return fail(409, 'BALANCE_TIMESTAMP_CONFLICT')
         if (
@@ -155,6 +173,11 @@ export const saveAgreement = async (
         })
         .where('id', '=', id)
         .execute()
+      await tx.updateTable('agreement_organization')
+        .set({ foreignApplicantRecipientId: input.config.externalApplicantRecipientId })
+        .where('agreementId', '=', id)
+        .where('organizationId', '=', input.organizationId)
+        .execute()
     } else {
       const created = await tx
         .insertInto('funding_agreement')
@@ -171,8 +194,48 @@ export const saveAgreement = async (
         .returning('id')
         .executeTakeFirstOrThrow()
       id = created.id
+      await tx.insertInto('agreement_organization').values({
+        agreementId: id,
+        organizationId: input.organizationId,
+        agencyId: parent.agencyId,
+        foreignApplicantRecipientId: input.config.externalApplicantRecipientId
+      }).execute()
     }
     return getAgreement(tx, actor, id)
+  })
+}
+export const linkAgreementOrganization = async (
+  db: Kysely<Database>, actor: GovernmentActor, agreementId: number, body: unknown
+) => {
+  const input = agreementOrganizationInput.parse(body)
+  const parent = await agreementRow(db, agreementId)
+  return db.transaction().execute(async (tx) => {
+    await requireGovernment(tx, actor, { agencyId: parent.agencyId, lock: true })
+    await lockOrganization(tx, input.organizationId)
+    const identity = await tx.selectFrom('organization_agency_identity')
+      .select('foreignApplicantRecipientId')
+      .where('agencyId', '=', parent.agencyId).where('organizationId', '=', input.organizationId)
+      .executeTakeFirst()
+    if (identity && identity.foreignApplicantRecipientId !== input.foreignApplicantRecipientId)
+      return fail(409, 'AGREEMENT_RECIPIENT_MISMATCH')
+    const current = await tx.selectFrom('funding_agreement').selectAll()
+      .where('id', '=', agreementId).forUpdate().executeTakeFirst()
+    if (!current || current.agencyId !== parent.agencyId) return fail(404, 'AGREEMENT_NOT_FOUND')
+    const existing = await tx.selectFrom('agreement_organization').selectAll()
+      .where('agreementId', '=', agreementId)
+      .where('organizationId', '=', input.organizationId).executeTakeFirst()
+    if (existing) {
+      if (existing.foreignApplicantRecipientId !== input.foreignApplicantRecipientId)
+        return fail(409, 'EXTERNAL_IDENTITY_IMMUTABLE')
+      return { agreement: map(current), organizationId: input.organizationId }
+    }
+    await tx.insertInto('agreement_organization').values({
+      agreementId,
+      organizationId: input.organizationId,
+      agencyId: current.agencyId,
+      foreignApplicantRecipientId: input.foreignApplicantRecipientId
+    }).execute()
+    return { agreement: map(current), organizationId: input.organizationId }
   })
 }
 export const organizationAgreements = async (
@@ -186,6 +249,7 @@ export const organizationAgreements = async (
   return {
     agreements: await db
       .selectFrom('funding_agreement')
+      .innerJoin('agreement_organization', 'agreement_organization.agreementId', 'funding_agreement.id')
       .innerJoin('agency', 'agency.id', 'funding_agreement.agencyId')
       .select([
         'funding_agreement.id',
@@ -198,7 +262,7 @@ export const organizationAgreements = async (
         'agency.nameEn as agencyNameEn',
         'agency.nameFr as agencyNameFr'
       ])
-      .where('funding_agreement.organizationId', '=', organizationId)
+      .where('agreement_organization.organizationId', '=', organizationId)
       .orderBy('funding_agreement.createdAt', 'desc')
       .execute()
   }

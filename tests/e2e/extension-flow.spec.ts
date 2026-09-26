@@ -781,6 +781,12 @@ test('extension key publishes a pinned form for an authorized organization', asy
     await expect(applicant).not.toHaveURL(
       `/organizations/${organizationCode}/responses/${draft.id}`
     )
+    await expect(
+      applicant
+        .getByRole('region', { name: 'Additional documentation' })
+        .locator('ul.organization-list')
+        .getByText('We will send the itemized list tomorrow.')
+    ).toBeVisible()
     await applicant.getByRole('link', { name: 'Back' }).click()
     await expect(applicant).toHaveURL(
       `/organizations/${organizationCode}/agreements/${createdAgreement.id}?section=other`
@@ -844,7 +850,7 @@ test('extension key publishes a pinned form for an authorized organization', asy
     expect(await applicant.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
       true
     )
-    await applicant.getByRole('link', { name: 'View application form' }).click()
+    await applicant.locator(`a[href="/forms/${organizationCode}/${call}"]`).click()
     await expect(applicant.getByRole('heading', { name: 'Project form' })).toBeVisible()
     expect((await applicant.request.get('/api/admin/agencies')).status()).toBe(401)
     expect((await applicant.request.get(`/api/government/agencies/${agency.id}`)).status()).toBe(

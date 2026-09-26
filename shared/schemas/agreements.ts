@@ -108,6 +108,10 @@ export const agreementInput = bilingualName.extend({
 export const agreementUpdateInput = z
   .object({ expectedRevision: z.number().int().positive(), value: agreementInput })
   .strict()
+export const agreementOrganizationInput = z.object({
+  organizationId: databaseId,
+  foreignApplicantRecipientId: externalId.nullable().default(null)
+}).strict()
 const financialItem = z
   .object({ id: key, fiscalYearId: key, attachments: attachmentPolicySchema.optional() })
   .strict()
@@ -167,6 +171,11 @@ export const submissionStatusInput = z.discriminatedUnion('status', [
     })
     .strict()
 ])
+export const submissionItemOutcomeInput = z.object({
+  expectedRevision: z.number().int().min(0),
+  remoteReference: z.string().trim().min(1).max(200).nullable(),
+  gcsStatus: agreementStatusSchema.nullable()
+}).strict()
 export const submissionDetailInput = z
   .object({
     expectedRevision: z.number().int().positive(),

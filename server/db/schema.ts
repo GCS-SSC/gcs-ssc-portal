@@ -171,6 +171,40 @@ export interface Database {
     revision: number
     createdAt: Timestamp
   }
+  agreement_organization: {
+    agreementId: number
+    organizationId: number
+    agencyId: number
+    foreignApplicantRecipientId: string | null
+  }
+  organization_agency_identity: {
+    agencyId: number
+    organizationId: number
+    foreignApplicantRecipientId: string
+    verifiedAt: Timestamp
+  }
+  integration_delivery: {
+    id: Generated<string>
+    agencyId: number
+    responseId: number
+    kind: 'submission_item' | 'organization_detail'
+    itemSubmissionId: string | null
+    detailId: number | null
+    createdAt: Timestamp
+  }
+  integration_consumption: {
+    eventId: string
+    remoteReference: string | null
+    consumedAt: Timestamp
+  }
+  submission_item_outcome: {
+    responseId: number
+    itemSubmissionId: string
+    remoteReference: string | null
+    gcsStatus: AgreementStatus | null
+    revision: number
+    updatedAt: Timestamp
+  }
   submission_set: {
     callId: Generated<number | null>
     id: Generated<number>

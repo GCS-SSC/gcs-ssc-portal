@@ -90,6 +90,15 @@ export interface ResponseResult {
   balances: LineBalance[]
   submittedBalances: LineBalance[] | null
   details: SubmissionDetail[]
+  outcomes: SubmissionItemOutcome[]
+}
+
+export interface SubmissionItemOutcome {
+  itemSubmissionId: string
+  remoteReference: string | null
+  gcsStatus: AgreementStatus | null
+  revision: number
+  updatedAt: string
 }
 
 export interface SubmissionDetail {

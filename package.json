@@ -27,7 +27,7 @@
     "@electric-sql/pglite": "^0.5.8",
     "@gcds-core/components": "^1.6.0",
     "@gcds-core/components-vue": "^1.6.0",
-    "@gcs-ssc/survey": "github:GCS-SSC/survey#af07a2b3db93cd0c7afac90d4d740dd8422646af",
+    "@gcs-ssc/survey": "file:vendor/survey",
     "better-auth": "^1.7.5",
     "h3": "^1",
     "kysely": "^0.28.8",

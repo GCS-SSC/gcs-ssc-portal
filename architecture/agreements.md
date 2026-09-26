@@ -56,6 +56,12 @@ Submission rechecks authority, response revision, active publication and agreeme
 
 ## Foreign identifiers and GCS–SSC compatibility
 
+An agreement is a shared agency/stream/budget record that can be linked to several portal organizations through `agreement_organization`. Existing agreements were backfilled with their original organization. Every organization has its own published sets, responses, forecast iteration history, files, and documentation messages. Its link carries that organization's GCS applicant/recipient ID; set publication freezes the correct recipient reference. Budget balances and agreement revision are shared, so a GCS balance update affects review and submission for all linked organizations. The old agreement `organizationId` remains the original organization for persisted API compatibility; new sets validate against the link table.
+
+An agency integration that links a non-null GCS applicant/recipient ID marks the corresponding portal organization as verified. The linking action is the explicit staff identity decision; an agreement number or organization name alone never links records.
+
+The connector publishes the GCS program-funding amount as each portal line's `budgetedAmount`. It leaves balances, claimed totals, and forecasts unknown until an authoritative GCS projection supplies them. A GCS budget amendment can clear stale values when the program-funding amount changes; the next review then warns that the balance is unknown. Existing submitted values and frozen reviewed balances stay intact.
+
 `sourceSystem` is a namespace (default `gcs-ssc`); `foreignSystemId` is separate from portal IDs. GCS IDs are positive decimal **strings** through signed bigint max, never JavaScript numbers. Agreement and set foreign identities are unique within agency/source. Existing non-null agreement, fiscal-year, budget-line and set identities cannot be rebound by ordinary updates. Fiscal-year and budget-line local IDs are keys within the agreement.
 
 Use stable GCS fiscal-year and budget-line **lineage/root IDs**, not physical rows created by amendments. The future extension resolves the current physical row. The portal cannot verify remote lineage; the extension must supply correct IDs.

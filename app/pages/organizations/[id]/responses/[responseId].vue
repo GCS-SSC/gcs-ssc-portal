@@ -12,6 +12,7 @@ import {
   documentationAttachmentItemId
 } from '~~/shared/schemas/agreements'
 import { hasAccess } from '~~/shared/utils/permissions'
+import { publicCode } from '~~/shared/utils/response-code'
 import FinancialResponse from '~/components/agreements/FinancialResponse.vue'
 import ResponseAttachments from '~/components/agreements/ResponseAttachments.vue'
 import ResponseSurvey from '~/components/agreements/ResponseSurvey.vue'
@@ -74,6 +75,12 @@ watch(
   { immediate: true }
 )
 const dirty = computed(() => response.value && JSON.stringify(response.value.items) !== saved.value)
+const currentOutcome = computed(() => {
+  const submissionId = response.value?.submissionId
+  if (!submissionId) return null
+  return data.value?.outcomes.find((outcome) =>
+    outcome.itemSubmissionId === `${submissionId}-${publicCode(position.value + 1, 'Y')}`) ?? null
+})
 const reload = async () => {
   if (uploading.value || (dirty.value && !window.confirm(a('discard')))) return
   await refresh()
@@ -269,6 +276,13 @@ const changePosition = async (next: number) => {
         <PortalText v-if="response.items.length > 1"
           >{{ c('item') }} {{ position + 1 }} / {{ response.items.length }}</PortalText
         >
+        <div v-if="currentOutcome" class="badges">
+          <PortalBadge v-if="currentOutcome.gcsStatus" :colour="currentOutcome.gcsStatus.colour">{{
+            currentOutcome.gcsStatus[locale]
+          }}</PortalBadge>
+          <PortalText v-if="currentOutcome.remoteReference">{{ c('gcsReference') }}:
+            {{ currentOutcome.remoteReference }}</PortalText>
+        </div>
         <template v-if="current && published">
           <ResponseSurvey
             v-if="current.kind === 'survey' && published.survey"

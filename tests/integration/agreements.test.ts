@@ -13,8 +13,11 @@ import {
   saveAgreement,
   updateBalances,
   getAgreement,
-  organizationAgreements
+  organizationAgreements,
+  linkAgreementOrganization
 } from '../../server/utils/agreements'
+import { listIntegrationUpdates, consumeIntegrationUpdate } from '../../server/utils/integration-delivery'
+import { verifyAgencyOrganization } from '../../server/utils/organization-agency-identity'
 import { saveSet, publishSet } from '../../server/utils/submission-sets'
 import {
   startResponse,
@@ -27,7 +30,8 @@ import {
   transitionResponse,
   addSubmissionDetail,
   addGovernmentDetail,
-  governmentResponse
+  governmentResponse,
+  updateSubmissionItemOutcome
 } from '../../server/utils/set-responses'
 import {
   uploadAttachment,
@@ -307,6 +311,92 @@ describe('agreement submissions and reconciliation', () => {
         expectedRevision: withdrawn.response.revision
       })
     ).rejects.toMatchObject({ statusCode: 409, data: { code: 'FORM_SHAPE_CHANGED' } })
+  })
+
+  it('preserves the linked recipient when an older agreement config has no recipient', async () => {
+    const agreement = await newAgreement()
+    await db.updateTable('funding_agreement')
+      .set({ config: sql`${JSON.stringify({ ...agreement.config, externalApplicantRecipientId: null })}::jsonb` })
+      .where('id', '=', agreement.id).execute()
+    await expect(saveAgreement(db, root, {
+      expectedRevision: agreement.revision,
+      value: {
+        ...names('Agreement'), organizationId, streamId, agreementNumber: agreement.agreementNumber,
+        config: { ...agreement.config, externalApplicantRecipientId: '83' }
+      }
+    }, agreement.id)).rejects.toMatchObject({ statusCode: 409 })
+    expect((await db.selectFrom('agreement_organization').select('foreignApplicantRecipientId')
+      .where('agreementId', '=', agreement.id).where('organizationId', '=', organizationId)
+      .executeTakeFirstOrThrow()).foreignApplicantRecipientId).toBe('82')
+  })
+
+  it('shares one agreement and balance while keeping organization histories and deliveries separate', async () => {
+    const agreement = await newAgreement()
+    const second = await createOrganization(db, owner, { name: 'Second recipient', description: '' })
+    const secondId = decodePublicId(second.organization.id, 'organization')
+    for (const userId of [contributor, manager]) {
+      await db.insertInto('membership').values({ organizationId: secondId, userId, joinedAt: new Date() }).execute()
+      await updatePermissions(db, secondId, owner, userId, {
+        permissions: ['user', `claim:${userId === manager ? 'manager' : 'contributor'}`]
+      })
+    }
+    await linkAgreementOrganization(db, root, Number(agreement.id), {
+      organizationId: secondId,
+      foreignApplicantRecipientId: '83'
+    })
+    expect((await db.selectFrom('organization').select('verified')
+      .where('id', '=', secondId).executeTakeFirstOrThrow()).verified).toBe(false)
+    await expect(verifyAgencyOrganization(db, root, agencyId, secondId,
+      { foreignApplicantRecipientId: '84' })).rejects.toMatchObject({ statusCode: 409 })
+    await verifyAgencyOrganization(db, root, agencyId, secondId, { foreignApplicantRecipientId: '83' })
+    expect((await db.selectFrom('organization').select('verified')
+      .where('id', '=', secondId).executeTakeFirstOrThrow()).verified).toBe(true)
+    expect((await organizationAgreements(db, secondId, manager)).agreements).toEqual(
+      expect.arrayContaining([expect.objectContaining({ id: Number(agreement.id) })])
+    )
+    const draftSet = (await saveSet(db, root, {
+      ...names('Second recipient claim'), organizationId: secondId, agencyId,
+      agreementId: Number(agreement.id),
+      items: [{ id: 'claim', kind: 'claim', fiscalYearId: 'fy' }]
+    })).set
+    const published = (await publishSet(db, root, Number(draftSet.id),
+      { expectedRevision: draftSet.revision }, true)).set
+    expect(published.snapshot?.agreementReference?.externalApplicantRecipientId).toBe('83')
+    const response = (await startResponse(db, secondId, contributor,
+      Number(published.id), { locale: 'en' })).response
+    const item = response.items[0]!
+    if (item.kind !== 'claim') throw new Error('Expected claim')
+    item.lines[0]!.description = 'Shared agreement expense'
+    item.lines[0]!.amount = '10.00'
+    await mutateResponse(db, secondId, contributor, response.id, 'save', {
+      expectedRevision: response.revision, items: [item]
+    })
+    const checked = await checkResponse(db, secondId, manager, response.id, { expectedRevision: 2 })
+    await mutateResponse(db, secondId, manager, response.id, 'submit', {
+      expectedRevision: 2, balanceRevision: checked.balanceRevision, warningsAcknowledged: false
+    })
+    expect((await listResponses(db, organizationId, viewer)).responses.some((row) => row.id === response.id)).toBe(false)
+    const updates = await listIntegrationUpdates(db, root, agencyId, {})
+    const exported = await exportSubmission(db, root, response.id)
+    const event = updates.updates.find((row) => row.submissionId === exported.submission.submissionId)
+    expect(event).toMatchObject({ kind: 'submission_item' })
+    const before = JSON.stringify(exported.submission)
+    const outcome = await updateSubmissionItemOutcome(db, root, response.id, event!.itemSubmissionId!, {
+      expectedRevision: 0, remoteReference: '1001',
+      gcsStatus: { en: 'Received', fr: 'Reçu', colour: '#245A80' }
+    })
+    expect(outcome.outcome.revision).toBe(1)
+    expect((await getResponse(db, secondId, manager, response.id)).outcomes).toMatchObject([
+      { itemSubmissionId: event!.itemSubmissionId, remoteReference: '1001' }
+    ])
+    expect(JSON.stringify((await exportSubmission(db, root, response.id)).submission)).toBe(before)
+    await expect(updateSubmissionItemOutcome(db, root, response.id, event!.itemSubmissionId!, {
+      expectedRevision: 0, remoteReference: '1001', gcsStatus: null
+    })).rejects.toMatchObject({ statusCode: 409 })
+    await consumeIntegrationUpdate(db, root, agencyId, event!.eventId, { remoteReference: '1001' })
+    expect((await listIntegrationUpdates(db, root, agencyId, {})).updates.some((row) => row.eventId === event!.eventId)).toBe(false)
+    expect((await listIntegrationUpdates(db, root, agencyId, { since: '2020-01-01' })).updates
+      .find((row) => row.eventId === event!.eventId)?.remoteReference).toBe('1001')
   })
   it('stores extension statuses and preserves them when older updates omit the fields', async () => {
     const created = await newAgreement()

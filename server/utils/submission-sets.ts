@@ -56,7 +56,11 @@ export const saveSet = async (
     await lockOrganization(tx, input.organizationId)
     if (input.agreementId) {
       const parent = await agreementRow(tx, input.agreementId)
-      if (parent.organizationId !== input.organizationId || parent.agencyId !== input.agencyId)
+      const link = await tx.selectFrom('agreement_organization').select('organizationId')
+        .where('agreementId', '=', input.agreementId)
+        .where('organizationId', '=', input.organizationId)
+        .where('agencyId', '=', input.agencyId).executeTakeFirst()
+      if (!link || parent.agencyId !== input.agencyId)
         return fail(404, 'AGREEMENT_NOT_FOUND')
     }
     if (input.foreignSystemId) {
@@ -153,20 +157,25 @@ export const publishSet = async (
       const hasFinancial = row.items.some((item) => item.kind !== 'survey')
       if (row.agreementId) {
         const owner = await agreementRow(tx, row.agreementId)
+        const recipient = await tx.selectFrom('agreement_organization')
+          .select('foreignApplicantRecipientId')
+          .where('agreementId', '=', owner.id)
+          .where('organizationId', '=', row.organizationId).executeTakeFirst()
+        if (!recipient) return fail(404, 'AGREEMENT_NOT_FOUND')
         snapshot.agreementReference = {
           id: owner.id,
           agreementNumber: owner.agreementNumber,
           sourceSystem: owner.config.sourceSystem,
           foreignSystemId: owner.config.foreignSystemId,
           externalStreamId: owner.config.externalStreamId,
-          externalApplicantRecipientId: owner.config.externalApplicantRecipientId
+          externalApplicantRecipientId: recipient.foreignApplicantRecipientId
         }
         if (hasFinancial)
           snapshot.agreement = {
             id: owner.id,
             revision: owner.revision,
             agreementNumber: owner.agreementNumber,
-            config: owner.config
+            config: { ...owner.config, externalApplicantRecipientId: recipient.foreignApplicantRecipientId }
           }
       }
       for (const item of row.items) {

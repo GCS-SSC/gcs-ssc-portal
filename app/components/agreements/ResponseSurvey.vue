@@ -1,14 +1,62 @@
 <script setup lang="ts">
 import { HeadlessSurvey } from '@gcs-ssc/survey/vue'
-import { resolveSurvey, type SurveyAnswers, type SurveyDefinition } from '@gcs-ssc/survey'
+import {
+  baseQuestionId,
+  computedValue,
+  parseList,
+  parseTable,
+  resolveSurvey,
+  type SurveyAnswers,
+  type SurveyDefinition
+} from '@gcs-ssc/survey'
 import SurveyFields from '../survey/SurveyFields.vue'
+import SurveyGroups from '../survey/SurveyGroups.vue'
 const props = defineProps<{ definition: SurveyDefinition; readonly?: boolean }>()
 const answers = defineModel<SurveyAnswers>({ required: true })
-const readQuestions = computed(() =>
-  props.definition.questions.filter((question) =>
-    resolveSurvey(props.definition, answers.value).questionIds.includes(question.id)
-  )
-)
+const readQuestions = computed(() => {
+  const route = resolveSurvey(props.definition, answers.value)
+  const questions = new Map(props.definition.questions.map((question) => [question.id, question]))
+  const listLabels = new Map<string, string>()
+  for (const value of Object.values(answers.value))
+    for (const item of parseList(value)) listLabels.set(item.id, item.value)
+  return route.questionIds.flatMap((id) => {
+    const question = questions.get(baseQuestionId(id))
+    if (!question) return []
+    const path = id.split('@').slice(1)
+    const context = path.map((key) => listLabels.get(key) ?? key).join(' / ')
+    const raw =
+      question.type === 'computed' && props.definition.schemaVersion === 3
+        ? computedValue(
+            question,
+            path,
+            answers.value,
+            new Set(route.questionIds),
+            new Map(props.definition.questions.map((item) => [item.id, item]))
+          )
+        : (answers.value[id] ?? '')
+    const value =
+      question.type === 'select'
+        ? (question.options.find((option) => option.value === raw)?.label[locale.value] ?? raw)
+        : question.type === 'list'
+          ? parseList(raw)
+              .map((item) => item.value)
+              .join(', ')
+          : question.type === 'table'
+            ? parseTable(raw)
+                .map((row) =>
+                  question.columns
+                    .map(
+                      (column) => `${column.label[locale.value]}: ${row.cells[column.id] ?? '—'}`
+                    )
+                    .join(' · ')
+                )
+                .join(' | ')
+            : raw
+    return [
+      { id, label: `${question.label[locale.value]}${context ? ` — ${context}` : ''}`, value }
+    ]
+  })
+})
 const { locale } = useLocale(),
   { s } = useSurveyLocale()
 const prefix = useId()
@@ -24,18 +72,8 @@ const navigate = async (action: (() => boolean) | (() => void)) => {
       <PortalHeading tag="h2">{{ definition.title[locale] }}</PortalHeading>
       <dl>
         <template v-for="question in readQuestions" :key="question.id"
-          ><dt>{{ question.label[locale] }}</dt>
-          <dd>
-            {{
-              question.type === 'select'
-                ? (question.options.find((option) => option.value === answers[question.id])?.label[
-                    locale
-                  ] ?? '—')
-                : answers[question.id] === ''
-                  ? '—'
-                  : (answers[question.id] ?? '—')
-            }}
-          </dd></template
+          ><dt>{{ question.label }}</dt>
+          <dd>{{ question.value || '—' }}</dd></template
         >
       </dl>
     </template>
@@ -71,11 +109,20 @@ const navigate = async (action: (() => boolean) | (() => void)) => {
               <PortalNotice variant="success">{{ s('valid') }}</PortalNotice>
             </template>
             <template v-else-if="page">
-              <PortalHeading v-if="definition.schemaVersion === 2" tag="h3">
+              <PortalHeading v-if="definition.schemaVersion !== 1" tag="h3">
                 {{ s('page') }} {{ pageIndex + 1 }}: {{ page.title[locale] }}
               </PortalHeading>
               <PortalText v-if="page.description">{{ page.description[locale] }}</PortalText>
-              <SurveyFields :fields="fields" :ids="page.questionIds" :prefix="prefix" />
+              <SurveyFields
+                :fields="fields" :ids="page.questionIds" :prefix="prefix"
+                :legend-size="definition.schemaVersion === 1 ? 'h3' : 'h4'" />
+              <SurveyGroups
+                v-if="'groups' in page"
+                :groups="page.groups"
+                :fields="fields"
+                :prefix="prefix"
+                root-heading="h4"
+              />
               <section
                 v-for="section in page.sections"
                 :key="section.id"

@@ -2,7 +2,8 @@
 import { HeadlessSurvey } from '@gcs-ssc/survey/vue'
 import type { SurveyDefinition } from '@gcs-ssc/survey'
 import SurveyFields from './SurveyFields.vue'
-const props = defineProps<{ definition: SurveyDefinition }>()
+import SurveyGroups from './SurveyGroups.vue'
+const props = withDefaults(defineProps<{ definition: SurveyDefinition; showTitle?: boolean }>(), { showTitle: true })
 const { locale } = useLocale(),
   { s } = useSurveyLocale()
 const answers = ref<Record<string, string>>({})
@@ -40,7 +41,7 @@ const navigate = async (action: (() => boolean) | (() => void)) => {
           back
         }"
       >
-        <PortalHeading tag="h3">{{ title }}</PortalHeading>
+        <PortalHeading v-if="showTitle" tag="h3">{{ title }}</PortalHeading>
         <PortalText v-if="description">{{ description }}</PortalText>
         <form class="portal-form" novalidate @submit.prevent="navigate(next)">
           <div
@@ -57,18 +58,27 @@ const navigate = async (action: (() => boolean) | (() => void)) => {
               <PortalText>{{ s('previewComplete') }}</PortalText>
             </template>
             <template v-else-if="page">
-              <PortalHeading v-if="definition.schemaVersion === 2" tag="h4">
+              <PortalHeading v-if="definition.schemaVersion !== 1" :tag="showTitle ? 'h4' : 'h3'">
                 {{ s('page') }} {{ pageIndex + 1 }}: {{ page.title[locale] }}
               </PortalHeading>
               <PortalText v-if="page.description">{{ page.description[locale] }}</PortalText>
-              <SurveyFields :fields="fields" :ids="page.questionIds" :prefix="prefix" />
+              <SurveyFields
+                :fields="fields" :ids="page.questionIds" :prefix="prefix"
+                :legend-size="definition.schemaVersion === 1 || !showTitle ? 'h4' : 'h5'" />
+              <SurveyGroups
+                v-if="'groups' in page"
+                :groups="page.groups"
+                :fields="fields"
+                :prefix="prefix"
+                :root-heading="showTitle ? 'h5' : 'h4'"
+              />
               <section
                 v-for="section in page.sections"
                 :key="section.id"
                 :aria-label="section.title[locale]"
                 class="content-section"
               >
-                <PortalHeading :id="`${prefix}-${section.id}`" tag="h5">{{
+                <PortalHeading :id="`${prefix}-${section.id}`" :tag="showTitle ? 'h5' : 'h4'">{{
                   section.title[locale]
                 }}</PortalHeading>
                 <PortalText v-if="section.description">{{

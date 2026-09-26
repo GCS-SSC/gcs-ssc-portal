@@ -23,6 +23,8 @@ import {
 } from '../../utils/government-access'
 import * as surveys from '../../utils/surveys'
 import * as structure from '../../utils/government-structure'
+import { consumeIntegrationUpdate, listIntegrationUpdates } from '../../utils/integration-delivery'
+import { listAgencyOrganizations, verifyAgencyOrganization } from '../../utils/organization-agency-identity'
 import {
   decodePublicId,
   encodePublicId,
@@ -101,6 +103,15 @@ const governmentHandler = defineEventHandler(async (event) => {
     if (
       id &&
       path[0] === 'submissions' &&
+      path.length === 5 &&
+      path[2] === 'items' && path[4] === 'outcome' && method === 'PUT'
+    )
+      return await responses.updateSubmissionItemOutcome(
+        db, actor, id, path[3]!, resolvePublicInput(parseJsonBody(body))
+      )
+    if (
+      id &&
+      path[0] === 'submissions' &&
       path.length === 4 &&
       path[2] === 'attachments' &&
       method === 'DELETE'
@@ -167,7 +178,15 @@ const governmentHandler = defineEventHandler(async (event) => {
           id,
           z.coerce.number().int().min(0).max(1000000).default(0).parse(getQuery(event).offset)
         )
+      if (path[2] === 'updates') return await listIntegrationUpdates(db, actor, id, getQuery(event))
+      if (path[2] === 'organizations') return await listAgencyOrganizations(db, actor, id, getQuery(event))
     }
+    if (id && path.length === 5 && path[0] === 'agencies' && path[2] === 'organizations'
+      && path[4] === 'verify' && method === 'POST')
+      return await verifyAgencyOrganization(db, actor, id, decodePublicId(path[3]!, 'organization'), parseJsonBody(body))
+    if (id && path.length === 5 && path[0] === 'agencies' && path[2] === 'updates'
+      && path[4] === 'consume' && method === 'POST')
+      return await consumeIntegrationUpdate(db, actor, id, path[3]!, parseJsonBody(body))
     if (path.length === 1 && method === 'POST') {
       if (path[0] === 'agreements')
         return await agreements.saveAgreement(db, actor, resolvePublicInput(parseJsonBody(body)))
@@ -190,6 +209,14 @@ const governmentHandler = defineEventHandler(async (event) => {
       if (path[0] === 'submissions' && method === 'GET')
         return await responses.exportSubmission(db, actor, id)
     }
+    if (
+      id &&
+      path.length === 3 &&
+      path[0] === 'agreements' &&
+      path[2] === 'organizations' &&
+      method === 'POST'
+    )
+      return await agreements.linkAgreementOrganization(db, actor, id, resolvePublicInput(parseJsonBody(body)))
     if (
       id &&
       path.length === 3 &&
