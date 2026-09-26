@@ -765,7 +765,12 @@ test('extension key publishes a pinned form for an authorized organization', asy
     await expect(applicant.getByRole('link', { name: 'guidance.txt' })).toBeVisible()
     await applicant.getByLabel('Message').fill('We will send the itemized list tomorrow.')
     await applicant.getByRole('button', { name: 'Send additional details' }).click()
-    await expect(applicant.getByText('We will send the itemized list tomorrow.')).toBeVisible()
+    await expect(
+      applicant
+        .getByRole('region', { name: 'Additional documentation' })
+        .locator('ul.organization-list')
+        .getByText('We will send the itemized list tomorrow.')
+    ).toBeVisible()
     applicant.once('dialog', (dialog) => dialog.accept())
     await applicant.getByRole('button', { name: 'Withdraw submission' }).click()
     await expect(
@@ -781,12 +786,6 @@ test('extension key publishes a pinned form for an authorized organization', asy
     await expect(applicant).not.toHaveURL(
       `/organizations/${organizationCode}/responses/${draft.id}`
     )
-    await expect(
-      applicant
-        .getByRole('region', { name: 'Additional documentation' })
-        .locator('ul.organization-list')
-        .getByText('We will send the itemized list tomorrow.')
-    ).toBeVisible()
     await applicant.getByRole('link', { name: 'Back' }).click()
     await expect(applicant).toHaveURL(
       `/organizations/${organizationCode}/agreements/${createdAgreement.id}?section=other`
