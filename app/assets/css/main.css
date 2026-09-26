@@ -105,6 +105,17 @@ body {
   margin: 0;
   padding: 0;
 }
+.available-form-list {
+  list-style: none;
+  padding-inline-start: 0;
+}
+.available-form-list > li {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--gcds-spacing-100) var(--gcds-spacing-300);
+  margin-block: var(--gcds-spacing-200);
+}
 .metadata,
 .muted,
 .table-secondary {

@@ -177,12 +177,11 @@ const startNew = () => {
             <PortalText v-else-if="!availableSets.some(canStart)">{{ c('viewOnly') }}</PortalText>
             <section v-if="showSets" class="content-section">
               <PortalHeading tag="h3" margin-top="0">{{ c('availableForms') }}</PortalHeading>
-              <ul class="service-list">
+              <ul class="available-form-list">
                 <li v-for="set in availableSets" :key="set.id">
                   <PortalLink :to="`/organizations/${id}/sets/${set.id}`">{{
                     localized(set)
                   }}</PortalLink>
-                  <span>{{ set.items.map((item) => c(item.kind)).join(' → ') }}</span>
                   <PortalButton
                     v-if="canStart(set)"
                     variant="secondary"
@@ -190,7 +189,6 @@ const startNew = () => {
                     @click="start(set)"
                     >{{ c('start') }}</PortalButton
                   >
-                  <span v-else>{{ c('viewOnly') }}</span>
                 </li>
               </ul>
             </section>
