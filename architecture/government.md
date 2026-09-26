@@ -26,6 +26,7 @@ The agency hierarchy is `agency → program → stream → funding_call`. Calls 
 | GET/POST/PUT surveys and call survey assignment                       | Manage pinned form definitions               |
 | GET/POST/PUT agreements and sets, agreement balances, set publication | Manage agreement configuration and form sets |
 | GET agency submissions and submission exports/attachments             | Retrieve submitted data                      |
+| PUT submission status; POST submission details and attachments        | Request documentation and send replies       |
 
 The future extension should keep each returned portal ID and reconcile before retrying an ambiguous create request; creation is not idempotent. A request example:
 

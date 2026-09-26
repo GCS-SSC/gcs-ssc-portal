@@ -143,13 +143,24 @@ export const setUpdateInput = z
   .object({ expectedRevision: z.number().int().positive(), value: setInput })
   .strict()
 export const versionInput = z.object({ expectedRevision: z.number().int().positive() }).strict()
-export const submissionStatusInput = z
-  .object({
-    expectedRevision: z.number().int().positive(),
-    status: z.enum(['submitted', 'awaiting_documentation']),
-    gcsStatus: agreementStatusSchema.nullable()
-  })
-  .strict()
+export const submissionStatusInput = z.discriminatedUnion('status', [
+  z
+    .object({
+      expectedRevision: z.number().int().positive(),
+      status: z.literal('submitted'),
+      gcsStatus: agreementStatusSchema.nullable()
+    })
+    .strict(),
+  z
+    .object({
+      expectedRevision: z.number().int().positive(),
+      status: z.literal('awaiting_documentation'),
+      gcsStatus: agreementStatusSchema.nullable(),
+      message: z.string().trim().min(1).max(4000),
+      senderName: z.string().trim().min(1).max(120)
+    })
+    .strict()
+])
 export const submissionDetailInput = z
   .object({
     expectedRevision: z.number().int().positive(),
@@ -158,6 +169,14 @@ export const submissionDetailInput = z
   })
   .strict()
   .refine((value) => value.body.length > 0 || value.attachmentIds.length > 0)
+export const governmentDetailInput = z
+  .object({
+    expectedRevision: z.number().int().positive(),
+    body: z.string().trim().min(1).max(4000),
+    senderName: z.string().trim().min(1).max(120),
+    attachmentIds: z.array(databaseId).max(10)
+  })
+  .strict()
 const month = z.number().int().min(0).max(11)
 export const responseItemSchema = z.discriminatedUnion('kind', [
   z.object({ id: key, kind: z.literal('survey'), answers: answersSchema }).strict(),

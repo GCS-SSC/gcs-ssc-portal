@@ -25,10 +25,12 @@ import {
   listResponses,
   updateSubmissionStatus,
   addSubmissionDetail,
+  addGovernmentDetail,
   governmentResponse
 } from '../../server/utils/set-responses'
 import {
   uploadAttachment,
+  uploadGovernmentAttachment,
   removeAttachment,
   governmentAttachment
 } from '../../server/utils/attachments'
@@ -430,9 +432,26 @@ describe('agreement submissions and reconciliation', () => {
         attachmentIds: []
       })
     ).rejects.toMatchObject({ statusCode: 409 })
+    await expect(
+      updateSubmissionStatus(db, root, submitted.response.id, {
+        expectedRevision: submitted.response.revision,
+        status: 'awaiting_documentation',
+        gcsStatus: null
+      })
+    ).rejects.toMatchObject({ name: 'ZodError' })
+    await expect(
+      updateSubmissionStatus(db, root, submitted.response.id, {
+        expectedRevision: submitted.response.revision,
+        status: 'awaiting_documentation',
+        message: 'Please provide receipts.',
+        gcsStatus: null
+      })
+    ).rejects.toMatchObject({ name: 'ZodError' })
     const awaiting = await updateSubmissionStatus(db, root, submitted.response.id, {
       expectedRevision: submitted.response.revision,
       status: 'awaiting_documentation',
+      message: 'Please provide the receipts for this submission.',
+      senderName: 'GCS Case Officer',
       gcsStatus: { en: 'Documents needed', fr: 'Documents requis', colour: '#245A80' }
     })
     expect(awaiting.response.status).toBe('awaiting_documentation')
@@ -482,14 +501,63 @@ describe('agreement submissions and reconciliation', () => {
       attachmentIds: [fileId]
     })
     expect(followup.details).toMatchObject([
-      { body: 'Here are the requested receipts.', attachmentIds: [fileId] }
+      {
+        sender: 'government',
+        senderName: 'GCS Case Officer',
+        body: 'Please provide the receipts for this submission.'
+      },
+      {
+        sender: 'organization',
+        senderName: 'agreement-contributor',
+        body: 'Here are the requested receipts.',
+        attachmentIds: [fileId]
+      }
     ])
+    const governmentFile = await uploadGovernmentAttachment(
+      db,
+      root,
+      submitted.response.id,
+      {
+        expectedRevision: followup.response.revision,
+        filename: 'guidance.txt'
+      },
+      new Uint8Array([1, 2, 3]),
+      storage
+    )
+    const governmentFileId = governmentFile.attachments.find(
+      (file) => file.sender === 'government' && file.itemId === documentationAttachmentItemId
+    )!.id
+    expect(
+      (await getResponse(db, organizationId, viewer, id)).attachments.map((file) => file.id)
+    ).not.toContain(governmentFileId)
+    const governmentReply = await addGovernmentDetail(db, root, submitted.response.id, {
+      expectedRevision: governmentFile.revision,
+      body: 'Please also include the itemized list.',
+      senderName: 'GCS Reviewer',
+      attachmentIds: [governmentFileId]
+    })
+    expect(governmentReply.details.at(-1)).toMatchObject({
+      sender: 'government',
+      senderName: 'GCS Reviewer',
+      body: 'Please also include the itemized list.',
+      attachmentIds: [governmentFileId]
+    })
+    expect(
+      (await getResponse(db, organizationId, viewer, id)).attachments.map((file) => file.id)
+    ).toContain(governmentFileId)
+    const secondFollowup = await addSubmissionDetail(db, organizationId, contributor, id, {
+      expectedRevision: governmentReply.response.revision,
+      body: 'The itemized list will follow tomorrow.',
+      attachmentIds: []
+    })
+    expect(secondFollowup.details).toHaveLength(4)
+    expect(secondFollowup.details.at(-1)).toMatchObject({ senderName: 'agreement-contributor' })
     await expect(
       removeAttachment(db, organizationId, contributor, id, fileId, {
-        expectedRevision: followup.response.revision
+        expectedRevision: secondFollowup.response.revision
       })
     ).rejects.toMatchObject({ statusCode: 409 })
-    expect((await governmentResponse(db, root, submitted.response.id)).details).toHaveLength(1)
+    expect((await governmentResponse(db, root, submitted.response.id)).details).toHaveLength(4)
     expect(
       (await governmentAttachment(db, root, submitted.response.id, fileId, storage)).bytes
     ).toEqual(new Uint8Array([1, 2, 3]))
@@ -514,6 +582,19 @@ describe('agreement submissions and reconciliation', () => {
       claimedAmount: '125.50'
     })
     expect(await exportSubmission(db, root, submitted.response.id)).toEqual(exported)
+    const closed = await updateSubmissionStatus(db, root, submitted.response.id, {
+      expectedRevision: secondFollowup.response.revision,
+      status: 'submitted',
+      gcsStatus: null
+    })
+    await expect(
+      addGovernmentDetail(db, root, submitted.response.id, {
+        expectedRevision: closed.response.revision,
+        body: 'Late message',
+        senderName: 'GCS Reviewer',
+        attachmentIds: []
+      })
+    ).rejects.toMatchObject({ statusCode: 409 })
     await expect(
       mutateResponse(db, organizationId, manager, id, 'delete', { expectedRevision: 3 })
     ).rejects.toMatchObject({ statusCode: 409 })

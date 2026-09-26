@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { randomBytes } from 'node:crypto'
-import type { Kysely } from 'kysely'
+import { sql, type Kysely } from 'kysely'
 import type { Database } from '../db/schema'
 import {
   attachmentsAllowed,
@@ -44,6 +44,7 @@ const uploadInput = z
     ])
   })
   .strict()
+const governmentUploadInput = uploadInput.omit({ itemId: true })
 const validateUploadTarget = async (
   db: GovernmentDb,
   organizationId: number,
@@ -123,6 +124,7 @@ export const uploadAttachment = async (
         ...location,
         status: 'pending',
         createdBy: userId,
+        senderAgencyId: null,
         createdAt: new Date()
       })
       .returning('id')
@@ -207,11 +209,12 @@ export const removeAttachment = async (
     else {
       const attachment = await tx
         .selectFrom('response_attachment')
-        .select('itemId')
+        .select(['itemId', 'createdBy'])
         .where('id', '=', id)
         .where('responseId', '=', responseId)
         .executeTakeFirst()
-      if (attachment?.itemId !== documentationAttachmentItemId) return fail(409, 'RESPONSE_FINAL')
+      if (attachment?.itemId !== documentationAttachmentItemId || attachment.createdBy === null)
+        return fail(409, 'RESPONSE_FINAL')
       const details = await tx
         .selectFrom('submission_detail')
         .select('attachmentIds')
@@ -266,6 +269,21 @@ export const organizationAttachment = async (
 ) => {
   const row = await responseRow(db, organizationId, responseId)
   await requireBusinessAccess(db, organizationId, userId, responseSubjects(row.snapshot), 'viewer')
+  const file = await db
+    .selectFrom('response_attachment')
+    .select(['itemId', 'createdBy'])
+    .where('id', '=', id)
+    .where('responseId', '=', responseId)
+    .executeTakeFirst()
+  if (file?.itemId === documentationAttachmentItemId && file.createdBy === null) {
+    const sent = await db
+      .selectFrom('submission_detail')
+      .select('id')
+      .where('responseId', '=', responseId)
+      .where(sql<boolean>`"attachmentIds" @> ${JSON.stringify([id])}::jsonb`)
+      .executeTakeFirst()
+    if (!sent) return fail(404, 'ATTACHMENT_NOT_FOUND')
+  }
   return readFile(db, responseId, id, storage ?? attachmentStorage())
 }
 export const governmentAttachment = async (
@@ -286,7 +304,7 @@ export const governmentAttachment = async (
   await requireGovernment(db, actor, { agencyId: row.agencyId })
   const file = await db
     .selectFrom('response_attachment')
-    .select('itemId')
+    .select(['itemId', 'createdBy'])
     .where('id', '=', id)
     .where('responseId', '=', row.id)
     .executeTakeFirst()
@@ -296,10 +314,183 @@ export const governmentAttachment = async (
       .select('attachmentIds')
       .where('responseId', '=', row.id)
       .execute()
-    if (!details.some((detail) => detail.attachmentIds.includes(id)))
+    if (file.createdBy !== null && !details.some((detail) => detail.attachmentIds.includes(id)))
       return fail(404, 'ATTACHMENT_NOT_FOUND')
   }
   return readFile(db, row.id, id, storage ?? attachmentStorage())
+}
+
+const governmentTarget = async (
+  db: GovernmentDb,
+  actor: GovernmentActor,
+  responseId: number,
+  expectedRevision: number,
+  options: { lock?: boolean } = {}
+) => {
+  let query = db
+    .selectFrom('set_response as r')
+    .innerJoin('submission_set as s', 's.id', 'r.setId')
+    .select(['r.id', 'r.organizationId', 'r.status', 'r.revision', 's.agencyId'])
+    .where('r.id', '=', responseId)
+  if (options.lock) query = query.forUpdate()
+  const row = await query.executeTakeFirst()
+  if (!row) return fail(404, 'RESPONSE_NOT_FOUND')
+  await requireGovernment(db, actor, { agencyId: row.agencyId })
+  if (row.status !== 'awaiting_documentation') return fail(409, 'DOCUMENTATION_NOT_REQUESTED')
+  if (row.revision !== expectedRevision) return fail(409, 'REVISION_CONFLICT')
+  return row
+}
+
+export const authorizeGovernmentUpload = async (
+  db: Kysely<Database>,
+  actor: GovernmentActor,
+  responseId: number,
+  body: unknown
+) => {
+  const input = governmentUploadInput.parse(body)
+  await governmentTarget(db, actor, responseId, input.expectedRevision)
+  if (!attachmentConfig().configured) return fail(503, 'ATTACHMENT_STORAGE_UNAVAILABLE')
+  return input
+}
+
+export const uploadGovernmentAttachment = async (
+  db: Kysely<Database>,
+  actor: GovernmentActor,
+  responseId: number,
+  body: unknown,
+  bytes: Uint8Array,
+  storage?: AttachmentStorage
+) => {
+  const input = governmentUploadInput.parse(body)
+  const limits = attachmentConfig()
+  if (!bytes.byteLength || bytes.byteLength > limits.maxBytes)
+    return fail(413, 'ATTACHMENT_TOO_LARGE')
+  const objectStorage = storage ?? attachmentStorage()
+  const location = objectStorage.location(randomBytes(16).toString('hex'))
+  const reservation = await db.transaction().execute(async (tx) => {
+    const initial = await governmentTarget(tx, actor, responseId, input.expectedRevision)
+    await requireGovernment(tx, actor, { agencyId: initial.agencyId, lock: true })
+    await lockOrganization(tx, initial.organizationId)
+    const row = await governmentTarget(tx, actor, responseId, input.expectedRevision, {
+      lock: true
+    })
+    const files = await attachmentMetadata(tx, responseId)
+    if (
+      files.filter((file) => file.itemId === documentationAttachmentItemId).length >=
+        limits.maxFilesPerForm ||
+      files.reduce((total, file) => total + file.size, 0) + bytes.byteLength >
+        limits.maxResponseBytes
+    )
+      return fail(400, 'ATTACHMENT_LIMIT')
+    const inserted = await tx
+      .insertInto('response_attachment')
+      .values({
+        responseId,
+        itemId: documentationAttachmentItemId,
+        filename: input.filename,
+        size: bytes.byteLength,
+        sha256: sha256(bytes),
+        ...location,
+        status: 'pending',
+        createdBy: null,
+        senderAgencyId: row.agencyId,
+        createdAt: new Date()
+      })
+      .returning('id')
+      .executeTakeFirstOrThrow()
+    await tx
+      .updateTable('set_response')
+      .set({ revision: row.revision + 1, updatedAt: new Date() })
+      .where('id', '=', responseId)
+      .execute()
+    return {
+      id: inserted.id,
+      revision: row.revision + 1,
+      organizationId: row.organizationId,
+      agencyId: row.agencyId
+    }
+  })
+  try {
+    await objectStorage.put(location, bytes)
+    return await db.transaction().execute(async (tx) => {
+      await requireGovernment(tx, actor, { agencyId: reservation.agencyId, lock: true })
+      await lockOrganization(tx, reservation.organizationId)
+      const row = await governmentTarget(tx, actor, responseId, reservation.revision, {
+        lock: true
+      })
+      const file = await tx
+        .selectFrom('response_attachment')
+        .select(['status', 'responseId'])
+        .where('id', '=', reservation.id)
+        .forUpdate()
+        .executeTakeFirst()
+      if (file?.responseId !== responseId || file.status !== 'pending')
+        return fail(409, 'REVISION_CONFLICT')
+      await tx
+        .updateTable('response_attachment')
+        .set({ status: 'ready' })
+        .where('id', '=', reservation.id)
+        .execute()
+      return { revision: row.revision, attachments: await attachmentMetadata(tx, responseId) }
+    })
+  } catch (error) {
+    await db
+      .updateTable('response_attachment')
+      .set({ responseId: null })
+      .where('id', '=', reservation.id)
+      .execute()
+    if (error && typeof error === 'object' && 'statusCode' in error) throw error
+    return fail(502, 'ATTACHMENT_STORAGE_ERROR')
+  }
+}
+
+export const removeGovernmentAttachment = async (
+  db: Kysely<Database>,
+  actor: GovernmentActor,
+  responseId: number,
+  attachmentId: number,
+  body: unknown
+) => {
+  const input = versionInput.parse(body)
+  return db.transaction().execute(async (tx) => {
+    const initial = await governmentTarget(tx, actor, responseId, input.expectedRevision)
+    await requireGovernment(tx, actor, { agencyId: initial.agencyId, lock: true })
+    await lockOrganization(tx, initial.organizationId)
+    const row = await governmentTarget(tx, actor, responseId, input.expectedRevision, {
+      lock: true
+    })
+    const file = await tx
+      .selectFrom('response_attachment')
+      .select(['itemId', 'createdBy', 'senderAgencyId'])
+      .where('id', '=', attachmentId)
+      .where('responseId', '=', responseId)
+      .executeTakeFirst()
+    if (
+      !file ||
+      file.itemId !== documentationAttachmentItemId ||
+      file.createdBy !== null ||
+      file.senderAgencyId !== row.agencyId
+    )
+      return fail(404, 'ATTACHMENT_NOT_FOUND')
+    const details = await tx
+      .selectFrom('submission_detail')
+      .select('attachmentIds')
+      .where('responseId', '=', responseId)
+      .execute()
+    if (details.some((detail) => detail.attachmentIds.includes(attachmentId)))
+      return fail(409, 'ATTACHMENT_ALREADY_SENT')
+    await tx
+      .updateTable('response_attachment')
+      .set({ responseId: null })
+      .where('id', '=', attachmentId)
+      .execute()
+    await tx
+      .updateTable('set_response')
+      .set({ revision: row.revision + 1, updatedAt: new Date() })
+      .where('id', '=', responseId)
+      .execute()
+    return { revision: row.revision + 1, attachments: await attachmentMetadata(tx, responseId) }
+  })
 }
 /** Run periodically. One-hour grace is longer than any S3 PUT timeout, including retries. */
 export const cleanupAttachments = async (db: Kysely<Database>, storage?: AttachmentStorage) => {

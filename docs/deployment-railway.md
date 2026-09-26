@@ -40,7 +40,7 @@ Build a production image with `--build-arg PORTAL_ENVIRONMENT=production` when d
 
 ## Attachments
 
-Files use the app-wide private S3 configuration described in [attachments](../architecture/attachments.md). PostgreSQL stores metadata; the image has no local-file attachment backend. The sample form has attachments disabled and is immediately usable without a bucket. To test files, provision a private S3-compatible bucket, set `S3_BUCKET`, `S3_REGION`, optional `S3_ENDPOINT`/`S3_FORCE_PATH_STYLE` and standard AWS credentials as Railway service variables, then enable attachments on a new survey revision. Back up PostgreSQL and the bucket together. Bucket provisioning is not performed by this graph.
+Files use the app-wide storage configuration described in [attachments](../architecture/attachments.md). Without S3, uploads use `ATTACHMENT_LOCAL_DIR` (default `.data/attachments`). Railway containers have ephemeral filesystems, so production attachments require a persistent volume mounted at an absolute `ATTACHMENT_LOCAL_DIR`, or a private S3-compatible bucket. The sample form has attachments disabled. To use S3, set `S3_BUCKET`, `S3_REGION`, optional `S3_ENDPOINT`/`S3_FORCE_PATH_STYLE` and standard AWS credentials as service variables, then enable attachments on a new survey revision. Back up PostgreSQL and attachment storage together. Bucket and volume provisioning are not performed by this graph.
 
 ## Local image verification
 

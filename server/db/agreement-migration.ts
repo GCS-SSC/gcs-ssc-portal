@@ -52,6 +52,7 @@ CREATE UNIQUE INDEX set_response_one_draft ON set_response ("setId") WHERE statu
 CREATE INDEX set_response_organization ON set_response ("organizationId");
 CREATE TABLE submission_detail (
  id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY, "responseId" integer NOT NULL REFERENCES set_response(id), body text NOT NULL CHECK (length(body) <= 4000),
+ "senderName" text NOT NULL CHECK (length(trim("senderName")) BETWEEN 1 AND 200),
  "attachmentIds" jsonb NOT NULL DEFAULT '[]'::jsonb, "createdBy" integer NOT NULL REFERENCES "user"(id), "createdAt" timestamptz NOT NULL,
  CHECK (length(trim(body)) > 0 OR jsonb_array_length("attachmentIds") > 0)
 );

@@ -1,4 +1,10 @@
-import { governmentAttachment } from '../../utils/attachments'
+import {
+  governmentAttachment,
+  authorizeGovernmentUpload,
+  uploadGovernmentAttachment,
+  removeGovernmentAttachment
+} from '../../utils/attachments'
+import { attachmentConfig } from '../../utils/attachment-config'
 import { sendAttachment } from '../../utils/attachment-download'
 import { getQuery, createError, defineEventHandler, getHeader, getRequestURL, setHeader } from 'h3'
 import * as agreements from '../../utils/agreements'
@@ -41,6 +47,8 @@ const governmentHandler = defineEventHandler(async (event) => {
     return fail(400, 'INVALID_INPUT')
   }
   const mutation = !['GET', 'HEAD', 'OPTIONS'].includes(method)
+  const upload =
+    method === 'POST' && path[0] === 'submissions' && path.length === 3 && path[2] === 'attachments'
   if (
     mutation &&
     getHeader(event, 'origin') &&
@@ -48,12 +56,13 @@ const governmentHandler = defineEventHandler(async (event) => {
   )
     fail(403, 'ORIGIN_FORBIDDEN')
   const request = toBoundedRequest(event)
-  const body = mutation
-    ? await readBoundedBody(
-        request,
-        ['surveys', 'agreements', 'sets'].includes(path[0] ?? '') ? 256 * 1024 : undefined
-      )
-    : undefined
+  const body =
+    mutation && !upload
+      ? await readBoundedBody(
+          request,
+          ['surveys', 'agreements', 'sets'].includes(path[0] ?? '') ? 256 * 1024 : undefined
+        )
+      : undefined
   const db = await useDatabase()
   try {
     if (!authorization || !/^Bearer gcs_[A-Za-z0-9_-]{43}$/.test(authorization))
@@ -75,7 +84,40 @@ const governmentHandler = defineEventHandler(async (event) => {
     }
     const decodedId =
       path[1] && routeKinds[path[0]!] ? decodePublicId(path[1], routeKinds[path[0]!]!) : undefined
-    const id = decodedId && path[0] === 'submissions' ? await resolveResponseCode(db, path[1]!) : decodedId
+    const id =
+      decodedId && path[0] === 'submissions' ? await resolveResponseCode(db, path[1]!) : decodedId
+    if (id && upload) {
+      const metadata = await authorizeGovernmentUpload(db, actor, id, getQuery(event))
+      const bytes = await readBoundedBody(request, attachmentConfig().maxBytes)
+      return await uploadGovernmentAttachment(db, actor, id, metadata, bytes ?? new Uint8Array())
+    }
+    if (
+      id &&
+      path[0] === 'submissions' &&
+      path.length === 4 &&
+      path[2] === 'attachments' &&
+      method === 'DELETE'
+    )
+      return await removeGovernmentAttachment(
+        db,
+        actor,
+        id,
+        decodePublicId(path[3]!, 'attachment'),
+        resolvePublicInput(parseJsonBody(body))
+      )
+    if (
+      id &&
+      path[0] === 'submissions' &&
+      path.length === 3 &&
+      path[2] === 'details' &&
+      method === 'POST'
+    )
+      return await responses.addGovernmentDetail(
+        db,
+        actor,
+        id,
+        resolvePublicInput(parseJsonBody(body))
+      )
     if (
       id &&
       path[0] === 'submissions' &&

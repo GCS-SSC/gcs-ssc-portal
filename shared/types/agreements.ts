@@ -27,7 +27,10 @@ export interface OrganizationAgreementSummary extends Pick<
   agencyNameEn: string
   agencyNameFr: string
 }
-export interface SubmissionSet extends Omit<SetInput, 'organizationId' | 'agencyId' | 'agreementId'> {
+export interface SubmissionSet extends Omit<
+  SetInput,
+  'organizationId' | 'agencyId' | 'agreementId'
+> {
   id: string
   organizationId: string
   agencyId: string
@@ -91,6 +94,8 @@ export interface SubmissionDetail {
   id: string
   body: string
   attachmentIds: string[]
+  sender: 'organization' | 'government'
+  senderName: string
   createdAt: string
 }
 
@@ -115,6 +120,7 @@ export interface ResponseSummary {
 }
 
 export interface ResponseAttachment {
+  sender: 'organization' | 'government'
   status: 'pending' | 'ready'
   id: string
   itemId: string

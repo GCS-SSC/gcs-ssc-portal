@@ -49,14 +49,17 @@ const documentationMessage = ref('')
 const sentAttachmentIds = computed(
   () => data.value?.details.flatMap((detail) => detail.attachmentIds) ?? []
 )
-const unsentAttachments = computed(
+const stagedAttachments = computed(
   () =>
     data.value?.attachments.filter(
       (file) =>
-        file.itemId === documentationAttachmentItemId &&
-        file.status === 'ready' &&
-        !sentAttachmentIds.value.includes(file.id)
+        file.itemId === documentationAttachmentItemId && !sentAttachmentIds.value.includes(file.id)
     ) ?? []
+)
+const unsentAttachments = computed(() =>
+  stagedAttachments.value.filter(
+    (file) => file.status === 'ready' && file.sender === 'organization'
+  )
 )
 watch(
   data,
@@ -297,6 +300,12 @@ const changePosition = async (next: number) => {
         <ul v-if="data?.details.length" class="organization-list">
           <li v-for="detail in data.details" :key="detail.id">
             <div>
+              <PortalText>
+                <strong>{{ detail.senderName }}</strong> —
+                <span>{{
+                  c(detail.sender === 'government' ? 'governmentSender' : 'organizationSender')
+                }}</span>
+              </PortalText>
               <PortalText>{{ detail.body }}</PortalText>
               <ul v-if="detail.attachmentIds.length">
                 <li v-for="attachmentId in detail.attachmentIds" :key="attachmentId">
@@ -317,7 +326,7 @@ const changePosition = async (next: number) => {
             :item-id="documentationAttachmentItemId"
             :endpoint="endpoint"
             :revision="response.revision"
-            :files="data.attachments"
+            :files="stagedAttachments"
             :limits="data.attachmentLimits"
             :locked-ids="sentAttachmentIds"
             :readonly="busy || uploading"

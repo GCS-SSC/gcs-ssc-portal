@@ -648,6 +648,8 @@ test('extension key publishes a pinned form for an authorized organization', asy
         data: {
           expectedRevision: submission.revision,
           status: 'awaiting_documentation',
+          message: 'Please attach the receipt for this submission.',
+          senderName: 'GCS Case Officer',
           gcsStatus: { en: 'Receipt needed', fr: 'Reçu requis', colour: '#245A80' }
         }
       }
@@ -673,6 +675,11 @@ test('extension key publishes a pinned form for an authorized organization', asy
     await expect(
       applicant.getByRole('heading', { level: 2, name: 'Additional documentation' })
     ).toBeVisible()
+    await expect(
+      applicant.getByText('Please attach the receipt for this submission.')
+    ).toBeVisible()
+    await expect(applicant.getByText('GCS Case Officer', { exact: true })).toBeVisible()
+    await expect(applicant.getByText('GCS–SSC', { exact: true })).toBeVisible()
     const uploaded = await applicant.request.post(
       `${endpoint}/responses/${draft.id}/items/!documentation/attachments?filename=receipt.txt&expectedRevision=${awaiting.revision}`,
       {
@@ -700,8 +707,52 @@ test('extension key publishes a pinned form for an authorized organization', asy
     )
     expect(governmentView.ok()).toBe(true)
     expect((await governmentView.json()).details).toMatchObject([
-      { body: 'The requested receipt is attached.', attachmentIds: [expect.any(String)] }
+      {
+        sender: 'government',
+        senderName: 'GCS Case Officer',
+        body: 'Please attach the receipt for this submission.'
+      },
+      {
+        sender: 'organization',
+        senderName: 'Extension Applicant',
+        body: 'The requested receipt is attached.',
+        attachmentIds: [expect.any(String)]
+      }
     ])
+    const currentRevision = (await governmentView.json()).response.revision
+    const guidanceUpload = await extension.request.post(
+      `/api/government/submissions/${submission.submissionId}/attachments?filename=guidance.txt&expectedRevision=${currentRevision}`,
+      {
+        data: Buffer.from('Itemized list guidance'),
+        headers: { 'Content-Type': 'application/octet-stream' }
+      }
+    )
+    expect(guidanceUpload.ok()).toBe(true)
+    const stagedGuidance = await guidanceUpload.json()
+    const guidanceId = stagedGuidance.attachments.find(
+      (file: { filename: string }) => file.filename === 'guidance.txt'
+    ).id
+    await applicant.reload()
+    await expect(applicant.getByRole('link', { name: 'guidance.txt' })).toHaveCount(0)
+    const governmentReply = await extension.request.post(
+      `/api/government/submissions/${submission.submissionId}/details`,
+      {
+        data: {
+          expectedRevision: stagedGuidance.revision,
+          body: 'Please also include an itemized list.',
+          senderName: 'GCS Reviewer',
+          attachmentIds: [guidanceId]
+        }
+      }
+    )
+    expect(governmentReply.ok()).toBe(true)
+    await applicant.reload()
+    await expect(applicant.getByText('Please also include an itemized list.')).toBeVisible()
+    await expect(applicant.getByText('GCS Reviewer', { exact: true })).toBeVisible()
+    await expect(applicant.getByRole('link', { name: 'guidance.txt' })).toBeVisible()
+    await applicant.getByLabel('Message').fill('We will send the itemized list tomorrow.')
+    await applicant.getByRole('button', { name: 'Send additional details' }).click()
+    await expect(applicant.getByText('We will send the itemized list tomorrow.')).toBeVisible()
     await applicant.getByRole('link', { name: 'Back' }).click()
     await expect(applicant).toHaveURL(
       `/organizations/${organizationCode}/agreements/${createdAgreement.id}?section=other`

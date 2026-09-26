@@ -14,6 +14,7 @@ import {
   responseSubjects,
   submissionStatusInput,
   submissionDetailInput,
+  governmentDetailInput,
   documentationAttachmentItemId
 } from '../../shared/schemas/agreements'
 import type { Database } from '../db/schema'
@@ -61,12 +62,16 @@ const submissionDetails = async (db: GovernmentDb, responseId: number) =>
   (
     await db
       .selectFrom('submission_detail')
-      .select(['id', 'body', 'attachmentIds', 'createdAt'])
+      .select(['id', 'body', 'attachmentIds', 'createdBy', 'senderName', 'createdAt'])
       .where('responseId', '=', responseId)
       .orderBy('createdAt')
       .orderBy('id')
       .execute()
-  ).map((entry) => ({ ...entry, createdAt: new Date(entry.createdAt).toISOString() }))
+  ).map(({ createdBy, ...entry }) => ({
+    ...entry,
+    sender: createdBy === null ? ('government' as const) : ('organization' as const),
+    createdAt: new Date(entry.createdAt).toISOString()
+  }))
 export const getResponse = async (
   db: GovernmentDb,
   organizationId: number,
@@ -75,10 +80,17 @@ export const getResponse = async (
 ) => {
   const row = await responseRow(db, organizationId, id)
   await requireBusinessAccess(db, organizationId, userId, responseSubjects(row.snapshot), 'viewer')
+  const details = await submissionDetails(db, row.id)
+  const sentDocumentationIds = new Set(details.flatMap((detail) => detail.attachmentIds))
   return {
     response: map(row),
-    attachments: await attachmentMetadata(db, row.id),
-    details: await submissionDetails(db, row.id),
+    attachments: (await attachmentMetadata(db, row.id)).filter(
+      (file) =>
+        file.itemId !== documentationAttachmentItemId ||
+        file.sender === 'organization' ||
+        sentDocumentationIds.has(file.id)
+    ),
+    details,
     attachmentLimits: attachmentConfig(),
     balances: await currentBalances(db, row.snapshot),
     submittedBalances:
@@ -386,7 +398,10 @@ export const governmentResponse = async (
     organization: { id: parent.organizationId, name: parent.organizationName },
     response: map(row),
     attachments: (await attachmentMetadata(db, row.id)).filter(
-      (file) => file.itemId !== documentationAttachmentItemId || sentIds.has(file.id)
+      (file) =>
+        file.itemId !== documentationAttachmentItemId ||
+        file.sender === 'government' ||
+        sentIds.has(file.id)
     ),
     details,
     attachmentLimits: attachmentConfig(),
@@ -432,6 +447,20 @@ export const updateSubmissionStatus = async (
       })
       .where('id', '=', row.id)
       .execute()
+    if (input.status === 'awaiting_documentation') {
+      await tx
+        .insertInto('submission_detail')
+        .values({
+          responseId: row.id,
+          body: input.message,
+          attachmentIds: sql`'[]'::jsonb`,
+          createdBy: null,
+          senderAgencyId: parent.agencyId,
+          senderName: input.senderName,
+          createdAt: updatedAt
+        })
+        .execute()
+    }
     if (input.status === 'submitted') {
       const sentIds = new Set(
         (await submissionDetails(tx, row.id)).flatMap((detail) => detail.attachmentIds)
@@ -492,22 +521,34 @@ export const addSubmissionDetail = async (
     if (row.revision !== input.expectedRevision) return fail(409, 'REVISION_CONFLICT')
     if (new Set(input.attachmentIds).size !== input.attachmentIds.length)
       return fail(400, 'INVALID_INPUT')
-    const attachments = await tx
-      .selectFrom('response_attachment')
-      .select(['id', 'status', 'itemId'])
-      .where('responseId', '=', responseId)
-      .where('id', 'in', input.attachmentIds)
-      .execute()
+    const attachments = input.attachmentIds.length
+      ? await tx
+          .selectFrom('response_attachment')
+          .select(['id', 'status', 'itemId', 'createdBy'])
+          .where('responseId', '=', responseId)
+          .where('id', 'in', input.attachmentIds)
+          .execute()
+      : []
     if (
       attachments.length !== input.attachmentIds.length ||
       attachments.some(
-        (file) => file.status !== 'ready' || file.itemId !== documentationAttachmentItemId
+        (file) =>
+          file.status !== 'ready' ||
+          file.itemId !== documentationAttachmentItemId ||
+          file.createdBy === null
       )
     )
       return fail(400, 'INVALID_INPUT')
     const prior = await submissionDetails(tx, responseId)
     if (input.attachmentIds.some((id) => prior.some((detail) => detail.attachmentIds.includes(id))))
       return fail(409, 'ATTACHMENT_ALREADY_SENT')
+    const author = await tx
+      .selectFrom('user')
+      .select('name')
+      .where('id', '=', userId)
+      .executeTakeFirstOrThrow()
+    const senderName = author.name.trim().slice(0, 200)
+    if (!senderName) return fail(409, 'SENDER_NAME_REQUIRED')
     await tx
       .insertInto('submission_detail')
       .values({
@@ -515,6 +556,8 @@ export const addSubmissionDetail = async (
         body: input.body,
         attachmentIds: sql`${JSON.stringify(input.attachmentIds)}::jsonb`,
         createdBy: userId,
+        senderAgencyId: null,
+        senderName,
         createdAt: new Date()
       })
       .execute()
@@ -524,5 +567,77 @@ export const addSubmissionDetail = async (
       .where('id', '=', responseId)
       .execute()
     return getResponse(tx, organizationId, userId, responseId)
+  })
+}
+
+/** Agency-scoped requests and replies are appended to the same immutable conversation. */
+export const addGovernmentDetail = async (
+  db: Kysely<Database>,
+  actor: GovernmentActor,
+  responseId: number,
+  body: unknown
+) => {
+  const input = governmentDetailInput.parse(body)
+  const parent = await db
+    .selectFrom('set_response as r')
+    .innerJoin('submission_set as s', 's.id', 'r.setId')
+    .select(['r.organizationId', 's.agencyId'])
+    .where('r.id', '=', responseId)
+    .executeTakeFirst()
+  if (!parent) return fail(404, 'RESPONSE_NOT_FOUND')
+  return db.transaction().execute(async (tx) => {
+    await requireGovernment(tx, actor, { agencyId: parent.agencyId, lock: true })
+    await lockOrganization(tx, parent.organizationId)
+    const row = await tx
+      .selectFrom('set_response')
+      .selectAll()
+      .where('id', '=', responseId)
+      .forUpdate()
+      .executeTakeFirstOrThrow()
+    if (row.status !== 'awaiting_documentation') return fail(409, 'DOCUMENTATION_NOT_REQUESTED')
+    if (row.revision !== input.expectedRevision) return fail(409, 'REVISION_CONFLICT')
+    if (new Set(input.attachmentIds).size !== input.attachmentIds.length)
+      return fail(400, 'INVALID_INPUT')
+    const files = input.attachmentIds.length
+      ? await tx
+          .selectFrom('response_attachment')
+          .select(['id', 'status', 'createdBy', 'senderAgencyId', 'itemId'])
+          .where('responseId', '=', responseId)
+          .where('id', 'in', input.attachmentIds)
+          .execute()
+      : []
+    if (
+      files.length !== input.attachmentIds.length ||
+      files.some(
+        (file) =>
+          file.status !== 'ready' ||
+          file.itemId !== documentationAttachmentItemId ||
+          file.createdBy !== null ||
+          file.senderAgencyId !== parent.agencyId
+      )
+    )
+      return fail(400, 'INVALID_INPUT')
+    const prior = await submissionDetails(tx, responseId)
+    if (input.attachmentIds.some((id) => prior.some((detail) => detail.attachmentIds.includes(id))))
+      return fail(409, 'ATTACHMENT_ALREADY_SENT')
+    const now = new Date()
+    await tx
+      .insertInto('submission_detail')
+      .values({
+        responseId,
+        body: input.body,
+        attachmentIds: sql`${JSON.stringify(input.attachmentIds)}::jsonb`,
+        createdBy: null,
+        senderAgencyId: parent.agencyId,
+        senderName: input.senderName,
+        createdAt: now
+      })
+      .execute()
+    await tx
+      .updateTable('set_response')
+      .set({ revision: row.revision + 1, updatedAt: now })
+      .where('id', '=', responseId)
+      .execute()
+    return governmentResponse(tx, actor, responseId)
   })
 }

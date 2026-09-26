@@ -38,7 +38,7 @@ Drafts can omit amounts and required survey answers, but supplied values must be
 
 Forecast iteration is a stable one-based number per agreement and fiscal year. Draft creation assigns the next number while holding the organization lock, and the response stores it separately from the immutable GCS export. Deleting an earlier draft does not renumber later forecasts.
 
-Response status is `draft`, `submitted`, or `awaiting_documentation`. The government status update endpoint accepts only the latter two states for an existing submission and a nullable bilingual GCS status object with a validated hex colour. It uses response revision compare-and-swap and current agency authority. GCS status is secondary display information and does not grant access. The original export, answers, and submission timestamp remain immutable. Contributors may append a message, files, or both while a response is awaiting documentation; each send records a separate follow-up. Already sent files cannot be removed, and staged files are invisible to government until sent. The government response read includes follow-up messages and sent file metadata. Closing the documentation request detaches unsent staged files for cleanup.
+Response status is `draft`, `submitted`, or `awaiting_documentation`. The government status update endpoint accepts only the latter two states for an existing submission and a nullable bilingual GCS status object with a validated hex colour. Setting `awaiting_documentation` requires a nonempty message and `senderName` identifying the GCS sender; the status and message are stored in one transaction. It uses response revision compare-and-swap and current agency authority. GCS status is secondary display information and does not grant access. The original export, answers, and submission timestamp remain immutable. Contributors may append a message, files, or both while a response is awaiting documentation; each send records a separate follow-up. The agency integration may append further messages with optional attachments while the request is open and must provide `senderName` on every message. Portal replies snapshot the signed-in user's name at send time. Message reads include `sender` (`government` or `organization`) and required `senderName`. The supplied GCS name is display metadata from the extension, not independently authenticated portal staff identity. Already sent files cannot be removed, and staged files are invisible to the other side until sent. Closing the documentation request detaches unsent staged files for cleanup. Draft answers and attachments stay locked throughout documentation review.
 
 ## Authoritative balances and warnings
 
@@ -83,22 +83,25 @@ Manual agreements can have null mappings. Financial items report mappingComplete
 
 Government endpoints require agency-scoped bearer credentials. Foreign browser Origins are rejected. Agreement/set bodies are bounded at 256 KiB; organization response bodies at 3 MiB. Strict schemas in shared/schemas/agreements.ts are authoritative.
 
-| Method/path after /api/government            | Contract                                                                                                              |
-| -------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
-| GET /agencies/:agencyId/agreements           | {agreements}                                                                                                          |
-| POST /agreements                             | AgreementInput → {agreement}                                                                                          |
-| GET /agreements/:id                          | {agreement}                                                                                                           |
-| PUT /agreements/:id                          | {expectedRevision,value:AgreementInput} → {agreement}                                                                 |
-| PUT /agreements/:id/balances                 | {expectedRevision,asOf,lines:[{foreignSystemId,budgetedAmount,balance,claimedAmount?,forecastAmount?}]} → {agreement} |
-| GET /agencies/:agencyId/sets                 | {sets}                                                                                                                |
-| POST /sets                                   | SetInput → {set}                                                                                                      |
-| GET /sets/:id                                | {set}                                                                                                                 |
-| PUT /sets/:id                                | {expectedRevision,value:SetInput} → {set}; withdrawn only                                                             |
-| POST /sets/:id/publish                       | {expectedRevision} → {set}                                                                                            |
-| POST /sets/:id/withdraw                      | {expectedRevision} → {set}                                                                                            |
-| GET /agencies/:agencyId/submissions?offset=0 | {submissions,nextOffset}; ascending submittedAt/id, 50 per page                                                       |
-| GET /submissions/:submissionId               | {submission}; immutable export                                                                                        |
-| PUT /submissions/:submissionId/status        | {expectedRevision,status,gcsStatus} → {response}; agency-scoped review state                                          |
+| Method/path after /api/government                           | Contract                                                                                                               |
+| ----------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| GET /agencies/:agencyId/agreements                          | {agreements}                                                                                                           |
+| POST /agreements                                            | AgreementInput → {agreement}                                                                                           |
+| GET /agreements/:id                                         | {agreement}                                                                                                            |
+| PUT /agreements/:id                                         | {expectedRevision,value:AgreementInput} → {agreement}                                                                  |
+| PUT /agreements/:id/balances                                | {expectedRevision,asOf,lines:[{foreignSystemId,budgetedAmount,balance,claimedAmount?,forecastAmount?}]} → {agreement}  |
+| GET /agencies/:agencyId/sets                                | {sets}                                                                                                                 |
+| POST /sets                                                  | SetInput → {set}                                                                                                       |
+| GET /sets/:id                                               | {set}                                                                                                                  |
+| PUT /sets/:id                                               | {expectedRevision,value:SetInput} → {set}; withdrawn only                                                              |
+| POST /sets/:id/publish                                      | {expectedRevision} → {set}                                                                                             |
+| POST /sets/:id/withdraw                                     | {expectedRevision} → {set}                                                                                             |
+| GET /agencies/:agencyId/submissions?offset=0                | {submissions,nextOffset}; ascending submittedAt/id, 50 per page                                                        |
+| GET /submissions/:submissionId                              | {submission}; immutable export                                                                                         |
+| PUT /submissions/:submissionId/status                       | {expectedRevision,status,gcsStatus,message?,senderName?} → {response}; both fields required for awaiting documentation |
+| POST /submissions/:submissionId/details                     | {expectedRevision,body,senderName,attachmentIds} → response; agency-scoped message while awaiting documentation        |
+| POST /submissions/:submissionId/attachments                 | Raw bytes, filename and expectedRevision query → {revision,attachments}; stage government file                         |
+| DELETE /submissions/:submissionId/attachments/:attachmentId | {expectedRevision} → {revision,attachments}; remove unsent government file                                             |
 
 Balance pushes update only specified foreign line IDs. Missing/duplicate IDs fail, and asOf must be newer than each touched timestamp. Omitted optional claimed/forecast values mean unknown (null), so send all authoritative values to retain. Use full agreement updates to add/remove fiscal years and lines.
 

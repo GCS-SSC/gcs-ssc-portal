@@ -190,7 +190,9 @@ export interface Database {
     responseId: number
     body: string
     attachmentIds: ColumnType<number[], number[], number[]>
-    createdBy: number
+    createdBy: number | null
+    senderAgencyId: number | null
+    senderName: string
     createdAt: Timestamp
   }
   response_attachment: {
@@ -203,7 +205,8 @@ export interface Database {
     bucket: string
     objectKey: string
     status: 'pending' | 'ready'
-    createdBy: number
+    createdBy: number | null
+    senderAgencyId: number | null
     createdAt: Timestamp
   }
   government_invitation: {

@@ -2,7 +2,6 @@ import { defineNitroPlugin } from 'nitropack/runtime'
 import { cleanupAttachments } from '../utils/attachments'
 import { useDatabase } from '../utils/database'
 export default defineNitroPlugin((nitroApp) => {
-  if (!process.env.S3_BUCKET) return
   let running: Promise<void> | undefined
   const cleanup = () => {
     if (running) return

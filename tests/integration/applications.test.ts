@@ -1,4 +1,7 @@
 import { afterAll, beforeAll, expect, it } from 'vitest'
+import { mkdtemp, rm } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import type { Kysely } from 'kysely'
 import pg from 'pg'
 import { createDatabase } from '../../server/utils/database'
@@ -54,6 +57,47 @@ const storage: AttachmentStorage = {
   }
 }
 const bytes = new TextEncoder().encode('private supporting evidence')
+it('uploads, downloads and cleans up through the local backend when S3 is unset', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'portal-local-integration-'))
+  const previousBucket = process.env.S3_BUCKET
+  const previousDirectory = process.env.ATTACHMENT_LOCAL_DIR
+  try {
+    delete process.env.S3_BUCKET
+    process.env.ATTACHMENT_LOCAL_DIR = join(directory, 'files')
+    const draft = await start(await createCall())
+    const uploaded = await uploadAttachment(
+      db,
+      orgId,
+      users.contributor,
+      draft.id,
+      {
+        expectedRevision: draft.revision,
+        itemId: 'application',
+        filename: 'local-evidence.txt'
+      },
+      bytes
+    )
+    const file = uploaded.attachments[0]!
+    expect(
+      (await organizationAttachment(db, orgId, users.viewer, draft.id, file.id)).bytes
+    ).toEqual(bytes)
+    await removeAttachment(db, orgId, users.contributor, draft.id, file.id, {
+      expectedRevision: uploaded.revision
+    })
+    await db
+      .updateTable('response_attachment')
+      .set({ createdAt: new Date(Date.now() - 7200000) })
+      .where('id', '=', file.id)
+      .execute()
+    expect((await cleanupAttachments(db)).removed).toBe(1)
+  } finally {
+    if (previousBucket === undefined) delete process.env.S3_BUCKET
+    else process.env.S3_BUCKET = previousBucket
+    if (previousDirectory === undefined) delete process.env.ATTACHMENT_LOCAL_DIR
+    else process.env.ATTACHMENT_LOCAL_DIR = previousDirectory
+    await rm(directory, { recursive: true, force: true })
+  }
+})
 beforeAll(async () => {
   const url = process.env.PORTAL_TEST_DATABASE_URL
   if (url) {
