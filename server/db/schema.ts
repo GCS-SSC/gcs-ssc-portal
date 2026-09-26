@@ -14,7 +14,7 @@ interface ForeignIdentity {
 }
 export interface Database {
   administrator: {
-    id: string
+    id: Generated<number>
     name: string
     email: string
     passwordHash: string
@@ -23,13 +23,13 @@ export interface Database {
   }
   administrator_session: {
     tokenHash: string
-    administratorId: string
+    administratorId: number
     expiresAt: Timestamp
     createdAt: Timestamp
   }
   administrator_login_attempt: { key: string; windowStart: Timestamp; count: number }
   user: {
-    id: string
+    id: Generated<number>
     name: string
     email: string
     emailVerified: boolean
@@ -38,8 +38,8 @@ export interface Database {
     updatedAt: Timestamp
   }
   session: {
-    id: string
-    userId: string
+    id: Generated<number>
+    userId: number
     token: string
     expiresAt: Timestamp
     createdAt: Timestamp
@@ -48,8 +48,8 @@ export interface Database {
     userAgent: string | null
   }
   account: {
-    id: string
-    userId: string
+    id: Generated<number>
+    userId: number
     accountId: string
     providerId: string
     accessToken: string | null
@@ -63,7 +63,7 @@ export interface Database {
     updatedAt: Timestamp
   }
   verification: {
-    id: string
+    id: Generated<number>
     identifier: string
     value: string
     expiresAt: Timestamp
@@ -71,64 +71,69 @@ export interface Database {
     updatedAt: Timestamp
   }
   organization: {
-    id: string
+    id: Generated<number>
     name: string
     description: string
     active: Generated<boolean>
     verified: Generated<boolean>
-    ownerId: string
+    ownerId: number
     createdAt: Timestamp
   }
-  membership: { organizationId: string; userId: string; joinedAt: Timestamp }
+  membership: { organizationId: number; userId: number; joinedAt: Timestamp }
   permission: {
-    organizationId: string
-    userId: string
+    organizationId: number
+    userId: number
     permission: Exclude<import('../../shared/utils/permissions').OrganizationPermission, 'user'>
   }
-  government_user: { userId: string; role: 'root' | 'staff'; active: boolean; createdAt: Timestamp }
-  agency: ForeignIdentity & { id: string; nameEn: string; nameFr: string; createdAt: Timestamp }
-  agency_staff: { agencyId: string; userId: string }
+  government_user: { userId: number; role: 'root' | 'staff'; active: boolean; createdAt: Timestamp }
+  agency: ForeignIdentity & {
+    id: Generated<number>
+    nameEn: string
+    nameFr: string
+    createdAt: Timestamp
+  }
+  agency_staff: { agencyId: number; userId: number }
   program: ForeignIdentity & {
-    id: string
-    agencyId: string
+    id: Generated<number>
+    agencyId: number
     nameEn: string
     nameFr: string
     createdAt: Timestamp
   }
   stream: ForeignIdentity & {
-    id: string
-    programId: string
-    agencyId: string
+    id: Generated<number>
+    programId: number
+    agencyId: number
     nameEn: string
     nameFr: string
     createdAt: Timestamp
   }
   funding_call: ForeignIdentity & {
     revision: Generated<number>
-    agencyId: string
-    id: string
-    streamId: string
+    agencyId: number
+    id: Generated<number>
+    streamId: number
     nameEn: string
     nameFr: string
     startDate: ColumnType<string, string, string>
     endDate: ColumnType<string, string, string>
     published: boolean
-    surveyId: Generated<string | null>
+    surveyId: Generated<number | null>
     surveyRevision: Generated<number | null>
     createdAt: Timestamp
   }
-  survey: { id: string; agencyId: string; revision: number; updatedAt: Timestamp }
+  survey: { id: Generated<number>; agencyId: number; revision: number; updatedAt: Timestamp }
   survey_revision: {
-    surveyId: string
+    surveyId: number
     revision: number
     definition: ColumnType<SurveyDefinition, SurveyDefinition, never>
     createdAt: Timestamp
   }
   funding_agreement: {
-    id: string
-    organizationId: string
-    agencyId: string
-    streamId: string
+    id: Generated<number>
+    organizationId: number
+    agencyId: number
+    streamId: number
     nameEn: string
     nameFr: string
     agreementNumber: string
@@ -141,11 +146,11 @@ export interface Database {
     createdAt: Timestamp
   }
   submission_set: {
-    callId: Generated<string | null>
-    id: string
-    organizationId: string
-    agencyId: string
-    agreementId: string | null
+    callId: Generated<number | null>
+    id: Generated<number>
+    organizationId: number
+    agencyId: number
+    agreementId: number | null
     nameEn: string
     nameFr: string
     sourceSystem: string
@@ -157,31 +162,40 @@ export interface Database {
     createdAt: Timestamp
   }
   set_response: {
-    id: string
-    setId: string
-    organizationId: string
+    id: Generated<number>
+    setId: number
+    organizationId: number
     setRevision: number
     snapshot: ColumnType<SetSnapshot, SetSnapshot, never>
     items: ColumnType<ResponseItem[], ResponseItem[], ResponseItem[]>
+    forecastIterations: Generated<Record<string, number>>
     locale: 'en' | 'fr'
     revision: number
-    status: 'draft' | 'submitted'
-    createdBy: string
-    updatedBy: string
-    submittedBy: string | null
+    status: 'draft' | 'submitted' | 'awaiting_documentation'
+    gcsStatus: Generated<AgreementStatus | null>
+    createdBy: number
+    updatedBy: number
+    submittedBy: number | null
     createdAt: Timestamp
     updatedAt: Timestamp
     submittedAt: ColumnType<Date | null, Date | null, Date | null>
-    submissionId: string | null
     export: ColumnType<
       Record<string, unknown> | null,
       Record<string, unknown> | null,
       Record<string, unknown> | null
     >
   }
+  submission_detail: {
+    id: Generated<number>
+    responseId: number
+    body: string
+    attachmentIds: ColumnType<number[], number[], number[]>
+    createdBy: number
+    createdAt: Timestamp
+  }
   response_attachment: {
-    id: string
-    responseId: string | null
+    id: Generated<number>
+    responseId: number | null
     itemId: string
     filename: string
     size: number
@@ -189,36 +203,36 @@ export interface Database {
     bucket: string
     objectKey: string
     status: 'pending' | 'ready'
-    createdBy: string
+    createdBy: number
     createdAt: Timestamp
   }
   government_invitation: {
-    id: string
+    id: Generated<number>
     email: string
     name: string
-    agencyId: string | null
+    agencyId: number | null
     tokenHash: string
     status: 'pending' | 'accepted' | 'revoked'
     expiresAt: Timestamp
     createdAt: Timestamp
   }
   integration_token: {
-    id: string
+    id: Generated<number>
     name: string
-    agencyId: string
+    agencyId: number
     tokenHash: string
     expiresAt: Timestamp
     revoked: boolean
     createdAt: Timestamp
   }
   invitation: {
-    id: string
-    organizationId: string
+    id: Generated<number>
+    organizationId: number
     email: string
     name: string
     tokenHash: string
     status: 'pending' | 'accepted' | 'revoked'
-    createdBy: string
+    createdBy: number
     createdAt: Timestamp
     expiresAt: Timestamp
   }

@@ -1,5 +1,4 @@
 import { randomBytes } from 'node:crypto'
-import { v7 as uuid } from 'uuid'
 import type { Kysely } from 'kysely'
 import type { Database } from '../db/schema'
 import { integrationTokenInput } from '../../shared/schemas/government'
@@ -32,7 +31,6 @@ export const createToken = async (db: Kysely<Database>, actor: GovernmentActor, 
     )
       fail(404, 'AGENCY_NOT_FOUND')
     const row = {
-      id: uuid(),
       name: data.name,
       agencyId: data.agencyId,
       tokenHash: secretHash(token),
@@ -40,11 +38,15 @@ export const createToken = async (db: Kysely<Database>, actor: GovernmentActor, 
       revoked: false,
       createdAt: new Date()
     }
-    await tx.insertInto('integration_token').values(row).execute()
-    return { id: row.id, token, expiresAt: row.expiresAt }
+    const created = await tx
+      .insertInto('integration_token')
+      .values(row)
+      .returning('id')
+      .executeTakeFirstOrThrow()
+    return { id: created.id, token, expiresAt: row.expiresAt }
   })
 }
-export const revokeToken = async (db: Kysely<Database>, actor: GovernmentActor, id: string) =>
+export const revokeToken = async (db: Kysely<Database>, actor: GovernmentActor, id: number) =>
   db.transaction().execute(async (tx) => {
     await requireGovernment(tx, actor, { administrator: true, lock: true })
     const result = await tx

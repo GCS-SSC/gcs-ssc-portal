@@ -1,15 +1,15 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import { Kysely } from 'kysely'
+import type { Kysely } from 'kysely'
 import type { Database } from '../../server/db/schema'
 import { createDatabase } from '../../server/utils/database'
 import * as portal from '../../server/utils/portal'
+import { decodePublicId, encodePublicId } from '../../server/utils/public-identifiers'
 import pg from 'pg'
 import { migrate } from '../../server/db/migrations'
-import { pgliteDialect } from '../../server/db/pglite-dialect'
 let db: Kysely<Database>
-const owner = { id: 'owner', name: 'Owner', email: 'owner@example.test' }
-const member = { id: 'member', name: 'Member', email: 'member@example.test' }
-const outsider = { id: 'outsider', name: 'Outsider', email: 'outside@example.test' }
+const owner = { id: 0, name: 'Owner', email: 'owner@example.test' }
+const member = { id: 0, name: 'Member', email: 'member@example.test' }
+const outsider = { id: 0, name: 'Outsider', email: 'outside@example.test' }
 beforeAll(async () => {
   const url = process.env.PORTAL_TEST_DATABASE_URL
   if (url) {
@@ -34,89 +34,63 @@ beforeAll(async () => {
     }
   }
   db = await createDatabase({ url })
-  for (const user of [owner, member, outsider])
-    await db
+  for (const user of [owner, member, outsider]) {
+    const created = await db
       .insertInto('user')
       .values({
-        ...user,
+        name: user.name,
+        email: user.email,
         emailVerified: false,
         image: null,
         createdAt: new Date(),
         updatedAt: new Date()
       })
-      .execute()
+      .returning('id')
+      .executeTakeFirstOrThrow()
+    user.id = created.id
+  }
 }, 60000)
 afterAll(async () => {
   await db?.destroy()
 })
 const inviteToken = (url: string) => url.split('/').at(-1)!
 describe('organization isolation and invitation lifecycle', () => {
-  it('adds status defaults to organizations created before migration 007', async () => {
-    const upgradeDb = new Kysely<Database>({ dialect: pgliteDialect('memory://') })
-    try {
-      await migrate(upgradeDb, '006_administrators')
-      await upgradeDb
-        .insertInto('user')
-        .values({
-          ...owner,
-          emailVerified: false,
-          image: null,
-          createdAt: new Date(),
-          updatedAt: new Date()
-        })
-        .execute()
-      const id = '0199a000-0000-7000-8000-000000000001'
-      await upgradeDb
-        .insertInto('organization')
-        .values({
-          id,
-          name: 'Existing organization',
-          description: '',
-          ownerId: owner.id,
-          createdAt: new Date()
-        })
-        .execute()
-      await migrate(upgradeDb)
-      const upgraded = await upgradeDb
-        .selectFrom('organization')
-        .select(['name', 'active', 'verified'])
-        .where('id', '=', id)
-        .executeTakeFirstOrThrow()
-      expect(upgraded).toEqual({ name: 'Existing organization', active: true, verified: false })
-    } finally {
-      await upgradeDb.destroy()
-    }
-  })
-  it('creates UUIDv7 organizations and preserves data across rerun migrations', async () => {
+  it('creates public organization codes backed by identity IDs', async () => {
     const { organization } = await portal.createOrganization(db, owner.id, {
       name: 'Federal services'
     })
-    expect(organization.id[14]).toBe('7')
+    expect(organization.id).toMatch(/^N-[A-HJKMNP-Z2-9]{5,}$/)
+    expect(organization).not.toHaveProperty('code')
+    const organizationDbId = decodePublicId(organization.id, 'organization')
+    expect(organizationDbId).toBeGreaterThan(0)
     expect(organization.permissions).toEqual(['user', 'admin'])
     expect(organization.memberCount).toBe(1)
     expect(organization.active).toBe(true)
     expect(organization.verified).toBe(false)
     await migrate(db)
-    expect((await portal.getOrganization(db, organization.id, owner.id)).organization.name).toBe(
-      'Federal services'
-    )
-    await expect(portal.getOrganization(db, organization.id, outsider.id)).rejects.toMatchObject({
+    expect(
+      (await portal.getOrganization(db, organizationDbId, owner.id)).organization
+    ).toMatchObject({
+      name: 'Federal services',
+      id: organization.id
+    })
+    await expect(portal.getOrganization(db, organizationDbId, outsider.id)).rejects.toMatchObject({
       statusCode: 404
     })
     expect((await portal.listOrganizations(db, outsider.id)).organizations).toEqual([])
     await db
       .updateTable('organization')
       .set({ active: false, verified: true })
-      .where('id', '=', organization.id)
+      .where('id', '=', organizationDbId)
       .execute()
-    await portal.updateOrganization(db, organization.id, owner.id, {
+    await portal.updateOrganization(db, organizationDbId, owner.id, {
       name: 'Federal services updated'
     })
-    const saved = (await portal.getOrganization(db, organization.id, owner.id)).organization
+    const saved = (await portal.getOrganization(db, organizationDbId, owner.id)).organization
     expect(saved).toMatchObject({ active: false, verified: true })
     expect((await portal.listOrganizations(db, owner.id)).organizations).toContainEqual(saved)
     await expect(
-      portal.updateOrganization(db, organization.id, owner.id, {
+      portal.updateOrganization(db, organizationDbId, owner.id, {
         name: 'Federal services updated',
         active: true
       })
@@ -126,7 +100,8 @@ describe('organization isolation and invitation lifecycle', () => {
     const { organization } = await portal.createOrganization(db, owner.id, {
       name: 'Digital services'
     })
-    const { url } = await portal.createInvitation(db, organization.id, owner.id, {
+    const organizationDbId = decodePublicId(organization.id, 'organization')
+    const { url } = await portal.createInvitation(db, organizationDbId, owner.id, {
       email: member.email,
       name: member.name
     })
@@ -141,7 +116,7 @@ describe('organization isolation and invitation lifecycle', () => {
     ])
     expect(results.filter((result) => result.status === 'fulfilled')).toHaveLength(1)
     expect(
-      (await portal.getOrganization(db, organization.id, member.id)).organization.permissions
+      (await portal.getOrganization(db, organizationDbId, member.id)).organization.permissions
     ).toEqual(['user'])
     // The admin can send this manual link anywhere: it cannot verify the account's claimed mailbox.
     expect(
@@ -154,26 +129,26 @@ describe('organization isolation and invitation lifecycle', () => {
       ).emailVerified
     ).toBe(false)
     await expect(
-      portal.createInvitation(db, organization.id, member.id, { email: outsider.email })
+      portal.createInvitation(db, organizationDbId, member.id, { email: outsider.email })
     ).rejects.toMatchObject({ statusCode: 403 })
     await expect(
-      portal.updatePermissions(db, organization.id, owner.id, owner.id, { permissions: ['user'] })
+      portal.updatePermissions(db, organizationDbId, owner.id, owner.id, { permissions: ['user'] })
     ).rejects.toMatchObject({ statusCode: 409 })
-    await portal.updatePermissions(db, organization.id, owner.id, member.id, {
+    await portal.updatePermissions(db, organizationDbId, owner.id, member.id, {
       permissions: ['user', 'admin']
     })
     await expect(
-      portal.transferOwnership(db, organization.id, member.id, { userId: member.id })
+      portal.transferOwnership(db, organizationDbId, member.id, { userId: member.id })
     ).rejects.toMatchObject({ statusCode: 403 })
-    await portal.transferOwnership(db, organization.id, owner.id, { userId: member.id })
+    await portal.transferOwnership(db, organizationDbId, owner.id, { userId: member.id })
     expect(
-      (await portal.getOrganization(db, organization.id, owner.id)).organization.permissions
+      (await portal.getOrganization(db, organizationDbId, owner.id)).organization.permissions
     ).toEqual(['user', 'admin'])
-    await portal.updatePermissions(db, organization.id, member.id, owner.id, {
+    await portal.updatePermissions(db, organizationDbId, member.id, owner.id, {
       permissions: ['user']
     })
     await expect(
-      portal.updateOrganization(db, organization.id, owner.id, { name: 'No access' })
+      portal.updateOrganization(db, organizationDbId, owner.id, { name: 'No access' })
     ).rejects.toMatchObject({ statusCode: 403 })
     await expect(portal.previewInvitation(db, token)).rejects.toMatchObject({ statusCode: 404 })
   })
@@ -184,27 +159,29 @@ describe('organization isolation and invitation lifecycle', () => {
     const { organization: second } = await portal.createOrganization(db, outsider.id, {
       name: 'Second org'
     })
-    const created = await portal.createInvitation(db, first.id, owner.id, { email: member.email })
+    const firstDbId = decodePublicId(first.id, 'organization')
+    const secondDbId = decodePublicId(second.id, 'organization')
+    const created = await portal.createInvitation(db, firstDbId, owner.id, { email: member.email })
     const token = inviteToken(created.url)
     await expect(
-      portal.revokeInvitation(db, second.id, outsider.id, created.invitation.id)
+      portal.revokeInvitation(db, secondDbId, outsider.id, decodePublicId(created.invitation.id, 'invitation'))
     ).rejects.toMatchObject({ statusCode: 404 })
-    await expect(portal.listInvitations(db, first.id, outsider.id)).rejects.toMatchObject({
+    await expect(portal.listInvitations(db, firstDbId, outsider.id)).rejects.toMatchObject({
       statusCode: 404
     })
     await db
       .updateTable('invitation')
       .set({ expiresAt: new Date(0) })
-      .where('id', '=', created.invitation.id)
+      .where('id', '=', decodePublicId(created.invitation.id, 'invitation'))
       .execute()
     await expect(portal.acceptInvitation(db, token, member)).rejects.toMatchObject({
       statusCode: 404
     })
-    expect((await portal.listInvitations(db, first.id, owner.id)).invitations[0]?.status).toBe(
+    expect((await portal.listInvitations(db, firstDbId, owner.id)).invitations[0]?.status).toBe(
       'expired'
     )
-    const renewed = await portal.createInvitation(db, first.id, owner.id, { email: member.email })
-    await portal.revokeInvitation(db, first.id, owner.id, renewed.invitation.id)
+    const renewed = await portal.createInvitation(db, firstDbId, owner.id, { email: member.email })
+    await portal.revokeInvitation(db, firstDbId, owner.id, decodePublicId(renewed.invitation.id, 'invitation'))
     await expect(portal.previewInvitation(db, inviteToken(renewed.url))).rejects.toMatchObject({
       statusCode: 404
     })
@@ -212,14 +189,15 @@ describe('organization isolation and invitation lifecycle', () => {
   it('validates inputs and rolls back unsuccessful ownership changes', async () => {
     await expect(portal.createOrganization(db, owner.id, { name: '' })).rejects.toThrow()
     const { organization } = await portal.createOrganization(db, owner.id, { name: 'Safe org' })
+    const organizationDbId = decodePublicId(organization.id, 'organization')
     await expect(
-      portal.transferOwnership(db, organization.id, owner.id, { userId: outsider.id })
+      portal.transferOwnership(db, organizationDbId, owner.id, { userId: outsider.id })
     ).rejects.toMatchObject({ statusCode: 404 })
-    expect((await portal.getOrganization(db, organization.id, owner.id)).organization.ownerId).toBe(
-      owner.id
-    )
+    expect(
+      (await portal.getOrganization(db, organizationDbId, owner.id)).organization.ownerId
+    ).toBe(encodePublicId(owner.id, 'user'))
     await expect(
-      portal.updatePermissions(db, organization.id, owner.id, owner.id, {
+      portal.updatePermissions(db, organizationDbId, owner.id, owner.id, {
         permissions: ['superadmin']
       })
     ).rejects.toThrow()

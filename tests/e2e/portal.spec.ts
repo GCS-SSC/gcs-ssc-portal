@@ -93,9 +93,25 @@ test('registration, invitation access, per-organization permissions and ownershi
     true
   )
   await page.setViewportSize({ width: 1440, height: 1050 })
-  const organizationId = page.url().split('/').pop()!
-  expect(organizationId).toMatch(
-    /^[a-f0-9]{8}-[a-f0-9]{4}-7[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/
+  const organizationCode = page.url().split('/').pop()!
+  expect(organizationCode).toMatch(/^N-[A-HJKMNP-Z2-9]{5,}$/)
+  const displayedOrganizationCode = page
+    .locator('dt', { hasText: 'Organization ID' })
+    .locator('..')
+    .locator('dd code')
+  await expect(displayedOrganizationCode).toHaveText(organizationCode)
+  const organizationRead = await page.request.get(`/api/organizations/${organizationCode}`)
+  expect(organizationRead.ok()).toBe(true)
+  const readOrganization = (await organizationRead.json()).organization
+  expect(readOrganization.id).toBe(organizationCode)
+  expect(readOrganization).not.toHaveProperty('code')
+  expect(
+    (await page.request.get('/api/organizations/00000000-0000-7000-8000-000000000001')).status()
+  ).toBe(404)
+  const organizationList = await page.request.get('/api/organizations')
+  expect(organizationList.ok()).toBe(true)
+  expect((await organizationList.json()).organizations).toContainEqual(
+    expect.objectContaining({ id: organizationCode })
   )
 
   await page.goto('/organizations')
@@ -129,7 +145,7 @@ test('registration, invitation access, per-organization permissions and ownershi
   )
   await page.setViewportSize({ width: 1440, height: 1050 })
   await openOrganization.click()
-  await expect(page).toHaveURL(new RegExp(`/organizations/${organizationId}$`))
+  await expect(page).toHaveURL(new RegExp(`/organizations/${organizationCode}$`))
 
   await page.getByRole('link', { name: 'Invitations', exact: true }).click()
   const signoutHeight = await page
@@ -139,6 +155,15 @@ test('registration, invitation access, per-organization permissions and ownershi
     .getByRole('button', { name: 'Create invitation link' })
     .evaluate((button) => button.getBoundingClientRect().height)
   expect(signoutHeight).toBeLessThan(createHeight)
+  const signedNavBand = await page.locator('gcds-top-nav').boundingBox()
+  const signoutBox = await page.getByRole('button', { name: 'Sign out', exact: true }).boundingBox()
+  expect(signedNavBand).not.toBeNull()
+  expect(signoutBox).not.toBeNull()
+  expect(
+    Math.abs(
+      signoutBox!.y + signoutBox!.height / 2 - (signedNavBand!.y + signedNavBand!.height / 2)
+    )
+  ).toBeLessThan(2)
   await page.getByLabel(/^Email address/).fill(memberEmail)
   await page.getByLabel(/^Full name/).fill('Sam Member')
   await page.getByRole('button', { name: 'Create invitation link' }).click()
@@ -174,23 +199,26 @@ test('registration, invitation access, per-organization permissions and ownershi
       memberPage.getByRole('heading', { level: 1, name: 'Shared services team' })
     ).toBeVisible()
     await expect(memberPage.getByRole('link', { name: 'Settings', exact: true })).toHaveCount(0)
-    const memberOrgResponse = await memberPage.request.get(`/api/organizations/${organizationId}`)
+    const memberOrgResponse = await memberPage.request.get(`/api/organizations/${organizationCode}`)
     const memberOrg = (await memberOrgResponse.json()).organization
     expect(memberOrg.permissions).toEqual(['user'])
     const memberSession = await memberPage.request.get('/api/session')
     const memberId = (await memberSession.json()).user.id
     expect(
       (
-        await memberPage.request.post(`/api/organizations/${organizationId}/invitations`, {
+        await memberPage.request.post(`/api/organizations/${organizationCode}/invitations`, {
           data: { email: 'unauthorized@example.test' }
         })
       ).status()
     ).toBe(403)
     expect(
       (
-        await memberPage.request.patch(`/api/organizations/${organizationId}/members/${memberId}`, {
-          data: { permissions: ['user', 'admin'] }
-        })
+        await memberPage.request.patch(
+          `/api/organizations/${organizationCode}/members/${memberId}`,
+          {
+            data: { permissions: ['user', 'admin'] }
+          }
+        )
       ).status()
     ).toBe(403)
     expect(
@@ -202,6 +230,7 @@ test('registration, invitation access, per-organization permissions and ownershi
     })
     expect(secondOrganizationResponse.ok()).toBeTruthy()
     const secondOrganization = (await secondOrganizationResponse.json()).organization
+    expect(secondOrganization.id).toMatch(/^N-[A-HJKMNP-Z2-9]{5,}$/)
     expect(
       (await memberPage.request.get(`/api/organizations/${secondOrganization.id}`)).status()
     ).toBe(404)
@@ -232,7 +261,7 @@ test('registration, invitation access, per-organization permissions and ownershi
     await page.getByRole('combobox', { name: 'Applications', exact: true }).selectOption('viewer')
     await expect(page.getByText('Permissions updated.', { exact: true })).toBeVisible()
     const updatedPeople = await (
-      await page.request.get(`/api/organizations/${organizationId}/members`)
+      await page.request.get(`/api/organizations/${organizationCode}/members`)
     ).json()
     expect(
       updatedPeople.members.find((member: { userId: string }) => member.userId === memberId)
@@ -253,7 +282,7 @@ test('registration, invitation access, per-organization permissions and ownershi
     ).toBe(404)
     expect(
       (
-        await memberPage.request.post(`/api/organizations/${organizationId}/transfer`, {
+        await memberPage.request.post(`/api/organizations/${organizationCode}/transfer`, {
           data: { userId: memberId }
         })
       ).status()
@@ -269,7 +298,7 @@ test('registration, invitation access, per-organization permissions and ownershi
       page.getByRole('heading', { name: 'Transfer ownership', exact: true })
     ).toHaveCount(0)
     const transferred = (
-      await (await memberPage.request.get(`/api/organizations/${organizationId}`)).json()
+      await (await memberPage.request.get(`/api/organizations/${organizationCode}`)).json()
     ).organization
     expect(transferred.ownerId).toBe(memberId)
     expect(transferred.permissions).toEqual(expect.arrayContaining(['user', 'admin']))
@@ -290,7 +319,7 @@ test('registration, invitation access, per-organization permissions and ownershi
       memberPage.getByRole('heading', { name: 'This invitation is unavailable' })
     ).toBeVisible()
     await page.getByRole('button', { name: 'Sign out', exact: true }).click()
-    expect((await page.request.get(`/api/organizations/${organizationId}`)).status()).toBe(401)
+    expect((await page.request.get(`/api/organizations/${organizationCode}`)).status()).toBe(401)
   } finally {
     const memberErrors = browserErrors.get(memberPage)
     await memberContext.close()

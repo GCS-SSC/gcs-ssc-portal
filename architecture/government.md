@@ -33,5 +33,5 @@ The future extension should keep each returned portal ID and reconcile before re
 curl --fail-with-body "$PORTAL_URL/api/government/programs" \
   -H "Authorization: Bearer $PORTAL_API_TOKEN" \
   -H 'Content-Type: application/json' \
-  --data '{"agencyId":"<agency UUID>","nameEn":"Community innovation","nameFr":"Innovation communautaire"}'
+  --data '{"agencyId":"<agency G-code>","nameEn":"Community innovation","nameFr":"Innovation communautaire"}'
 ```

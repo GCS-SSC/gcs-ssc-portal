@@ -1,6 +1,5 @@
 import { hasAccess } from '../../shared/utils/permissions'
 import { sql, type Kysely } from 'kysely'
-import { v7 as uuid } from 'uuid'
 import { z } from 'zod'
 import { surveySchema } from '@gcs-ssc/survey'
 import type { Database } from '../db/schema'
@@ -11,12 +10,17 @@ import {
   type GovernmentDb
 } from './government-access'
 import { getPermissions } from './portal'
-const createInput = z.object({ agencyId: z.uuid(), definition: surveySchema }).strict()
+const createInput = z
+  .object({ agencyId: z.number().int().positive(), definition: surveySchema })
+  .strict()
 const updateInput = z
   .object({ expectedRevision: z.number().int().positive(), definition: surveySchema })
   .strict()
 const attachInput = z
-  .object({ surveyId: z.uuid().nullable(), revision: z.number().int().positive().nullable() })
+  .object({
+    surveyId: z.number().int().positive().nullable(),
+    revision: z.number().int().positive().nullable()
+  })
   .strict()
   .refine((value) => (value.surveyId === null) === (value.revision === null))
 const selectSurvey = (db: GovernmentDb) =>
@@ -26,7 +30,7 @@ const selectSurvey = (db: GovernmentDb) =>
       join.onRef('s.id', '=', 'r.surveyId').onRef('s.revision', '=', 'r.revision')
     )
     .select(['s.id', 's.agencyId', 's.revision', 's.updatedAt', 'r.definition'])
-export const listSurveys = async (db: GovernmentDb, actor: GovernmentActor, agencyId: string) => {
+export const listSurveys = async (db: GovernmentDb, actor: GovernmentActor, agencyId: number) => {
   await requireGovernment(db, actor, { agencyId })
   if (!(await db.selectFrom('agency').select('id').where('id', '=', agencyId).executeTakeFirst()))
     fail(404, 'AGENCY_NOT_FOUND')
@@ -42,7 +46,7 @@ export const listSurveys = async (db: GovernmentDb, actor: GovernmentActor, agen
     }))
   }
 }
-export const getSurvey = async (db: GovernmentDb, actor: GovernmentActor, id: string) => {
+export const getSurvey = async (db: GovernmentDb, actor: GovernmentActor, id: number) => {
   const row = await selectSurvey(db).where('s.id', '=', id).executeTakeFirst()
   if (!row) return fail(404, 'SURVEY_NOT_FOUND')
   await requireGovernment(db, actor, { agencyId: row.agencyId })
@@ -60,8 +64,11 @@ export const createSurvey = async (db: Kysely<Database>, actor: GovernmentActor,
         .executeTakeFirst())
     )
       return fail(404, 'AGENCY_NOT_FOUND')
-    const row = { id: uuid(), agencyId: input.agencyId, revision: 1, updatedAt: new Date() }
-    await tx.insertInto('survey').values(row).execute()
+    const row = await tx
+      .insertInto('survey')
+      .values({ agencyId: input.agencyId, revision: 1, updatedAt: new Date() })
+      .returningAll()
+      .executeTakeFirstOrThrow()
     await tx
       .insertInto('survey_revision')
       .values({
@@ -77,7 +84,7 @@ export const createSurvey = async (db: Kysely<Database>, actor: GovernmentActor,
 export const updateSurvey = async (
   db: Kysely<Database>,
   actor: GovernmentActor,
-  id: string,
+  id: number,
   body: unknown
 ) => {
   const input = updateInput.parse(body)
@@ -114,7 +121,7 @@ export const updateSurvey = async (
 export const attachSurvey = async (
   db: Kysely<Database>,
   actor: GovernmentActor,
-  callId: string,
+  callId: number,
   body: unknown
 ) => {
   const input = attachInput.parse(body)
@@ -160,9 +167,9 @@ export const attachSurvey = async (
 /** Applicants receive only the exact revision pinned to a published call. */
 export const applicantSurvey = async (
   db: GovernmentDb,
-  organizationId: string,
-  userId: string,
-  callId: string
+  organizationId: number,
+  userId: number,
+  callId: number
 ) => {
   const member = await db
     .selectFrom('membership')

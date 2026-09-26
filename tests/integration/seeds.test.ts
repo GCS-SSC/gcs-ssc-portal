@@ -13,8 +13,14 @@ import { demoAgreementStatusesMigration } from '../../server/db/seeds/008-demo-a
 import { administratorSeed } from '../../server/db/seeds/003-administrator'
 import { startApplication } from '../../server/utils/applications'
 import { organizationSets } from '../../server/utils/submission-sets'
-import { checkResponse, mutateResponse, startResponse } from '../../server/utils/set-responses'
+import {
+  checkResponse,
+  mutateResponse,
+  startResponse,
+  listResponses
+} from '../../server/utils/set-responses'
 import { getOrganization, listOrganizations } from '../../server/utils/portal'
+import { publicCode } from '../../shared/utils/response-code'
 let db: Kysely<Database>
 beforeAll(async () => {
   const url = process.env.PORTAL_TEST_DATABASE_URL
@@ -58,10 +64,9 @@ it('rejects production before creating seed history or users', async () => {
 
 it('rolls back a conflicting email without adopting or modifying existing accounts', async () => {
   const now = new Date()
-  await db
+  const existing = await db
     .insertInto('user')
     .values({
-      id: 'existing-user',
       name: 'Existing person',
       email: 'owner@portal.com',
       emailVerified: false,
@@ -69,13 +74,14 @@ it('rolls back a conflicting email without adopting or modifying existing accoun
       createdAt: now,
       updatedAt: now
     })
-    .execute()
+    .returning('id')
+    .executeTakeFirstOrThrow()
   await expect(seedDemo(db)).rejects.toThrow()
   expect((await db.selectFrom('user').selectAll().execute()).map((user) => user.id)).toEqual([
-    'existing-user'
+    existing.id
   ])
   expect(await db.selectFrom('account').selectAll().execute()).toEqual([])
-  await db.deleteFrom('user').where('id', '=', 'existing-user').execute()
+  await db.deleteFrom('user').where('id', '=', existing.id).execute()
 })
 
 it('creates usable credentials and scoped sample data once, preserving edits on rerun', async () => {
@@ -90,7 +96,8 @@ it('creates usable credentials and scoped sample data once, preserving edits on 
     database: kyselyAdapter(db, { type: 'postgres' }),
     baseURL: 'http://localhost:3000',
     secret: 'seed-integration-test-only-secret-0123456789',
-    emailAndPassword: { enabled: true }
+    emailAndPassword: { enabled: true },
+    advanced: { database: { generateId: 'serial' } }
   })
   for (const name of demoAccounts.filter((name) => name !== 'root' && name !== 'staff')) {
     const result = await auth.handler(
@@ -139,7 +146,7 @@ it('creates usable credentials and scoped sample data once, preserving edits on 
     .selectAll()
     .where('name', '=', 'Demo Community Organization')
     .executeTakeFirstOrThrow()
-  expect(org.id).toMatch(/^[0-9a-f-]{14}7[0-9a-f-]{21}$/)
+  expect(org.id).toBeTypeOf('number')
   const ownerOrganizations = (await listOrganizations(db, org.ownerId)).organizations
   expect(ownerOrganizations.map((item) => item.name)).toEqual([
     'Demo Community Organization',
@@ -147,7 +154,9 @@ it('creates usable credentials and scoped sample data once, preserving edits on 
     'Demo Atlantic Skills Network'
   ])
   expect(ownerOrganizations.map((item) => item.memberCount)).toEqual([4, 1, 1])
-  expect(ownerOrganizations.every((item) => item.ownerId === org.ownerId)).toBe(true)
+  expect(ownerOrganizations.every((item) => item.ownerId === publicCode(org.ownerId, 'U'))).toBe(
+    true
+  )
   expect(
     ownerOrganizations.every((item) =>
       (
@@ -245,8 +254,28 @@ it('creates usable credentials and scoped sample data once, preserving edits on 
     )
   ).toBe(true)
   const sets = (await organizationSets(db, org.id, org.ownerId)).sets
-  expect(sets).toHaveLength(3)
-  expect(sets.every((set) => set.published && set.agreementId && set.items.length === 2)).toBe(true)
+  expect(sets).toHaveLength(8)
+  expect(sets.every((set) => set.published && set.agreementId)).toBe(true)
+  expect(sets.some((set) => set.items.every((item) => item.kind === 'claim'))).toBe(true)
+  expect(sets.some((set) => set.items.every((item) => item.kind === 'forecast'))).toBe(true)
+  expect(sets.some((set) => set.items.every((item) => item.kind === 'survey'))).toBe(true)
+  const demoResponses = (await listResponses(db, org.id, org.ownerId)).responses.filter(
+    (response) => response.agreementId === agreements[0]!.id
+  )
+  expect(demoResponses.map((response) => response.status).sort()).toEqual([
+    'awaiting_documentation',
+    'awaiting_documentation',
+    'awaiting_documentation',
+    'draft',
+    'draft',
+    'draft',
+    'submitted',
+    'submitted',
+    'submitted'
+  ])
+  expect(new Set(demoResponses.map((response) => response.kinds.join(',')))).toEqual(
+    new Set(['claim', 'forecast', 'survey'])
+  )
   expect(
     (await startResponse(db, org.id, org.ownerId, sets[0]!.id, { locale: 'en' })).response.status
   ).toBe('draft')

@@ -6,7 +6,11 @@ import type {
   ResponseResult
 } from '~~/shared/types/agreements'
 import type { Organization } from '~~/shared/types/api'
-import { responseSubjects, attachmentsAllowed } from '~~/shared/schemas/agreements'
+import {
+  responseSubjects,
+  attachmentsAllowed,
+  documentationAttachmentItemId
+} from '~~/shared/schemas/agreements'
 import { hasAccess } from '~~/shared/utils/permissions'
 import FinancialResponse from '~/components/agreements/FinancialResponse.vue'
 import ResponseAttachments from '~/components/agreements/ResponseAttachments.vue'
@@ -33,6 +37,7 @@ const {
   return { ...result, ...org }
 })
 const { a } = useAttachmentLocale()
+const { locale, date } = useLocale()
 const attachmentGeneration = ref(0)
 const uploading = ref(false)
 const response = ref<SetResponse | null>(null),
@@ -43,6 +48,19 @@ const response = ref<SetResponse | null>(null),
   position = ref(0),
   deleting = ref(false),
   saved = ref('')
+const documentationMessage = ref('')
+const sentAttachmentIds = computed(
+  () => data.value?.details.flatMap((detail) => detail.attachmentIds) ?? []
+)
+const unsentAttachments = computed(
+  () =>
+    data.value?.attachments.filter(
+      (file) =>
+        file.itemId === documentationAttachmentItemId &&
+        file.status === 'ready' &&
+        !sentAttachmentIds.value.includes(file.id)
+    ) ?? []
+)
 watch(
   data,
   (next) => {
@@ -77,11 +95,37 @@ const editable = computed(
     !uploading.value
 )
 const manager = computed(() => response.value?.status === 'draft' && allowed('manager'))
+const agreementSection = computed(() => {
+  const financialKind = response.value?.snapshot.items.find(
+    ({ item }) => item.kind === 'claim' || item.kind === 'forecast'
+  )?.item.kind
+  return financialKind === 'claim' ? 'claims' : financialKind === 'forecast' ? 'forecasts' : 'other'
+})
 const back = computed(() =>
   response.value?.snapshot.application
     ? `/organizations/${organizationId}?section=funding`
-    : `/organizations/${organizationId}?section=agreements`
+    : response.value?.snapshot.agreementReference
+      ? `/organizations/${organizationId}/agreements/${response.value.snapshot.agreementReference.id}?section=${agreementSection.value}`
+      : `/organizations/${organizationId}?section=agreements`
 )
+const canDocument = computed(
+  () => response.value?.status === 'awaiting_documentation' && allowed('contributor')
+)
+const sendDetails = () =>
+  perform(async () => {
+    const result = await api<ResponseResult>(`${endpoint}/details`, {
+      method: 'POST',
+      body: {
+        expectedRevision: response.value!.revision,
+        body: documentationMessage.value,
+        attachmentIds: unsentAttachments.value.map((file) => file.id)
+      }
+    })
+    response.value = result.response
+    data.value!.details = result.details
+    data.value!.attachments = result.attachments
+    documentationMessage.value = ''
+  }, 'detailsSent')
 const attachmentChange = (result: {
   revision: number
   attachments: ResponseResult['attachments']
@@ -175,10 +219,13 @@ const changePosition = async (next: number) => {
     >
     <template v-if="response">
       <PortalHeading tag="h1">{{ localized(response.snapshot) }}</PortalHeading>
-      <PortalBadge>{{ c(response.status) }}</PortalBadge>
-      <PortalText>{{
-        c(response.status === 'submitted' ? 'finalNotice' : 'sharedDraft')
-      }}</PortalText>
+      <div class="badges">
+        <PortalBadge>{{ c(response.status) }}</PortalBadge>
+        <PortalBadge v-if="response.gcsStatus" :colour="response.gcsStatus.colour">{{
+          response.gcsStatus[locale]
+        }}</PortalBadge>
+      </div>
+      <PortalText>{{ c(response.status === 'draft' ? 'sharedDraft' : 'finalNotice') }}</PortalText>
       <PortalNotice v-if="error" variant="error"
         >{{ error }}
         <PortalButton variant="secondary" @click="reload">{{
@@ -215,7 +262,7 @@ const changePosition = async (next: number) => {
           }}</PortalButton>
         </div>
       </section>
-      <PortalText v-if="response.snapshot.agreement && response.status === 'submitted'">
+      <PortalText v-if="response.snapshot.agreement && response.status !== 'draft'">
         {{ c(recorded ? 'recordedBalances' : 'latestBalances') }}
       </PortalText>
       <PortalButton
@@ -273,6 +320,59 @@ const changePosition = async (next: number) => {
           >{{ c('nextItem') }}</PortalButton
         >
       </div>
+      <section
+        v-if="response.status !== 'draft'"
+        class="content-section"
+        :aria-label="c('documentation')"
+      >
+        <PortalHeading tag="h2" margin-top="0">{{ c('documentation') }}</PortalHeading>
+        <ul v-if="data?.details.length" class="organization-list">
+          <li v-for="detail in data.details" :key="detail.id">
+            <div>
+              <PortalText>{{ detail.body }}</PortalText>
+              <ul v-if="detail.attachmentIds.length">
+                <li v-for="attachmentId in detail.attachmentIds" :key="attachmentId">
+                  <PortalLink :to="`${endpoint}/attachments/${attachmentId}`" external>{{
+                    data.attachments.find((file) => file.id === attachmentId)?.filename
+                  }}</PortalLink>
+                </li>
+              </ul>
+              <PortalText size="small" text-role="secondary">{{
+                date(detail.createdAt)
+              }}</PortalText>
+            </div>
+          </li>
+        </ul>
+        <template v-if="canDocument && data">
+          <PortalText>{{ c('documentationHint') }}</PortalText>
+          <ResponseAttachments
+            :item-id="documentationAttachmentItemId"
+            :endpoint="endpoint"
+            :revision="response.revision"
+            :files="data.attachments"
+            :limits="data.attachmentLimits"
+            :locked-ids="sentAttachmentIds"
+            :readonly="busy || uploading"
+            @busy="uploading = $event"
+            @change="attachmentChange"
+            @reload="reload"
+          />
+          <PortalTextarea
+            id="documentation-message"
+            v-model="documentationMessage"
+            :label="c('documentationMessage')"
+            :maxlength="4000"
+            :rows="5"
+          />
+          <PortalButton
+            :disabled="
+              busy || uploading || (!documentationMessage.trim() && !unsentAttachments.length)
+            "
+            @click="sendDetails"
+            >{{ c('sendDetails') }}</PortalButton
+          >
+        </template>
+      </section>
       <PortalText v-if="dirty">{{ c('dirty') }}</PortalText>
       <div class="form-actions">
         <PortalButton v-if="editable" :disabled="uploading || busy" @click="save">{{

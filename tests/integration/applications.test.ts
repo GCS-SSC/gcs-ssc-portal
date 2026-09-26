@@ -8,6 +8,7 @@ import type { SurveyDefinition } from '@gcs-ssc/survey'
 import * as surveys from '../../server/utils/surveys'
 import * as structure from '../../server/utils/government-structure'
 import * as portal from '../../server/utils/portal'
+import { decodePublicId } from '../../server/utils/public-identifiers'
 import { createAdministrator } from '../../server/utils/administrator-accounts'
 import { startApplication } from '../../server/utils/applications'
 import {
@@ -26,7 +27,9 @@ import {
 } from '../../server/utils/attachments'
 import { sha256, type AttachmentStorage } from '../../server/utils/attachment-storage'
 import { attachmentsAllowed } from '../../shared/schemas/agreements'
-let db: Kysely<Database>, actor: GovernmentActor, agencyId: string, streamId: string, orgId: string
+let db: Kysely<Database>, actor: GovernmentActor, agencyId: number, streamId: number, orgId: number
+type Role = 'owner' | 'viewer' | 'contributor' | 'manager'
+const users = {} as Record<Role, number>
 const names = { nameEn: 'Applications', nameFr: 'Demandes' }
 const definition: SurveyDefinition = {
   schemaVersion: 1,
@@ -78,27 +81,32 @@ beforeAll(async () => {
     password: 'Root-test-only-2026!'
   })
   actor = { kind: 'administrator', administratorId: root.id }
-  for (const id of ['owner', 'viewer', 'contributor', 'manager'])
-    await db
-      .insertInto('user')
-      .values({
-        id,
-        name: id,
-        email: `${id}@applications.test`,
-        emailVerified: false,
-        image: null,
-        createdAt: new Date(),
-        updatedAt: new Date()
-      })
-      .execute()
-  orgId = (await portal.createOrganization(db, 'owner', { name: 'Application organization' }))
-    .organization.id
+  for (const role of ['owner', 'viewer', 'contributor', 'manager'] as const)
+    users[role] = (
+      await db
+        .insertInto('user')
+        .values({
+          name: role,
+          email: `${role}@applications.test`,
+          emailVerified: false,
+          image: null,
+          createdAt: new Date(),
+          updatedAt: new Date()
+        })
+        .returning('id')
+        .executeTakeFirstOrThrow()
+    ).id
+  orgId = decodePublicId(
+    (await portal.createOrganization(db, users.owner, { name: 'Application organization' }))
+      .organization.id,
+    'organization'
+  )
   for (const level of ['viewer', 'contributor', 'manager'] as const) {
     await db
       .insertInto('membership')
-      .values({ organizationId: orgId, userId: level, joinedAt: new Date() })
+      .values({ organizationId: orgId, userId: users[level], joinedAt: new Date() })
       .execute()
-    await portal.updatePermissions(db, orgId, 'owner', level, {
+    await portal.updatePermissions(db, orgId, users.owner, users[level], {
       permissions: ['user', `application:${level}`]
     })
   }
@@ -128,10 +136,10 @@ const createCall = async (enabled = true) => {
   return call.id
 }
 const start = async (callId: string) =>
-  (await startApplication(db, orgId, 'contributor', callId, { locale: 'en' })).response
+  (await startApplication(db, orgId, users.contributor, callId, { locale: 'en' })).response
 const save = async (id: string, revision: number) =>
   (
-    await mutateResponse(db, orgId, 'contributor', id, 'save', {
+    await mutateResponse(db, orgId, users.contributor, id, 'save', {
       expectedRevision: revision,
       items: [{ id: 'application', kind: 'survey', answers: { name: 'Digital project' } }]
     })
@@ -140,7 +148,7 @@ const upload = (id: string, revision: number, target = storage) =>
   uploadAttachment(
     db,
     orgId,
-    'contributor',
+    users.contributor,
     id,
     { expectedRevision: revision, itemId: 'application', filename: 'evidence.txt' },
     bytes,
@@ -149,10 +157,10 @@ const upload = (id: string, revision: number, target = storage) =>
 it('uses application permissions and immutable pinned forms, privately stores files and exports submitted evidence', async () => {
   const callId = await createCall()
   await expect(
-    startApplication(db, orgId, 'viewer', callId, { locale: 'en' })
+    startApplication(db, orgId, users.viewer, callId, { locale: 'en' })
   ).rejects.toMatchObject({ statusCode: 403 })
   await expect(
-    startApplication(db, orgId, 'owner', callId, { locale: 'en' })
+    startApplication(db, orgId, users.owner, callId, { locale: 'en' })
   ).rejects.toMatchObject({ statusCode: 403 })
   const [first, second] = await Promise.all([start(callId), start(callId)])
   expect(first.id).toBe(second.id)
@@ -162,7 +170,7 @@ it('uses application permissions and immutable pinned forms, privately stores fi
     uploadAttachment(
       db,
       orgId,
-      'viewer',
+      users.viewer,
       draft.id,
       { expectedRevision: draft.revision, itemId: 'application', filename: 'evidence.txt' },
       bytes,
@@ -174,27 +182,27 @@ it('uses application permissions and immutable pinned forms, privately stores fi
   expect(file.status).toBe('ready')
   expect(file).not.toHaveProperty('objectKey')
   expect(
-    (await organizationAttachment(db, orgId, 'viewer', draft.id, file.id, storage)).bytes
+    (await organizationAttachment(db, orgId, users.viewer, draft.id, file.id, storage)).bytes
   ).toEqual(bytes)
   await expect(
-    organizationAttachment(db, orgId, 'owner', draft.id, file.id, storage)
+    organizationAttachment(db, orgId, users.owner, draft.id, file.id, storage)
   ).rejects.toMatchObject({ statusCode: 403 })
   await expect(
-    mutateResponse(db, orgId, 'contributor', draft.id, 'submit', {
+    mutateResponse(db, orgId, users.contributor, draft.id, 'submit', {
       expectedRevision: attached.revision,
       balanceRevision: null,
       warningsAcknowledged: true
     })
   ).rejects.toMatchObject({ statusCode: 403 })
-  const check = await checkResponse(db, orgId, 'manager', draft.id, {
+  const check = await checkResponse(db, orgId, users.manager, draft.id, {
     expectedRevision: attached.revision
   })
-  const final = await mutateResponse(db, orgId, 'manager', draft.id, 'submit', {
+  const final = await mutateResponse(db, orgId, users.manager, draft.id, 'submit', {
     expectedRevision: attached.revision,
     balanceRevision: check.balanceRevision,
     warningsAcknowledged: true
   })
-  const submissionId = final.response.submissionId!
+  const submissionId = decodePublicId(final.response.submissionId!, 'response')
   expect((await exportSubmission(db, actor, submissionId)).submission).toMatchObject({
     application: { callId },
     attachments: [{ id: file.id, sha256: sha256(bytes) }]
@@ -206,12 +214,12 @@ it('uses application permissions and immutable pinned forms, privately stores fi
     bytes
   )
   await expect(
-    removeAttachment(db, orgId, 'manager', draft.id, file.id, {
+    removeAttachment(db, orgId, users.manager, draft.id, file.id, {
       expectedRevision: final.response.revision
     })
   ).rejects.toMatchObject({ statusCode: 409 })
   await structure.publishCall(db, actor, callId, { published: false })
-  expect((await getResponse(db, orgId, 'viewer', draft.id)).response.status).toBe('submitted')
+  expect((await getResponse(db, orgId, users.viewer, draft.id)).response.status).toBe('submitted')
 })
 it('checks opt-in, names, limits, stale revisions and pending uploads before allowing submission', async () => {
   const disabled = await start(await createCall(false))
@@ -229,7 +237,7 @@ it('checks opt-in, names, limits, stale revisions and pending uploads before all
     uploadAttachment(
       db,
       orgId,
-      'contributor',
+      users.contributor,
       draft.id,
       { expectedRevision: 1, itemId: 'application', filename: '../bad.txt' },
       bytes,
@@ -254,24 +262,26 @@ it('checks opt-in, names, limits, stale revisions and pending uploads before all
     }
   })
   await uploading
-  const during = await getResponse(db, orgId, 'viewer', draft.id)
+  const during = await getResponse(db, orgId, users.viewer, draft.id)
   expect(during.attachments[0]!.status).toBe('pending')
   await expect(
-    checkResponse(db, orgId, 'manager', draft.id, { expectedRevision: during.response.revision })
+    checkResponse(db, orgId, users.manager, draft.id, {
+      expectedRevision: during.response.revision
+    })
   ).rejects.toMatchObject({ statusCode: 409 })
   finish()
   const completed = await pending
   const removed = await removeAttachment(
     db,
     orgId,
-    'contributor',
+    users.contributor,
     draft.id,
     completed.attachments[0]!.id,
     { expectedRevision: completed.revision }
   )
   expect(removed.attachments).toEqual([])
   await expect(
-    organizationAttachment(db, orgId, 'viewer', draft.id, completed.attachments[0]!.id, storage)
+    organizationAttachment(db, orgId, users.viewer, draft.id, completed.attachments[0]!.id, storage)
   ).rejects.toMatchObject({ statusCode: 404 })
   await db
     .updateTable('response_attachment')
@@ -290,7 +300,7 @@ it('retains failed upload reservations for cleanup and never finalizes after a c
     }
   }
   await expect(upload(draft.id, 1, failedStorage)).rejects.toMatchObject({ statusCode: 502 })
-  const failed = await getResponse(db, orgId, 'viewer', draft.id)
+  const failed = await getResponse(db, orgId, users.viewer, draft.id)
   expect(failed.attachments).toEqual([])
   expect(failed.response.revision).toBe(2)
   const concurrent = {
@@ -301,7 +311,7 @@ it('retains failed upload reservations for cleanup and never finalizes after a c
     }
   }
   await expect(upload(draft.id, 2, concurrent)).rejects.toMatchObject({ statusCode: 409 })
-  expect((await getResponse(db, orgId, 'viewer', draft.id)).attachments).toEqual([])
+  expect((await getResponse(db, orgId, users.viewer, draft.id)).attachments).toEqual([])
   await db
     .updateTable('response_attachment')
     .set({ createdAt: new Date(Date.now() - 7200000) })
@@ -324,10 +334,10 @@ it('blocks changed/closed calls, keeps superseded drafts readable and permits ma
   await expect(start(callId)).rejects.toMatchObject({ statusCode: 409 })
   await expect(save(draft.id, 1)).rejects.toMatchObject({ statusCode: 409 })
   await expect(
-    mutateResponse(db, orgId, 'contributor', draft.id, 'delete', { expectedRevision: 1 })
+    mutateResponse(db, orgId, users.contributor, draft.id, 'delete', { expectedRevision: 1 })
   ).rejects.toMatchObject({ statusCode: 403 })
-  await mutateResponse(db, orgId, 'manager', draft.id, 'delete', { expectedRevision: 1 })
-  await expect(getResponse(db, orgId, 'viewer', draft.id)).rejects.toMatchObject({
+  await mutateResponse(db, orgId, users.manager, draft.id, 'delete', { expectedRevision: 1 })
+  await expect(getResponse(db, orgId, users.viewer, draft.id)).rejects.toMatchObject({
     statusCode: 404
   })
 })
@@ -343,11 +353,20 @@ it('enforces per-form and whole-response capacity and protects other organizatio
     process.env.ATTACHMENT_MAX_FILES_PER_FORM = '10'
     process.env.ATTACHMENT_MAX_RESPONSE_BYTES = String(bytes.byteLength)
     await expect(upload(draft.id, result.revision)).rejects.toMatchObject({ statusCode: 400 })
-    const foreignOrg = (
-      await portal.createOrganization(db, 'owner', { name: 'Other organization' })
-    ).organization.id
+    const foreignOrg = decodePublicId(
+      (await portal.createOrganization(db, users.owner, { name: 'Other organization' }))
+        .organization.id,
+      'organization'
+    )
     await expect(
-      organizationAttachment(db, foreignOrg, 'owner', draft.id, result.attachments[0]!.id, storage)
+      organizationAttachment(
+        db,
+        foreignOrg,
+        users.owner,
+        draft.id,
+        result.attachments[0]!.id,
+        storage
+      )
     ).rejects.toMatchObject({ statusCode: 404 })
     // Even the correct uploader cannot download an attachment under a different response.
     const another = await start(await createCall())
@@ -355,7 +374,7 @@ it('enforces per-form and whole-response capacity and protects other organizatio
       organizationAttachment(
         db,
         orgId,
-        'contributor',
+        users.contributor,
         another.id,
         result.attachments[0]!.id,
         storage

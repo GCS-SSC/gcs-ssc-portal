@@ -1,5 +1,5 @@
 import type { GovernmentDb } from './government-access'
-export const attachmentMetadata = async (db: GovernmentDb, responseId: string) =>
+export const attachmentMetadata = async (db: GovernmentDb, responseId: number) =>
   (
     await db
       .selectFrom('response_attachment')

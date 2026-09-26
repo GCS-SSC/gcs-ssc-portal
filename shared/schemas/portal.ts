@@ -1,4 +1,8 @@
 import { z } from 'zod'
+import { organizationNumber } from '../utils/response-code'
+export const organizationCodeInput = z
+  .string()
+  .refine((value) => organizationNumber(value) !== null)
 export const organizationInput = z
   .object({
     name: z.string().trim().min(2).max(120),
@@ -39,5 +43,4 @@ export const permissionsInput = z
       )
   })
   .strict()
-export const transferInput = z.object({ userId: z.string().min(1).max(128) }).strict()
-export const organizationId = z.uuid()
+export const transferInput = z.object({ userId: z.number().int().positive() }).strict()

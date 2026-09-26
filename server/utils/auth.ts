@@ -15,6 +15,7 @@ const createAuth = async () => {
     session: { expiresIn: 60 * 60 * 24 * 7 },
     rateLimit: { enabled: true, window: 60, max: 60 },
     advanced: {
+      database: { generateId: 'serial' },
       useSecureCookies: config.production,
       ipAddress: { ipAddressHeaders: [INTERNAL_IP_HEADER] }
     }

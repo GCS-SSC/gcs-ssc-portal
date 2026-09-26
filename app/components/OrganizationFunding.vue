@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { hasAccess } from '~~/shared/utils/permissions'
-import type { ResponseResult } from '~~/shared/types/agreements'
+import type { ResponseResult, ResponseSummary } from '~~/shared/types/agreements'
 import type { FundingCall } from '~~/shared/types/government'
 import type { Organization } from '~~/shared/types/api'
 const props = defineProps<{ organizationId: string; embedded?: boolean }>()
@@ -23,15 +23,9 @@ const {
 } = useAsyncData(`funding-${id}`, async () => {
   const funding = await api<{ calls: FundingCall[] }>(`/api/organizations/${id}/funding-calls`)
   const { organization } = await api<{ organization: Organization }>(`/api/organizations/${id}`)
-  const { responses } = await api<{
-    responses: {
-      id: string
-      callId: string | null
-      nameEn: string
-      nameFr: string
-      status: 'draft' | 'submitted'
-    }[]
-  }>(`/api/organizations/${id}/responses`)
+  const { responses } = await api<{ responses: ResponseSummary[] }>(
+    `/api/organizations/${id}/responses`
+  )
   return { ...funding, organization, responses: responses.filter((response) => response.callId) }
 })
 const status = (call: FundingCall) => {
@@ -94,7 +88,7 @@ const start = (callId: string) =>
       <PortalText>{{ g('fundingIntro') }}</PortalText>
       <PortalText>{{ g('fundingScope') }}</PortalText>
       <PortalText v-if="!data.calls.length">{{ g('noFunding') }}</PortalText>
-      <PortalInput
+      <PortalSearch
         v-if="data.calls.length"
         id="funding-search"
         v-model="search"

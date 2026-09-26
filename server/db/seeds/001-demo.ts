@@ -1,6 +1,5 @@
 import { hashPassword } from 'better-auth/crypto'
 import { sql, type Kysely } from 'kysely'
-import { v7 as uuid } from 'uuid'
 import type { SurveyDefinition } from '@gcs-ssc/survey'
 import type { Database } from '../schema'
 
@@ -22,16 +21,11 @@ export const demoMigration = {
         'Demo seed requires a database without an existing root. Use a separate demo database.'
       )
     const now = new Date()
-    const ids = Object.fromEntries(demoAccounts.map((name) => [name, uuid()])) as Record<
-      (typeof demoAccounts)[number],
-      string
-    >
+    const ids = {} as Record<(typeof demoAccounts)[number], number>
     for (const name of demoAccounts) {
-      const id = ids[name]
-      await db
+      const user = await db
         .insertInto('user')
         .values({
-          id,
           name: `Demo ${name}`,
           email: `${name}@portal.com`,
           emailVerified: true,
@@ -39,13 +33,15 @@ export const demoMigration = {
           createdAt: now,
           updatedAt: now
         })
-        .execute()
+        .returning('id')
+        .executeTakeFirstOrThrow()
+      const id = user.id
+      ids[name] = id
       await db
         .insertInto('account')
         .values({
-          id: uuid(),
           userId: id,
-          accountId: id,
+          accountId: String(id),
           providerId: 'credential',
           password: await hashPassword(demoPassword),
           accessToken: null,
@@ -66,21 +62,17 @@ export const demoMigration = {
         { userId: ids.staff, role: 'staff', active: true, createdAt: now }
       ])
       .execute()
-    const organizationId = uuid(),
-      agencyId = uuid(),
-      programId = uuid(),
-      streamId = uuid(),
-      surveyId = uuid()
-    await db
+    const organization = await db
       .insertInto('organization')
       .values({
-        id: organizationId,
         name: 'Demo Community Organization',
         description: 'Development sample organization / Organisme de démonstration',
         ownerId: ids.owner,
         createdAt: now
       })
-      .execute()
+      .returning('id')
+      .executeTakeFirstOrThrow()
+    const organizationId = organization.id
     for (const name of ['owner', 'contributor', 'viewer', 'user'] as const) {
       await db
         .insertInto('membership')
@@ -100,37 +92,40 @@ export const demoMigration = {
             .execute()
       }
     }
-    await db
+    const agency = await db
       .insertInto('agency')
       .values({
-        id: agencyId,
         nameEn: 'Demo Funding Agency',
         nameFr: 'Organisme de financement de démonstration',
         createdAt: now
       })
-      .execute()
+      .returning('id')
+      .executeTakeFirstOrThrow()
+    const agencyId = agency.id
     await db.insertInto('agency_staff').values({ agencyId, userId: ids.staff }).execute()
-    await db
+    const program = await db
       .insertInto('program')
       .values({
-        id: programId,
         agencyId,
         nameEn: 'Community Development',
         nameFr: 'Développement communautaire',
         createdAt: now
       })
-      .execute()
-    await db
+      .returning('id')
+      .executeTakeFirstOrThrow()
+    const programId = program.id
+    const stream = await db
       .insertInto('stream')
       .values({
-        id: streamId,
         programId,
         agencyId,
         nameEn: 'Community Projects',
         nameFr: 'Projets communautaires',
         createdAt: now
       })
-      .execute()
+      .returning('id')
+      .executeTakeFirstOrThrow()
+    const streamId = stream.id
     const definition: SurveyDefinition = {
       schemaVersion: 1,
       title: { en: 'Community project application', fr: 'Demande de projet communautaire' },
@@ -158,10 +153,12 @@ export const demoMigration = {
         }
       ]
     }
-    await db
+    const survey = await db
       .insertInto('survey')
-      .values({ id: surveyId, agencyId, revision: 1, updatedAt: now })
-      .execute()
+      .values({ agencyId, revision: 1, updatedAt: now })
+      .returning('id')
+      .executeTakeFirstOrThrow()
+    const surveyId = survey.id
     await db
       .insertInto('survey_revision')
       .values({
@@ -174,7 +171,6 @@ export const demoMigration = {
     await db
       .insertInto('funding_call')
       .values({
-        id: uuid(),
         agencyId,
         streamId,
         nameEn: 'Demo community funding call',

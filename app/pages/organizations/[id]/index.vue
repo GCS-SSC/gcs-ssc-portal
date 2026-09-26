@@ -36,7 +36,6 @@ const tab = computed<Section>({
     void navigateTo({ path: route.path, query: { ...route.query, section } })
   }
 })
-const workspaceBody = ref<HTMLElement | null>(null)
 const organization = ref<Organization | null>(null)
 const members = ref<Member[]>([])
 const invitations = ref<Invitation[]>([])
@@ -225,9 +224,7 @@ watch(confirmation, async (value) => {
   await nextTick()
   document.getElementById('confirm-change')?.focus()
 })
-watch(tab, async () => {
-  await nextTick()
-  workspaceBody.value?.focus()
+watch(tab, () => {
   confirmation.value = null
   error.value = ''
   success.value = ''
@@ -249,35 +246,20 @@ await load()
       <PortalButton variant="secondary" @click="load">{{ t('retry') }}</PortalButton></PortalNotice
     >
     <template v-else-if="organization">
-      <div class="entity-heading">
-        <PortalHeading tag="h1">{{ organization.name }}</PortalHeading>
-        <div class="badges">
+      <PortalWorkspace
+        :title="organization.name"
+        :navigation-label="t('manageOrganization')"
+        :items="workspaceItems"
+      >
+        <template #statuses>
           <PortalBadge :tone="organization.active ? 'success' : 'neutral'">{{
             t(organization.active ? 'active' : 'inactive')
           }}</PortalBadge>
           <PortalBadge :tone="organization.verified ? 'success' : 'warning'">{{
             t(organization.verified ? 'verified' : 'pendingVerification')
           }}</PortalBadge>
-        </div>
-      </div>
-      <PortalGrid
-        class="workspace"
-        columns="minmax(0, 1fr)"
-        columns-tablet="minmax(0, 1fr) minmax(0, 2.4fr)"
-        columns-desktop="minmax(0, 1fr) minmax(0, 3fr)"
-        gap="400"
-      >
-        <div>
-          <PortalText class="workspace-mobile-label">{{ t('manageOrganization') }}</PortalText>
-          <PortalSideNav :label="t('manageOrganization')" :items="workspaceItems" />
-        </div>
-        <div
-          ref="workspaceBody"
-          class="workspace-body"
-          tabindex="-1"
-          role="region"
-          :aria-label="workspaceItems.find((item) => item.current)?.label"
-        >
+        </template>
+        <template #default>
           <PortalNotice v-if="error" variant="error" :title="t('errorTitle')">{{
             error
           }}</PortalNotice>
@@ -555,8 +537,8 @@ await load()
               </form>
             </section>
           </template>
-        </div>
-      </PortalGrid>
+        </template>
+      </PortalWorkspace>
     </template>
   </section>
 </template>

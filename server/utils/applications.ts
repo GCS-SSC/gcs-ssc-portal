@@ -1,5 +1,5 @@
 import { sql, type Kysely } from 'kysely'
-import { v7 as uuid } from 'uuid'
+import { publicCompoundCode } from '../../shared/utils/response-code'
 import type { Database } from '../db/schema'
 import { startResponseInput, type SetItem, type SetSnapshot } from '../../shared/schemas/agreements'
 import { governmentFail as fail } from './government-access'
@@ -9,9 +9,9 @@ import { createResponseDraft } from './response-records'
 import { getResponse } from './set-responses'
 export const startApplication = async (
   db: Kysely<Database>,
-  organizationId: string,
-  userId: string,
-  callId: string,
+  organizationId: number,
+  userId: number,
+  callId: number,
   body: unknown
 ) => {
   const input = startResponseInput.parse(body)
@@ -63,7 +63,7 @@ export const startApplication = async (
       }
       const snapshot: SetSnapshot = {
         schemaVersion: 1,
-        publicationId: uuid(),
+        publicationId: publicCompoundCode([organizationId, callId, (set?.revision ?? 0) + 1], 'B'),
         nameEn: call.nameEn,
         nameFr: call.nameFr,
         sourceSystem: call.sourceSystem,
@@ -104,7 +104,6 @@ export const startApplication = async (
           .insertInto('submission_set')
           .values({
             ...values,
-            id: uuid(),
             organizationId,
             agencyId: call.agencyId,
             agreementId: null,

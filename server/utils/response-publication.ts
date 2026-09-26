@@ -16,7 +16,7 @@ export const requireOpenCall = (call: {
 /** Called inside an organization-locked transaction; call row serializes publication/deadline changes. */
 export const requireResponsePublication = async (
   db: GovernmentDb,
-  setId: string,
+  setId: number,
   snapshot: SetSnapshot
 ) => {
   const set = await setRow(db, setId)

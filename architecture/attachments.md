@@ -16,9 +16,11 @@ Back up both the database and S3 objects. Do not apply an age-based expiration p
 
 ## Lifecycle and authorization
 
-Upload preflight authenticates, parses metadata and checks contributor permission, draft revision, published item policy and current call dates/revision before reading the bounded body. Reservation repeats checks under the organization lock, enforces aggregate limits, records a pending UUIDv7 object key and increments the response revision. S3 PUT happens outside the database transaction. Finalization rechecks mutable access and state before marking the file ready. Failed/conflicting uploads detach the reservation for cleanup; callers must reload the response revision before retrying.
+Upload preflight authenticates, parses metadata and checks contributor permission, draft revision, published item policy and current call dates/revision before reading the bounded body. Reservation repeats checks under the organization lock, enforces aggregate limits, records a pending random object key and increments the response revision. S3 PUT happens outside the database transaction. Finalization rechecks mutable access and state before marking the file ready. Failed/conflicting uploads detach the reservation for cleanup; callers must reload the response revision before retrying.
 
 Contributors can add/remove individual files while editing drafts. Only managers can submit or delete whole drafts. Pending uploads block review/submission. Deleting a file/draft immediately removes portal access and retains private storage metadata until cleanup. Final submission freezes file IDs, names, sizes and SHA-256 checksums into the immutable export.
+
+An awaiting-documentation response also accepts files through the same upload route with reserved item ID `!documentation`, which cannot collide with a published form item ID, independently of published form attachment policies. Contributors can stage files and include them with a follow-up message or send files alone. Files are visible to government only after the follow-up is sent; sent files cannot be removed. An unsent staged file is detached for cleanup if government closes the documentation request. The original export never changes.
 
 Organization downloads require the response's subject viewer permission. Government downloads require a submitted response and fresh agency authority (integration token). The server verifies the stored length and SHA-256 before returning bytes with `Content-Disposition: attachment`, `application/octet-stream`, `nosniff`, `no-store` and CSP sandbox. Object locations are never exposed through organization APIs.
 
@@ -26,11 +28,11 @@ Organization downloads require the response's subject viewer permission. Governm
 
 Organization routes start `/api/organizations/:organizationId/responses/:responseId`:
 
-| Method/path | Contract |
-| --- | --- |
+| Method/path                                                   | Contract                                                           |
+| ------------------------------------------------------------- | ------------------------------------------------------------------ |
 | POST /items/:itemId/attachments?filename=…&expectedRevision=… | Raw file bytes; `{revision,attachments}`. Browser Origin required. |
-| GET /attachments/:attachmentId | Authenticated private download. |
-| DELETE /attachments/:attachmentId | JSON `{expectedRevision}`; `{revision,attachments}`. |
+| GET /attachments/:attachmentId                                | Authenticated private download.                                    |
+| DELETE /attachments/:attachmentId                             | JSON `{expectedRevision}`; `{revision,attachments}`.               |
 
 Government routes: `GET /api/government/submissions/:submissionId/attachments/:attachmentId` downloads a submitted file; `GET /api/government/submissions/:submissionId/response` returns a read-only response with frozen balances and file metadata. Response reads include `attachments` and `attachmentLimits`. Each metadata entry includes `id`, `itemId`, `status`, `filename`, `size`, `sha256`, and `createdAt`.
 

@@ -1,14 +1,12 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import { Kysely, sql } from 'kysely'
+import type { Kysely } from 'kysely'
 import pg from 'pg'
-import { v7 as uuid } from 'uuid'
-import { migrate } from '../../server/db/migrations'
-import { pgliteDialect } from '../../server/db/pglite-dialect'
 import type { Database } from '../../server/db/schema'
 import { createDatabase } from '../../server/utils/database'
 import { createAdministrator } from '../../server/utils/administrator-accounts'
 import { createAgency, createProgram, createStream } from '../../server/utils/government-structure'
 import { createOrganization, updatePermissions } from '../../server/utils/portal'
+import { decodePublicId } from '../../server/utils/public-identifiers'
 import type { GovernmentActor } from '../../server/utils/government-access'
 import { createSurvey } from '../../server/utils/surveys'
 import {
@@ -23,19 +21,35 @@ import {
   mutateResponse,
   checkResponse,
   getResponse,
-  exportSubmission
+  exportSubmission,
+  listResponses,
+  updateSubmissionStatus,
+  addSubmissionDetail,
+  governmentResponse
 } from '../../server/utils/set-responses'
-import { agreementInput, money, externalId, setSubjects } from '../../shared/schemas/agreements'
+import {
+  uploadAttachment,
+  removeAttachment,
+  governmentAttachment
+} from '../../server/utils/attachments'
+import type { AttachmentStorage } from '../../server/utils/attachment-storage'
+import {
+  agreementInput,
+  money,
+  externalId,
+  setSubjects,
+  documentationAttachmentItemId
+} from '../../shared/schemas/agreements'
 import type { FundingAgreement } from '../../shared/types/agreements'
 let db: Kysely<Database>,
   root: GovernmentActor,
-  organizationId: string,
-  agencyId: string,
-  streamId: string
-const owner = 'agreement-owner',
-  viewer = 'agreement-viewer',
-  contributor = 'agreement-contributor',
-  manager = 'agreement-manager'
+  organizationId: number,
+  agencyId: number,
+  streamId: number
+let owner: number,
+  viewer: number,
+  contributor: number,
+  manager: number
 const names = (name: string) => ({ nameEn: name, nameFr: name + ' FR' })
 beforeAll(async () => {
   const url = process.env.PORTAL_TEST_DATABASE_URL
@@ -60,24 +74,31 @@ beforeAll(async () => {
     password: 'Root-test-only-2026!'
   })
   root = { kind: 'administrator', administratorId: account.id }
-  for (const id of [owner, viewer, contributor, manager])
-    await db
+  const users: number[] = []
+  for (const name of ['agreement-owner', 'agreement-viewer', 'agreement-contributor', 'agreement-manager']) {
+    const created = await db
       .insertInto('user')
       .values({
-        id,
-        name: id,
-        email: id + '@agreements.test',
+        name,
+        email: name + '@agreements.test',
         emailVerified: false,
         image: null,
         createdAt: new Date(),
         updatedAt: new Date()
       })
-      .execute()
+      .returning('id')
+      .executeTakeFirstOrThrow()
+    users.push(created.id)
+  }
+  owner = users[0]!
+  viewer = users[1]!
+  contributor = users[2]!
+  manager = users[3]!
   const org = await createOrganization(db, owner, {
     name: 'Agreement organization',
     description: ''
   })
-  organizationId = org.organization.id
+  organizationId = decodePublicId(org.organization.id, 'organization')
   for (const userId of [viewer, contributor, manager]) {
     await db
       .insertInto('membership')
@@ -210,6 +231,28 @@ describe('agreement submissions and reconciliation', () => {
     for (const value of ['9223372036854775808', 'invalid', '-1', '', '1e3'])
       expect(externalId.safeParse(value).success).toBe(false)
   })
+  it('assigns stable forecast iterations across sets for the same agreement and fiscal year', async () => {
+    const agreement = await newAgreement()
+    const firstSet = await newSet(agreement, 'forecast')
+    const secondSet = await newSet(agreement, 'forecast')
+    const first = (
+      await startResponse(db, organizationId, contributor, firstSet.id, { locale: 'en' })
+    ).response
+    const second = (
+      await startResponse(db, organizationId, contributor, secondSet.id, { locale: 'en' })
+    ).response
+    expect(first.forecastIterations).toEqual({ fy: 1 })
+    expect(second.forecastIterations).toEqual({ fy: 2 })
+    const summaries = (await listResponses(db, organizationId, viewer)).responses
+    expect(summaries.find((response) => response.id === first.id)).toMatchObject({
+      forecastFiscalYear: 2026,
+      forecastIteration: 1
+    })
+    expect(summaries.find((response) => response.id === second.id)).toMatchObject({
+      forecastFiscalYear: 2026,
+      forecastIteration: 2
+    })
+  })
   it('gives contributors drafts, reserves final actions for managers, and allows acknowledged balance warnings', async () => {
     const fundingAgreement = await newAgreement(),
       set = await newSet(fundingAgreement)
@@ -230,6 +273,9 @@ describe('agreement submissions and reconciliation', () => {
     })
     if (!('response' in saved)) throw new Error('Expected response')
     expect(saved.response.items[0]).toMatchObject({ lines: [{ amount: '125.50' }] })
+    expect(
+      (await listResponses(db, organizationId, viewer)).responses.find((row) => row.id === id)
+    ).toMatchObject({ claimPeriodStart: 0, claimPeriodEnd: 11, finalClaim: false })
     await expect(
       mutateResponse(db, organizationId, contributor, id, 'submit', {
         expectedRevision: 2,
@@ -264,7 +310,7 @@ describe('agreement submissions and reconciliation', () => {
     })
     if (!('response' in submitted)) throw new Error('Expected response')
     expect(submitted.response.status).toBe('submitted')
-    const exported = await exportSubmission(db, root, submitted.response.submissionId!)
+    const exported = await exportSubmission(db, root, submitted.response.id)
     expect(exported.submission).toMatchObject({
       balanceRevision: 1,
       balancesAtSubmission: [{ balance: '100.00', balanceAsOf: '2026-09-01T00:00:00Z' }],
@@ -282,6 +328,87 @@ describe('agreement submissions and reconciliation', () => {
         }
       ]
     })
+    const immutableExport = JSON.stringify(exported.submission)
+    await expect(
+      addSubmissionDetail(db, organizationId, contributor, id, {
+        expectedRevision: submitted.response.revision,
+        body: 'Too early',
+        attachmentIds: []
+      })
+    ).rejects.toMatchObject({ statusCode: 409 })
+    const awaiting = await updateSubmissionStatus(db, root, submitted.response.id, {
+      expectedRevision: submitted.response.revision,
+      status: 'awaiting_documentation',
+      gcsStatus: { en: 'Documents needed', fr: 'Documents requis', colour: '#245A80' }
+    })
+    expect(awaiting.response.status).toBe('awaiting_documentation')
+    expect(
+      (await listResponses(db, organizationId, viewer)).responses.find((entry) => entry.id === id)
+    ).toMatchObject({
+      agreementId: fundingAgreement.id,
+      status: 'awaiting_documentation',
+      gcsStatus: { en: 'Documents needed' }
+    })
+    const storage: AttachmentStorage = {
+      location: (fileId) => ({ bucket: 'test', objectKey: fileId }),
+      put: async () => {},
+      get: async () => new Uint8Array([1, 2, 3]),
+      remove: async () => {}
+    }
+    const uploaded = await uploadAttachment(
+      db,
+      organizationId,
+      contributor,
+      id,
+      {
+        expectedRevision: awaiting.response.revision,
+        itemId: documentationAttachmentItemId,
+        filename: 'evidence.txt'
+      },
+      new Uint8Array([1, 2, 3]),
+      storage
+    )
+    const fileId = uploaded.attachments.find(
+      (file) => file.itemId === documentationAttachmentItemId
+    )!.id
+    expect(
+      (await governmentResponse(db, root, submitted.response.id)).attachments
+    ).toEqual([])
+    await expect(
+      governmentAttachment(db, root, submitted.response.id, fileId, storage)
+    ).rejects.toMatchObject({ statusCode: 404 })
+    await expect(
+      addSubmissionDetail(db, organizationId, viewer, id, {
+        expectedRevision: uploaded.revision,
+        body: 'Viewer cannot send',
+        attachmentIds: [fileId]
+      })
+    ).rejects.toMatchObject({ statusCode: 403 })
+    const followup = await addSubmissionDetail(db, organizationId, contributor, id, {
+      expectedRevision: uploaded.revision,
+      body: 'Here are the requested receipts.',
+      attachmentIds: [fileId]
+    })
+    expect(followup.details).toMatchObject([
+      { body: 'Here are the requested receipts.', attachmentIds: [fileId] }
+    ])
+    await expect(
+      removeAttachment(db, organizationId, contributor, id, fileId, {
+        expectedRevision: followup.response.revision
+      })
+    ).rejects.toMatchObject({ statusCode: 409 })
+    expect(
+      (await governmentResponse(db, root, submitted.response.id)).details
+    ).toHaveLength(1)
+    expect(
+      (await governmentAttachment(db, root, submitted.response.id, fileId, storage))
+        .bytes
+    ).toEqual(new Uint8Array([1, 2, 3]))
+    expect(
+      JSON.stringify(
+        (await exportSubmission(db, root, submitted.response.id)).submission
+      )
+    ).toBe(immutableExport)
     await updateBalances(db, root, fundingAgreement.id, {
       expectedRevision: 1,
       asOf: '2026-09-02T00:00:00Z',
@@ -299,7 +426,7 @@ describe('agreement submissions and reconciliation', () => {
       balance: '74.50',
       claimedAmount: '125.50'
     })
-    expect(await exportSubmission(db, root, submitted.response.submissionId!)).toEqual(exported)
+    expect(await exportSubmission(db, root, submitted.response.id)).toEqual(exported)
     await expect(
       mutateResponse(db, organizationId, manager, id, 'delete', { expectedRevision: 3 })
     ).rejects.toMatchObject({ statusCode: 409 })
@@ -390,7 +517,7 @@ describe('agreement submissions and reconciliation', () => {
     )
     expect(submissions.filter((result) => result.status === 'fulfilled')).toHaveLength(1)
     const final = await getResponse(db, organizationId, viewer, initial.response.id)
-    const payload = await exportSubmission(db, root, final.response.submissionId!)
+    const payload = await exportSubmission(db, root, final.response.id)
     expect(payload.submission).toMatchObject({
       items: [
         {
@@ -420,9 +547,10 @@ describe('agreement submissions and reconciliation', () => {
   it('protects organization and government scopes, publication and established foreign identities', async () => {
     const fundingAgreement = await newAgreement(),
       set = await newSet(fundingAgreement)
-    const otherOrg = (
+    const otherOrgCode = (
       await createOrganization(db, owner, { name: 'Other organization', description: '' })
     ).organization.id
+    const otherOrg = decodePublicId(otherOrgCode, 'organization')
     await expect(
       startResponse(db, otherOrg, owner, set.id, { locale: 'en' })
     ).rejects.toMatchObject({ statusCode: 404 })
@@ -543,7 +671,7 @@ describe('agreement submissions and reconciliation', () => {
     })
     const final = await getResponse(db, organizationId, viewer, replacement.id)
     expect(
-      (await exportSubmission(db, root, final.response.submissionId!)).submission
+      (await exportSubmission(db, root, final.response.id)).submission
     ).toMatchObject({
       agreementReference: { id: fundingAgreement.id },
       items: [
@@ -556,132 +684,5 @@ describe('agreement submissions and reconciliation', () => {
     const orgSet = await saveSet(db, root, { ...value, agreementId: null, foreignSystemId: null })
     expect(orgSet.set.agreementId).toBeNull()
   })
-  it('upgrades existing stream ancestry and application grants without resetting supported data', async () => {
-    const old = new Kysely<Database>({ dialect: pgliteDialect('memory://') })
-    try {
-      await migrate(old, '003_surveys')
-      const now = new Date(),
-        org = uuid(),
-        agency = uuid(),
-        program = uuid(),
-        stream = uuid()
-      await old
-        .insertInto('user')
-        .values({
-          id: 'legacy',
-          name: 'Legacy user',
-          email: 'legacy@agreements.test',
-          emailVerified: false,
-          image: null,
-          createdAt: now,
-          updatedAt: now
-        })
-        .execute()
-      await old
-        .insertInto('organization')
-        .values({
-          id: org,
-          name: 'Existing recipient',
-          description: '',
-          ownerId: 'legacy',
-          createdAt: now
-        })
-        .execute()
-      await old
-        .insertInto('membership')
-        .values({ organizationId: org, userId: 'legacy', joinedAt: now })
-        .execute()
-      await sql`INSERT INTO permission ("organizationId", "userId", permission) VALUES (${org}, 'legacy', 'application')`.execute(
-        old
-      )
-      await old
-        .insertInto('agency')
-        .values({ id: agency, ...names('Existing agency'), createdAt: now })
-        .execute()
-      await old
-        .insertInto('program')
-        .values({ id: program, agencyId: agency, ...names('Existing program'), createdAt: now })
-        .execute()
-      await sql`INSERT INTO stream (id, "programId", "nameEn", "nameFr", "createdAt") VALUES (${stream}, ${program}, 'Existing stream', 'Volet existant', ${now})`.execute(
-        old
-      )
-      const existingCall = uuid()
-      await sql`INSERT INTO funding_call (id, "streamId", "nameEn", "nameFr", "startDate", "endDate", published, "createdAt") VALUES (${existingCall}, ${stream}, 'Existing call', 'Appel existant', '2020-01-01', '2099-12-31', false, ${now})`.execute(
-        old
-      )
-      await migrate(old, '007_organization_status')
-      const existingAgreement = uuid()
-      await old
-        .insertInto('funding_agreement')
-        .values({
-          id: existingAgreement,
-          organizationId: org,
-          agencyId: agency,
-          streamId: stream,
-          ...names('Existing agreement'),
-          agreementNumber: 'existing',
-          config: sql`'{}'::jsonb`,
-          sourceSystem: 'gcs-ssc',
-          foreignSystemId: null,
-          revision: 1,
-          createdAt: now
-        })
-        .execute()
-      await migrate(old)
-      expect(
-        await old
-          .selectFrom('funding_agreement')
-          .select(['active', 'status'])
-          .where('id', '=', existingAgreement)
-          .executeTakeFirstOrThrow()
-      ).toEqual({ active: true, status: null })
-      expect(
-        await old
-          .selectFrom('funding_call')
-          .select(['id', 'agencyId', 'revision', 'nameEn'])
-          .where('id', '=', existingCall)
-          .executeTakeFirstOrThrow()
-      ).toEqual({ id: existingCall, agencyId: agency, revision: 1, nameEn: 'Existing call' })
-      expect(
-        await old
-          .selectFrom('stream')
-          .select(['id', 'agencyId', 'foreignSystemId'])
-          .where('id', '=', stream)
-          .executeTakeFirstOrThrow()
-      ).toEqual({ id: stream, agencyId: agency, foreignSystemId: null })
-      expect(
-        (await old.selectFrom('permission').select('permission').executeTakeFirstOrThrow())
-          .permission
-      ).toBe('application:viewer')
-      expect(
-        (await old.selectFrom('organization').select('name').executeTakeFirstOrThrow()).name
-      ).toBe('Existing recipient')
-      const otherAgency = uuid()
-      await old
-        .insertInto('agency')
-        .values({ id: otherAgency, ...names('Other'), createdAt: now })
-        .execute()
-      await expect(
-        old
-          .insertInto('funding_agreement')
-          .values({
-            id: uuid(),
-            organizationId: org,
-            agencyId: otherAgency,
-            streamId: stream,
-            ...names('Invalid scope'),
-            agreementNumber: 'invalid',
-            config: sql`'{}'::jsonb`,
-            sourceSystem: 'gcs-ssc',
-            foreignSystemId: null,
-            revision: 1,
-            createdAt: now
-          })
-          .execute()
-      ).rejects.toMatchObject({ code: '23503' })
-      await migrate(old)
-    } finally {
-      await old.destroy()
-    }
-  })
+
 })

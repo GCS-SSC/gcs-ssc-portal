@@ -1,4 +1,4 @@
-import { v7 as uuid } from 'uuid'
+import { publicCode } from '../../shared/utils/response-code'
 import type { ResponseItem, SetSnapshot } from '../../shared/schemas/agreements'
 /** Frozen interchange. Foreign IDs refer to GCS stable budget lineage; no remote writes occur here. */
 export const buildSubmissionExport = (options: {
@@ -27,7 +27,7 @@ export const buildSubmissionExport = (options: {
   agreementReference: options.snapshot.agreementReference,
   publicationId: options.snapshot.publicationId,
   items: options.items.map((item, position) => {
-    const itemSubmissionId = uuid()
+    const itemSubmissionId = `${options.submissionId}-${publicCode(position + 1, 'Y')}`
     const definition = options.snapshot.items.find((entry) => entry.item.id === item.id)!
     if (item.kind === 'survey')
       return {
@@ -71,7 +71,7 @@ export const buildSubmissionExport = (options: {
           periodStart: item.periodStart,
           periodEnd: item.periodEnd,
           receivedDate: options.submittedAt,
-          submissionUuid: itemSubmissionId,
+          submissionCode: itemSubmissionId,
           lineItems: lines.map((line) => ({
             budgetLineItemId: line.foreignSystemId,
             submittedCostCategory: line.budgetLine.costCategory,

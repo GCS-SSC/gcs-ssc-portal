@@ -1,9 +1,8 @@
 import { createHash, randomBytes } from 'node:crypto'
-import { v7 as uuidv7 } from 'uuid'
 import type { Kysely, Selectable, Transaction } from 'kysely'
 import { createError } from 'h3'
 import type { Database } from '../db/schema'
-import type { Invitation, Organization, Permission, PortalUser } from '../../shared/types/api'
+import type { Invitation, Organization, Permission } from '../../shared/types/api'
 import {
   invitationInput,
   organizationInput,
@@ -11,6 +10,8 @@ import {
   transferInput
 } from '../../shared/schemas/portal'
 import { portalConfig } from './config'
+import { organizationCode } from '../../shared/utils/response-code'
+import { encodePublicId } from './public-identifiers'
 type Db = Kysely<Database> | Transaction<Database>
 const fail = (statusCode: number, message: string): never => {
   throw createError({ statusCode, message, data: { code: message } })
@@ -19,8 +20,8 @@ const hash = (token: string) => createHash('sha256').update(token).digest('hex')
 const iso = (date: Date) => new Date(date).toISOString()
 export const getPermissions = async (
   db: Db,
-  organizationId: string,
-  userId: string
+  organizationId: number,
+  userId: number
 ): Promise<Permission[]> => {
   const grants = await db
     .selectFrom('permission')
@@ -33,8 +34,8 @@ export const getPermissions = async (
 }
 const access = async (
   db: Db,
-  organizationId: string,
-  userId: string,
+  organizationId: number,
+  userId: number,
   admin = false,
   lock = false
 ) => {
@@ -55,7 +56,7 @@ const access = async (
 const mapOrganization = async (
   db: Db,
   org: Selectable<Database['organization']>,
-  userId: string
+  userId: number
 ): Promise<Organization> => {
   const count = await db
     .selectFrom('membership')
@@ -64,20 +65,22 @@ const mapOrganization = async (
     .executeTakeFirstOrThrow()
   return {
     ...org,
+    id: organizationCode(org.id),
+    ownerId: encodePublicId(org.ownerId, 'user'),
     createdAt: iso(org.createdAt),
     memberCount: Number(count.count),
     permissions: await getPermissions(db, org.id, userId)
   }
 }
 const mapInvite = (invite: {
-  id: string
+  id: number
   email: string
   name: string
   status: 'pending' | 'accepted' | 'revoked'
   createdAt: Date
   expiresAt: Date
 }): Invitation => ({
-  id: invite.id,
+  id: encodePublicId(invite.id, 'invitation'),
   email: invite.email,
   name: invite.name,
   status:
@@ -87,7 +90,7 @@ const mapInvite = (invite: {
   createdAt: iso(invite.createdAt),
   expiresAt: iso(invite.expiresAt)
 })
-export const listOrganizations = async (db: Db, userId: string) => {
+export const listOrganizations = async (db: Db, userId: number) => {
   const organizations = await db
     .selectFrom('organization')
     .innerJoin('membership', 'membership.organizationId', 'organization.id')
@@ -99,13 +102,13 @@ export const listOrganizations = async (db: Db, userId: string) => {
     organizations: await Promise.all(organizations.map((org) => mapOrganization(db, org, userId)))
   }
 }
-export const getOrganization = async (db: Db, id: string, userId: string) => ({
+export const getOrganization = async (db: Db, id: number, userId: number) => ({
   organization: await mapOrganization(db, await access(db, id, userId), userId)
 })
-export const createOrganization = async (db: Kysely<Database>, userId: string, body: unknown) => {
+export const createOrganization = async (db: Kysely<Database>, userId: number, body: unknown) => {
   const input = organizationInput.parse(body)
   return db.transaction().execute(async (tx) => {
-    const org = { id: uuidv7(), ...input, ownerId: userId, createdAt: new Date() }
+    const org = { ...input, ownerId: userId, createdAt: new Date() }
     const created = await tx
       .insertInto('organization')
       .values(org)
@@ -113,19 +116,19 @@ export const createOrganization = async (db: Kysely<Database>, userId: string, b
       .executeTakeFirstOrThrow()
     await tx
       .insertInto('membership')
-      .values({ organizationId: org.id, userId, joinedAt: new Date() })
+      .values({ organizationId: created.id, userId, joinedAt: new Date() })
       .execute()
     await tx
       .insertInto('permission')
-      .values({ organizationId: org.id, userId, permission: 'admin' })
+      .values({ organizationId: created.id, userId, permission: 'admin' })
       .execute()
     return { organization: await mapOrganization(tx, created, userId) }
   })
 }
 export const updateOrganization = async (
   db: Kysely<Database>,
-  id: string,
-  userId: string,
+  id: number,
+  userId: number,
   body: unknown
 ) => {
   const input = organizationInput.parse(body)
@@ -135,7 +138,7 @@ export const updateOrganization = async (
     return getOrganization(tx, id, userId)
   })
 }
-export const listMembers = async (db: Db, id: string, userId: string) => {
+export const listMembers = async (db: Db, id: number, userId: number) => {
   const org = await access(db, id, userId)
   const members = await db
     .selectFrom('membership')
@@ -148,6 +151,7 @@ export const listMembers = async (db: Db, id: string, userId: string) => {
     members: await Promise.all(
       members.map(async (member) => ({
         ...member,
+        userId: encodePublicId(member.userId, 'user'),
         joinedAt: iso(member.joinedAt),
         isOwner: member.userId === org.ownerId,
         permissions: await getPermissions(db, id, member.userId)
@@ -157,9 +161,9 @@ export const listMembers = async (db: Db, id: string, userId: string) => {
 }
 export const updatePermissions = async (
   db: Kysely<Database>,
-  id: string,
-  actorId: string,
-  targetId: string,
+  id: number,
+  actorId: number,
+  targetId: number,
   body: unknown
 ) => {
   const input = permissionsInput.parse(body)
@@ -192,8 +196,8 @@ export const updatePermissions = async (
 }
 export const transferOwnership = async (
   db: Kysely<Database>,
-  id: string,
-  actorId: string,
+  id: number,
+  actorId: number,
   body: unknown
 ) => {
   const input = transferInput.parse(body)
@@ -221,7 +225,7 @@ export const transferOwnership = async (
     return getOrganization(tx, id, actorId)
   })
 }
-export const listInvitations = async (db: Db, id: string, userId: string) => {
+export const listInvitations = async (db: Db, id: number, userId: number) => {
   await access(db, id, userId, true)
   return {
     invitations: (
@@ -236,8 +240,8 @@ export const listInvitations = async (db: Db, id: string, userId: string) => {
 }
 export const createInvitation = async (
   db: Kysely<Database>,
-  id: string,
-  userId: string,
+  id: number,
+  userId: number,
   body: unknown
 ) => {
   const input = invitationInput.parse(body)
@@ -261,7 +265,6 @@ export const createInvitation = async (
       .execute()
     const token = randomBytes(32).toString('base64url')
     const invitation = {
-      id: uuidv7(),
       organizationId: id,
       ...input,
       tokenHash: hash(token),
@@ -270,15 +273,19 @@ export const createInvitation = async (
       createdAt: new Date(),
       expiresAt: new Date(Date.now() + config.days * 86400000)
     }
-    await tx.insertInto('invitation').values(invitation).execute()
-    return { invitation: mapInvite(invitation), url: `${config.appUrl}/invitations/${token}` }
+    const created = await tx
+      .insertInto('invitation')
+      .values(invitation)
+      .returningAll()
+      .executeTakeFirstOrThrow()
+    return { invitation: mapInvite(created), url: `${config.appUrl}/invitations/${token}` }
   })
 }
 export const revokeInvitation = async (
   db: Kysely<Database>,
-  id: string,
-  actorId: string,
-  invitationId: string
+  id: number,
+  actorId: number,
+  invitationId: number
 ) =>
   db.transaction().execute(async (tx) => {
     await access(tx, id, actorId, true, true)
@@ -318,7 +325,7 @@ export const previewInvitation = async (db: Db, token: string) => {
     expiresAt: iso(invite.expiresAt)
   }
 }
-export const acceptInvitation = async (db: Kysely<Database>, token: string, user: PortalUser) => {
+export const acceptInvitation = async (db: Kysely<Database>, token: string, user: { id: number; name: string; email: string }) => {
   const initial = await findInvitation(db, token)
   return db.transaction().execute(async (tx) => {
     // All writes lock the organization before invitation/member rows: one consistent order.

@@ -1,6 +1,5 @@
 import type { Kysely } from 'kysely'
 import { sql } from 'kysely'
-import { v7 as uuid } from 'uuid'
 import type { Database } from '../schema'
 
 /** Exercise agency grouping in the applicant's searchable demo catalogue. */
@@ -21,44 +20,45 @@ export const demoSecondAgencyMigration = {
       .where('revision', '=', original.surveyRevision)
       .executeTakeFirstOrThrow()
     const now = new Date()
-    const agencyId = uuid()
-    const programId = uuid()
-    const streamId = uuid()
-    const surveyId = uuid()
-    await db
+    const agency = await db
       .insertInto('agency')
       .values({
-        id: agencyId,
         nameEn: 'Demo Regional Agency',
         nameFr: 'Agence régionale de démonstration',
         createdAt: now
       })
-      .execute()
-    await db
+      .returning('id')
+      .executeTakeFirstOrThrow()
+    const agencyId = agency.id
+    const program = await db
       .insertInto('program')
       .values({
-        id: programId,
         agencyId,
         nameEn: 'Regional Partnerships',
         nameFr: 'Partenariats régionaux',
         createdAt: now
       })
-      .execute()
-    await db
+      .returning('id')
+      .executeTakeFirstOrThrow()
+    const programId = program.id
+    const stream = await db
       .insertInto('stream')
       .values({
-        id: streamId,
         programId,
         agencyId,
         nameEn: 'Community Infrastructure',
         nameFr: 'Infrastructure communautaire',
         createdAt: now
       })
-      .execute()
-    await db
+      .returning('id')
+      .executeTakeFirstOrThrow()
+    const streamId = stream.id
+    const survey = await db
       .insertInto('survey')
-      .values({ id: surveyId, agencyId, revision: 1, updatedAt: now })
-      .execute()
+      .values({ agencyId, revision: 1, updatedAt: now })
+      .returning('id')
+      .executeTakeFirstOrThrow()
+    const surveyId = survey.id
     await db
       .insertInto('survey_revision')
       .values({
@@ -76,7 +76,6 @@ export const demoSecondAgencyMigration = {
           ['Community hub improvements', 'Amélioration des carrefours communautaires'],
           ['Public library modernization', 'Modernisation des bibliothèques publiques']
         ].map(([nameEn, nameFr]) => ({
-          id: uuid(),
           agencyId,
           streamId,
           nameEn: nameEn!,

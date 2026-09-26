@@ -7,6 +7,7 @@ const props = defineProps<{
   files: ResponseAttachment[]
   limits: AttachmentLimits
   readonly: boolean
+  lockedIds?: string[]
 }>()
 const emit = defineEmits<{
   change: [result: { revision: number; attachments: ResponseAttachment[] }]
@@ -88,7 +89,7 @@ const remove = (id: string) =>
         <span v-else>{{ entry.filename }} — {{ a('pending') }}</span>
         <span> ({{ entry.size }} B)</span>
         <PortalButton
-          v-if="!readonly"
+          v-if="!readonly && !lockedIds?.includes(entry.id)"
           variant="secondary"
           :disabled="busy || conflicted"
           @click="remove(entry.id)"

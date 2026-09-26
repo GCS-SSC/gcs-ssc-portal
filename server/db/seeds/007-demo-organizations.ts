@@ -1,5 +1,4 @@
 import type { Kysely } from 'kysely'
-import { v7 as uuid } from 'uuid'
 import type { Database } from '../schema'
 
 const organizations = [
@@ -25,12 +24,13 @@ export const demoOrganizationsMigration = {
     const now = Date.now()
 
     for (const [index, example] of organizations.entries()) {
-      const id = uuid()
       const createdAt = new Date(now + index)
-      await db
+      const organization = await db
         .insertInto('organization')
-        .values({ id, ...example, ownerId: owner.id, createdAt })
-        .execute()
+        .values({ ...example, ownerId: owner.id, createdAt })
+        .returning('id')
+        .executeTakeFirstOrThrow()
+      const id = organization.id
       await db
         .insertInto('membership')
         .values({ organizationId: id, userId: owner.id, joinedAt: createdAt })

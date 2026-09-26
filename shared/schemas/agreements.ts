@@ -6,6 +6,8 @@ import type { PermissionSubject } from '../utils/permissions'
 import { externalId } from './external'
 export { externalId } from './external'
 const key = z.string().regex(/^[a-zA-Z0-9][a-zA-Z0-9_-]{0,63}$/)
+const databaseId = z.number().int().positive()
+export const documentationAttachmentItemId = '!documentation'
 export const money = z
   .string()
   .regex(/^-?(?:0|[1-9]\d{0,16})(?:\.\d{1,2})?$/)
@@ -80,8 +82,8 @@ export const agreementStatusSchema = z
   .strict()
 export type AgreementStatus = z.infer<typeof agreementStatusSchema>
 export const agreementInput = bilingualName.extend({
-  organizationId: z.uuid(),
-  streamId: z.uuid(),
+  organizationId: databaseId,
+  streamId: databaseId,
   agreementNumber: z.string().trim().min(1).max(15),
   active: z.boolean().optional(),
   status: agreementStatusSchema.nullable().optional(),
@@ -98,7 +100,7 @@ export const setItemSchema = z.discriminatedUnion('kind', [
     .object({
       id: key,
       kind: z.literal('survey'),
-      surveyId: z.uuid(),
+      surveyId: databaseId,
       surveyRevision: z.number().int().positive()
     })
     .strict(),
@@ -107,9 +109,9 @@ export const setItemSchema = z.discriminatedUnion('kind', [
 ])
 export const setInput = bilingualName
   .extend({
-    organizationId: z.uuid(),
-    agencyId: z.uuid(),
-    agreementId: z.uuid().nullable(),
+    organizationId: databaseId,
+    agencyId: databaseId,
+    agreementId: databaseId.nullable(),
     sourceSystem: z.string().trim().min(1).max(100).default('gcs-ssc'),
     foreignSystemId: externalId.nullable().default(null),
     items: z
@@ -121,11 +123,31 @@ export const setInput = bilingualName
   .superRefine((value, ctx) => {
     if (!value.agreementId && value.items.some((item) => item.kind !== 'survey'))
       ctx.addIssue({ code: 'custom', message: 'Organization sets may only contain designed forms' })
+    if (
+      value.items.some((item) => item.kind === 'claim') &&
+      value.items.some((item) => item.kind === 'forecast')
+    )
+      ctx.addIssue({ code: 'custom', message: 'Claims and forecasts require separate sets' })
   })
 export const setUpdateInput = z
   .object({ expectedRevision: z.number().int().positive(), value: setInput })
   .strict()
 export const versionInput = z.object({ expectedRevision: z.number().int().positive() }).strict()
+export const submissionStatusInput = z
+  .object({
+    expectedRevision: z.number().int().positive(),
+    status: z.enum(['submitted', 'awaiting_documentation']),
+    gcsStatus: agreementStatusSchema.nullable()
+  })
+  .strict()
+export const submissionDetailInput = z
+  .object({
+    expectedRevision: z.number().int().positive(),
+    body: z.string().trim().max(4000),
+    attachmentIds: z.array(databaseId).max(10)
+  })
+  .strict()
+  .refine((value) => value.body.length > 0 || value.attachmentIds.length > 0)
 const month = z.number().int().min(0).max(11)
 export const responseItemSchema = z.discriminatedUnion('kind', [
   z.object({ id: key, kind: z.literal('survey'), answers: answersSchema }).strict(),
@@ -177,11 +199,11 @@ export interface PublishedItem {
 }
 export interface SetSnapshot {
   application?: {
-    callId: string
+    callId: number
     callRevision: number
-    agencyId: string
-    programId: string
-    streamId: string
+    agencyId: number
+    programId: number
+    streamId: number
     startDate: string
     endDate: string
     sourceSystem: string
@@ -191,7 +213,7 @@ export interface SetSnapshot {
   schemaVersion: 1
   publicationId: string
   agreementReference: {
-    id: string
+    id: number
     agreementNumber: string
     sourceSystem: string
     foreignSystemId: string | null
@@ -202,7 +224,7 @@ export interface SetSnapshot {
   nameFr: string
   items: PublishedItem[]
   agreement: {
-    id: string
+    id: number
     revision: number
     agreementNumber: string
     config: AgreementConfig

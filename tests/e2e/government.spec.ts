@@ -22,7 +22,7 @@ test('administrators register agencies and issue scoped extension keys', async (
     .filter({ hasText: agencyName })
     .locator('code')
     .textContent()
-  expect(agencyId).toMatch(/^[0-9a-f-]{36}$/)
+  expect(agencyId).toMatch(/^G-[A-HJKMNP-Z2-9]{5,}$/)
   const accountMenu = page.getByRole('button', { name: 'Portal Root', exact: true })
   await accountMenu.focus()
   await page.keyboard.press('Enter')

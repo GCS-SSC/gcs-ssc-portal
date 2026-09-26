@@ -1,5 +1,4 @@
 import { sql, type Kysely, type Selectable } from 'kysely'
-import { v7 as uuid } from 'uuid'
 import { agreementInput, agreementUpdateInput } from '../../shared/schemas/agreements'
 import type { AgreementStatus } from '../../shared/schemas/agreements'
 import type { Database } from '../db/schema'
@@ -15,7 +14,7 @@ const map = (row: Selectable<Database['funding_agreement']>) => ({
   ...row,
   createdAt: new Date(row.createdAt).toISOString()
 })
-export const agreementRow = async (db: GovernmentDb, id: string) => {
+export const agreementRow = async (db: GovernmentDb, id: number) => {
   const row = await db
     .selectFrom('funding_agreement')
     .selectAll()
@@ -24,7 +23,7 @@ export const agreementRow = async (db: GovernmentDb, id: string) => {
   if (!row) return fail(404, 'AGREEMENT_NOT_FOUND')
   return row
 }
-export const getAgreement = async (db: GovernmentDb, actor: GovernmentActor, id: string) => {
+export const getAgreement = async (db: GovernmentDb, actor: GovernmentActor, id: number) => {
   const row = await agreementRow(db, id)
   await requireGovernment(db, actor, { agencyId: row.agencyId })
   return { agreement: map(row) }
@@ -32,7 +31,7 @@ export const getAgreement = async (db: GovernmentDb, actor: GovernmentActor, id:
 export const listAgreements = async (
   db: GovernmentDb,
   actor: GovernmentActor,
-  agencyId: string
+  agencyId: number
 ) => {
   await requireGovernment(db, actor, { agencyId })
   return {
@@ -50,7 +49,7 @@ export const saveAgreement = async (
   db: Kysely<Database>,
   actor: GovernmentActor,
   body: unknown,
-  id?: string
+  id?: number
 ) => {
   const update = id ? agreementUpdateInput.parse(body) : null
   const input = update?.value ?? agreementInput.parse(body)
@@ -157,13 +156,11 @@ export const saveAgreement = async (
         .where('id', '=', id)
         .execute()
     } else {
-      id = uuid()
-      await tx
+      const created = await tx
         .insertInto('funding_agreement')
         .values({
           ...input,
           ...statusValue,
-          id,
           agencyId: parent.agencyId,
           config: sql`${JSON.stringify(input.config)}::jsonb`,
           sourceSystem: input.config.sourceSystem,
@@ -171,15 +168,17 @@ export const saveAgreement = async (
           revision: 1,
           createdAt: now
         })
-        .execute()
+        .returning('id')
+        .executeTakeFirstOrThrow()
+      id = created.id
     }
     return getAgreement(tx, actor, id)
   })
 }
 export const organizationAgreements = async (
   db: GovernmentDb,
-  organizationId: string,
-  userId: string
+  organizationId: number,
+  userId: number
 ) => {
   const permissions = await requireBusinessAccess(db, organizationId, userId, [], 'viewer')
   if (!subjects.some((subject) => subject !== 'application' && hasAccess(permissions, subject)))
@@ -208,7 +207,7 @@ export const organizationAgreements = async (
 export const updateBalances = async (
   db: Kysely<Database>,
   actor: GovernmentActor,
-  id: string,
+  id: number,
   body: unknown
 ) => {
   const { balancesInput } = await import('../../shared/schemas/agreements')

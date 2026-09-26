@@ -1,5 +1,5 @@
 import { sql, type Kysely } from 'kysely'
-import { v7 as uuid } from 'uuid'
+import { nanoid } from 'nanoid'
 import { agreementInput, setInput, type SetSnapshot } from '../../../shared/schemas/agreements'
 import type { Database } from '../schema'
 
@@ -98,7 +98,6 @@ export const demoAgreementsMigration = {
     const fiscalYear = now.getUTCFullYear()
 
     for (const example of examples) {
-      const agreementId = uuid()
       const config = agreementInput.parse({
         organizationId: organization.id,
         streamId: call.streamId,
@@ -128,10 +127,9 @@ export const demoAgreementsMigration = {
           }))
         }
       })
-      await db
+      const agreement = await db
         .insertInto('funding_agreement')
         .values({
-          id: agreementId,
           organizationId: organization.id,
           agencyId: call.agencyId,
           streamId: call.streamId,
@@ -144,64 +142,63 @@ export const demoAgreementsMigration = {
           revision: 1,
           createdAt: now
         })
-        .execute()
+        .returning('id')
+        .executeTakeFirstOrThrow()
+      const agreementId = agreement.id
 
-      // Each agreement has a published claim/forecast set accessible from Agreements.
-      const set = setInput.parse({
-        organizationId: organization.id,
-        agencyId: call.agencyId,
-        agreementId,
-        nameEn: `${example.nameEn} — Claims and forecasts`,
-        nameFr: `${example.nameFr} — Demandes de remboursement et prévisions`,
-        sourceSystem: 'demo',
-        foreignSystemId: null,
-        items: [
-          { id: 'claim', kind: 'claim', fiscalYearId: 'current-year' },
-          { id: 'forecast', kind: 'forecast', fiscalYearId: 'current-year' }
-        ]
-      })
-      const snapshot: SetSnapshot = {
-        schemaVersion: 1,
-        publicationId: uuid(),
-        agreementReference: {
-          id: agreementId,
-          agreementNumber: example.agreementNumber,
-          sourceSystem: 'demo',
-          foreignSystemId: null,
-          externalStreamId: null,
-          externalApplicantRecipientId: null
-        },
-        nameEn: set.nameEn,
-        nameFr: set.nameFr,
-        sourceSystem: 'demo',
-        foreignSystemId: null,
-        items: set.items.map((item) => ({ item })),
-        agreement: {
-          id: agreementId,
-          revision: 1,
-          agreementNumber: example.agreementNumber,
-          config: config.config
-        }
-      }
-      await db
-        .insertInto('submission_set')
-        .values({
-          id: uuid(),
+      for (const kind of ['claim', 'forecast'] as const) {
+        const set = setInput.parse({
           organizationId: organization.id,
           agencyId: call.agencyId,
           agreementId,
-          callId: null,
+          nameEn: `${example.nameEn} — ${kind === 'claim' ? 'Claims' : 'Forecasts'}`,
+          nameFr: `${example.nameFr} — ${kind === 'claim' ? 'Demandes de remboursement' : 'Prévisions'}`,
+          sourceSystem: 'demo',
+          foreignSystemId: null,
+          items: [{ id: kind, kind, fiscalYearId: 'current-year' }]
+        })
+        const snapshot: SetSnapshot = {
+          schemaVersion: 1,
+          publicationId: nanoid(),
+          agreementReference: {
+            id: agreementId,
+            agreementNumber: example.agreementNumber,
+            sourceSystem: 'demo',
+            foreignSystemId: null,
+            externalStreamId: null,
+            externalApplicantRecipientId: null
+          },
           nameEn: set.nameEn,
           nameFr: set.nameFr,
           sourceSystem: 'demo',
           foreignSystemId: null,
-          items: sql`${JSON.stringify(set.items)}::jsonb`,
-          snapshot: sql`${JSON.stringify(snapshot)}::jsonb`,
-          revision: 2,
-          published: true,
-          createdAt: now
-        })
-        .execute()
+          items: set.items.map((item) => ({ item })),
+          agreement: {
+            id: agreementId,
+            revision: 1,
+            agreementNumber: example.agreementNumber,
+            config: config.config
+          }
+        }
+        await db
+          .insertInto('submission_set')
+          .values({
+            organizationId: organization.id,
+            agencyId: call.agencyId,
+            agreementId,
+            callId: null,
+            nameEn: set.nameEn,
+            nameFr: set.nameFr,
+            sourceSystem: 'demo',
+            foreignSystemId: null,
+            items: sql`${JSON.stringify(set.items)}::jsonb`,
+            snapshot: sql`${JSON.stringify(snapshot)}::jsonb`,
+            revision: 2,
+            published: true,
+            createdAt: now
+          })
+          .execute()
+      }
     }
   }
 }

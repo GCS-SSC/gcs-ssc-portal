@@ -1,6 +1,5 @@
 import { hasAccess } from '../../shared/utils/permissions'
 import { sql, type Kysely } from 'kysely'
-import { v7 as uuidv7 } from 'uuid'
 import type { Database } from '../db/schema'
 import {
   structureInput,
@@ -20,10 +19,10 @@ import { getPermissions } from './portal'
 const iso = (date: Date) => new Date(date).toISOString()
 const dateText = (value: string | Date) =>
   typeof value === 'string' ? value.slice(0, 10) : value.toISOString().slice(0, 10)
-const programOwner = async (db: GovernmentDb, id: string) =>
+const programOwner = async (db: GovernmentDb, id: number) =>
   (await db.selectFrom('program').selectAll().where('id', '=', id).executeTakeFirst()) ??
   fail(404, 'PROGRAM_NOT_FOUND')
-const streamOwner = async (db: GovernmentDb, id: string) =>
+const streamOwner = async (db: GovernmentDb, id: number) =>
   (await db
     .selectFrom('stream')
     .innerJoin('program', 'program.id', 'stream.programId')
@@ -75,15 +74,18 @@ export const createAgency = async (db: Kysely<Database>, actor: GovernmentActor,
     const access = await requireGovernment(tx, actor, { lock: true })
     if (actor.kind !== 'administrator' || access.role === 'integration')
       return fail(403, 'ADMINISTRATOR_REQUIRED')
-    const agency = { id: uuidv7(), ...input, createdAt: new Date() }
-    await tx.insertInto('agency').values(agency).execute()
+    const agency = await tx
+      .insertInto('agency')
+      .values({ ...input, createdAt: new Date() })
+      .returningAll()
+      .executeTakeFirstOrThrow()
     return { agency: { ...agency, createdAt: iso(agency.createdAt) } }
   })
 }
 export const updateAgency = async (
   db: Kysely<Database>,
   actor: GovernmentActor,
-  id: string,
+  id: number,
   body: unknown
 ) => {
   const input = structureInput.parse(body)
@@ -99,7 +101,7 @@ export const updateAgency = async (
     return { agency: { ...row, createdAt: iso(row.createdAt) } }
   })
 }
-export const agencyStructure = async (db: GovernmentDb, actor: GovernmentActor, id: string) => {
+export const agencyStructure = async (db: GovernmentDb, actor: GovernmentActor, id: number) => {
   await requireGovernment(db, actor, { agencyId: id })
   const agency = await db.selectFrom('agency').selectAll().where('id', '=', id).executeTakeFirst()
   if (!agency) return fail(404, 'AGENCY_NOT_FOUND')
@@ -146,8 +148,11 @@ export const createProgram = async (
         .executeTakeFirst())
     )
       return fail(404, 'AGENCY_NOT_FOUND')
-    const row = { id: uuidv7(), ...input, createdAt: new Date() }
-    await tx.insertInto('program').values(row).execute()
+    const row = await tx
+      .insertInto('program')
+      .values({ ...input, createdAt: new Date() })
+      .returningAll()
+      .executeTakeFirstOrThrow()
     return { program: { ...row, createdAt: iso(row.createdAt) } }
   })
 }
@@ -156,11 +161,11 @@ export const createStream = async (db: Kysely<Database>, actor: GovernmentActor,
   return db.transaction().execute(async (tx) => {
     const program = await programOwner(tx, input.programId)
     await requireGovernment(tx, actor, { agencyId: program.agencyId, lock: true })
-    const row = { id: uuidv7(), ...input, createdAt: new Date() }
-    await tx
+    const row = await tx
       .insertInto('stream')
-      .values({ ...row, agencyId: program.agencyId })
-      .execute()
+      .values({ ...input, agencyId: program.agencyId, createdAt: new Date() })
+      .returningAll()
+      .executeTakeFirstOrThrow()
     return { stream: { ...row, agencyId: program.agencyId, createdAt: iso(row.createdAt) } }
   })
 }
@@ -168,7 +173,7 @@ export const updateStructureName = async (
   db: Kysely<Database>,
   actor: GovernmentActor,
   kind: 'program' | 'stream',
-  id: string,
+  id: number,
   body: unknown
 ) => {
   const input = structureInput.parse(body)
@@ -183,7 +188,7 @@ export const saveCall = async (
   db: Kysely<Database>,
   actor: GovernmentActor,
   body: unknown,
-  id?: string
+  id?: number
 ) => {
   const input = callInput.parse(body)
   return db.transaction().execute(async (tx) => {
@@ -208,17 +213,17 @@ export const saveCall = async (
         .where('id', '=', id)
         .execute()
     } else {
-      id = uuidv7()
-      await tx
+      const created = await tx
         .insertInto('funding_call')
         .values({
-          id,
           ...input,
           agencyId: stream.agencyId,
           published: false,
           createdAt: new Date()
         })
-        .execute()
+        .returning('id')
+        .executeTakeFirstOrThrow()
+      id = created.id
     }
     return { id }
   })
@@ -226,7 +231,7 @@ export const saveCall = async (
 export const publishCall = async (
   db: Kysely<Database>,
   actor: GovernmentActor,
-  id: string,
+  id: number,
   body: unknown
 ) => {
   const input = publishInput.parse(body)
@@ -244,8 +249,8 @@ export const publishCall = async (
 }
 export const fundingCatalogue = async (
   db: GovernmentDb,
-  organizationId: string,
-  userId: string
+  organizationId: number,
+  userId: number
 ) => {
   const membership = await db
     .selectFrom('membership')

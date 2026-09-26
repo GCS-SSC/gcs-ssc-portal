@@ -34,7 +34,7 @@ Organization members with application viewer access can open a published call’
 
 ## Persistence and API
 
-Migration `003_surveys` adds `survey` (agency, current revision and update timestamp), immutable `survey_revision` (JSON definition and creation time), and nullable `surveyId`/`surveyRevision` on `funding_call`. A composite foreign key and pair check enforce a valid attachment. Updates lock the integration credential then the survey row, compare `expectedRevision`, insert a revision and advance the head in one transaction. Attachment locks the actor then call; parent agency links are immutable. All survey IDs are server-generated UUIDv7.
+Migration `003_surveys` adds `survey` (agency, current revision and update timestamp), immutable `survey_revision` (JSON definition and creation time), and nullable `surveyId`/`surveyRevision` on `funding_call`. A composite foreign key and pair check enforce a valid attachment. Updates lock the integration credential then the survey row, compare `expectedRevision`, insert a revision and advance the head in one transaction. Attachment locks the actor then call; parent agency links are immutable. Survey IDs are database-assigned integers internally and V-prefixed Sqids in the API.
 
 All government routes require an active agency-scoped integration credential. Survey mutation requests have a bounded 256 KiB envelope; the shared definition schema permits at most 240 KiB UTF-8. Other endpoints retain the 16 KiB request limit.
 

@@ -1,6 +1,5 @@
 import { afterAll, beforeAll, expect, it } from 'vitest'
 import { Kysely } from 'kysely'
-import { v7 as uuid } from 'uuid'
 import { createDatabase } from '../../server/utils/database'
 import type { H3Event } from 'h3'
 import type { Database } from '../../server/db/schema'
@@ -21,7 +20,7 @@ import {
 } from '../../server/utils/government-access'
 
 let db: Kysely<Database>
-let administratorId: string
+let administratorId: number
 const names = (name: string) => ({ nameEn: name, nameFr: `${name} FR` })
 beforeAll(async () => {
   db = await createDatabase({ url: process.env.PORTAL_TEST_DATABASE_URL })
@@ -82,12 +81,10 @@ it('revokes legacy staff credentials while preserving agencies and access deny m
   const old = new Kysely<Database>({ dialect: pgliteDialect('memory://') })
   try {
     await migrate(old, '005_applications_attachments')
-    const now = new Date(),
-      agencyId = uuid()
-    await old
+    const now = new Date()
+    const legacy = await old
       .insertInto('user')
       .values({
-        id: 'legacy-staff',
         name: 'Former staff',
         email: 'former@example.test',
         emailVerified: false,
@@ -95,17 +92,17 @@ it('revokes legacy staff credentials while preserving agencies and access deny m
         createdAt: now,
         updatedAt: now
       })
-      .execute()
+      .returning('id')
+      .executeTakeFirstOrThrow()
     await old
       .insertInto('government_user')
-      .values({ userId: 'legacy-staff', role: 'staff', active: true, createdAt: now })
+      .values({ userId: legacy.id, role: 'staff', active: true, createdAt: now })
       .execute()
     await old
       .insertInto('account')
       .values({
-        id: 'old-account',
-        userId: 'legacy-staff',
-        accountId: 'legacy-staff',
+        userId: legacy.id,
+        accountId: String(legacy.id),
         providerId: 'credential',
         password: 'old-hash',
         accessToken: null,
@@ -121,8 +118,7 @@ it('revokes legacy staff credentials while preserving agencies and access deny m
     await old
       .insertInto('session')
       .values({
-        id: 'old-session',
-        userId: 'legacy-staff',
+        userId: legacy.id,
         token: 'old-token',
         expiresAt: new Date(now.getTime() + 86400000),
         createdAt: now,
@@ -131,17 +127,18 @@ it('revokes legacy staff credentials while preserving agencies and access deny m
         userAgent: null
       })
       .execute()
-    await old
+    const agency = await old
       .insertInto('agency')
-      .values({ id: agencyId, ...names('Preserved agency'), createdAt: now })
-      .execute()
+      .values({ ...names('Preserved agency'), createdAt: now })
+      .returning('id')
+      .executeTakeFirstOrThrow()
     await migrate(old)
     expect(await old.selectFrom('account').selectAll().execute()).toEqual([])
     expect(await old.selectFrom('session').selectAll().execute()).toEqual([])
     expect((await old.selectFrom('agency').select('id').executeTakeFirstOrThrow()).id).toBe(
-      agencyId
+      agency.id
     )
-    await expect(requireOrganizationAccount(old, 'legacy-staff')).rejects.toMatchObject({
+    await expect(requireOrganizationAccount(old, legacy.id)).rejects.toMatchObject({
       statusCode: 403
     })
   } finally {

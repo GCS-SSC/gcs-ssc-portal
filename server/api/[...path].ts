@@ -8,7 +8,6 @@ import * as responses from '../utils/set-responses'
 import { applicantSurvey } from '../utils/surveys'
 import { createError, defineEventHandler, getHeader, getQuery, getRequestURL, setHeader } from 'h3'
 import { ZodError } from 'zod'
-import { organizationId } from '../../shared/schemas/portal'
 import { useAuth } from '../utils/auth'
 import { useDatabase } from '../utils/database'
 import { isPortalOriginAllowed } from '../utils/config'
@@ -16,7 +15,18 @@ import { parseJsonBody, readBoundedBody, toBoundedRequest } from '../utils/reque
 import * as portal from '../utils/portal'
 import { isGovernmentAccount, requireOrganizationAccount } from '../utils/government-access'
 import { fundingCatalogue } from '../utils/government-structure'
-export default defineEventHandler(async (event) => {
+import {
+  decodePublicId,
+  publicReferences,
+  resolvePublicInput,
+  resolveResponseCode
+} from '../utils/public-identifiers'
+const internalUserId = (value: string): number => {
+  if (!/^[1-9]\d*$/.test(value) || !Number.isSafeInteger(Number(value)))
+    throw createError({ statusCode: 401, message: 'AUTHENTICATION_REQUIRED' })
+  return Number(value)
+}
+const portalHandler = defineEventHandler(async (event) => {
   setHeader(event, 'Cache-Control', 'no-store')
   setHeader(event, 'Referrer-Policy', 'no-referrer')
   setHeader(event, 'X-Content-Type-Options', 'nosniff')
@@ -55,7 +65,7 @@ export default defineEventHandler(async (event) => {
       return await portal.previewInvitation(db, path[1]!)
     const session = await (await useAuth()).api.getSession({ headers: request.headers })
     const user = session
-      ? { id: session.user.id, name: session.user.name, email: session.user.email }
+      ? { id: internalUserId(session.user.id), name: session.user.name, email: session.user.email }
       : null
     if (path[0] === 'session' && path.length === 1 && method === 'GET')
       return {
@@ -84,24 +94,24 @@ export default defineEventHandler(async (event) => {
         if (method === 'POST')
           return await portal.createOrganization(db, user.id, parseJsonBody(body))
       } else {
-        const id = organizationId.parse(path[1])
+        const id = decodePublicId(path[1]!, 'organization')
         if (path.length === 3 && method === 'GET') {
           if (path[2] === 'agreements') return await organizationAgreements(db, id, user.id)
           if (path[2] === 'sets') return await organizationSets(db, id, user.id)
           if (path[2] === 'responses') return await responses.listResponses(db, id, user.id)
         }
         if (path.length === 4 && path[2] === 'sets' && method === 'GET')
-          return await organizationSet(db, id, user.id, organizationId.parse(path[3]))
+          return await organizationSet(db, id, user.id, decodePublicId(path[3]!, 'set'))
         if (path.length === 5 && path[2] === 'sets' && path[4] === 'responses' && method === 'POST')
           return await responses.startResponse(
             db,
             id,
             user.id,
-            organizationId.parse(path[3]),
-            parseJsonBody(body)
+            decodePublicId(path[3]!, 'set'),
+            resolvePublicInput(parseJsonBody(body))
           )
         if (path.length >= 4 && path[2] === 'responses') {
-          const responseId = organizationId.parse(path[3])
+          const responseId = await resolveResponseCode(db, path[3]!)
           if (upload && path.length === 7) {
             const metadata = await attachments.authorizeAttachmentUpload(
               db,
@@ -121,7 +131,7 @@ export default defineEventHandler(async (event) => {
             )
           }
           if (path.length === 6 && path[4] === 'attachments') {
-            const attachmentId = organizationId.parse(path[5])
+            const attachmentId = decodePublicId(path[5]!, 'attachment')
             if (method === 'GET')
               return sendAttachment(
                 event,
@@ -134,7 +144,7 @@ export default defineEventHandler(async (event) => {
                 user.id,
                 responseId,
                 attachmentId,
-                parseJsonBody(body)
+                resolvePublicInput(parseJsonBody(body))
               )
           }
 
@@ -147,7 +157,7 @@ export default defineEventHandler(async (event) => {
               user.id,
               responseId,
               'save',
-              parseJsonBody(body)
+              resolvePublicInput(parseJsonBody(body))
             )
           if (path.length === 4 && method === 'DELETE')
             return await responses.mutateResponse(
@@ -156,10 +166,16 @@ export default defineEventHandler(async (event) => {
               user.id,
               responseId,
               'delete',
-              parseJsonBody(body)
+              resolvePublicInput(parseJsonBody(body))
             )
           if (path.length === 5 && path[4] === 'check' && method === 'POST')
-            return await responses.checkResponse(db, id, user.id, responseId, parseJsonBody(body))
+            return await responses.checkResponse(
+              db,
+              id,
+              user.id,
+              responseId,
+              resolvePublicInput(parseJsonBody(body))
+            )
           if (path.length === 5 && path[4] === 'submit' && method === 'POST')
             return await responses.mutateResponse(
               db,
@@ -167,7 +183,15 @@ export default defineEventHandler(async (event) => {
               user.id,
               responseId,
               'submit',
-              parseJsonBody(body)
+              resolvePublicInput(parseJsonBody(body))
+            )
+          if (path.length === 5 && path[4] === 'details' && method === 'POST')
+            return await responses.addSubmissionDetail(
+              db,
+              id,
+              user.id,
+              responseId,
+              resolvePublicInput(parseJsonBody(body))
             )
         }
         if (path.length === 2) {
@@ -181,7 +205,7 @@ export default defineEventHandler(async (event) => {
           path[4] === 'survey' &&
           method === 'GET'
         )
-          return await applicantSurvey(db, id, user.id, organizationId.parse(path[3]))
+          return await applicantSurvey(db, id, user.id, decodePublicId(path[3]!, 'call'))
         if (
           path.length === 5 &&
           path[2] === 'funding-calls' &&
@@ -192,24 +216,29 @@ export default defineEventHandler(async (event) => {
             db,
             id,
             user.id,
-            organizationId.parse(path[3]),
-            parseJsonBody(body)
+            decodePublicId(path[3]!, 'call'),
+            resolvePublicInput(parseJsonBody(body))
           )
         if (path.length === 3 && path[2] === 'funding-calls' && method === 'GET')
           return await fundingCatalogue(db, id, user.id)
         if (path.length === 3 && path[2] === 'members' && method === 'GET')
           return await portal.listMembers(db, id, user.id)
         if (path.length === 4 && path[2] === 'members' && method === 'PATCH')
-          return await portal.updatePermissions(db, id, user.id, path[3]!, parseJsonBody(body))
+          return await portal.updatePermissions(db, id, user.id, decodePublicId(path[3]!, 'user'), parseJsonBody(body))
         if (path.length === 3 && path[2] === 'transfer' && method === 'POST')
-          return await portal.transferOwnership(db, id, user.id, parseJsonBody(body))
+          return await portal.transferOwnership(db, id, user.id, resolvePublicInput(parseJsonBody(body)))
         if (path.length === 3 && path[2] === 'invitations') {
           if (method === 'GET') return await portal.listInvitations(db, id, user.id)
           if (method === 'POST')
             return await portal.createInvitation(db, id, user.id, parseJsonBody(body))
         }
         if (path.length === 4 && path[2] === 'invitations' && method === 'DELETE')
-          return await portal.revokeInvitation(db, id, user.id, organizationId.parse(path[3]))
+          return await portal.revokeInvitation(
+            db,
+            id,
+            user.id,
+            decodePublicId(path[3]!, 'invitation')
+          )
       }
     }
     throw createError({ statusCode: 404, message: 'NOT_FOUND' })
@@ -223,3 +252,4 @@ export default defineEventHandler(async (event) => {
     throw error
   }
 })
+export default defineEventHandler(async (event) => publicReferences(await portalHandler(event)))

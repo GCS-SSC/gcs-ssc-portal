@@ -1,5 +1,4 @@
 import type { Kysely } from 'kysely'
-import { v7 as uuid } from 'uuid'
 import type { Database } from '../schema'
 
 const examples = [
@@ -27,7 +26,6 @@ export const demoFundingCallsMigration = {
       .insertInto('funding_call')
       .values(
         examples.map(([nameEn, nameFr]) => ({
-          id: uuid(),
           agencyId: original.agencyId,
           streamId: original.streamId,
           nameEn,

@@ -2,7 +2,7 @@ import type { AccessLevel, PermissionSubject } from '../../shared/utils/permissi
 import { hasAccess } from '../../shared/utils/permissions'
 import { getPermissions } from './portal'
 import { governmentFail as fail, type GovernmentDb } from './government-access'
-export const lockOrganization = async (db: GovernmentDb, id: string) => {
+export const lockOrganization = async (db: GovernmentDb, id: number) => {
   const org = await db
     .selectFrom('organization')
     .select('id')
@@ -13,8 +13,8 @@ export const lockOrganization = async (db: GovernmentDb, id: string) => {
 }
 export const requireBusinessAccess = async (
   db: GovernmentDb,
-  organizationId: string,
-  userId: string,
+  organizationId: number,
+  userId: number,
   subjects: PermissionSubject[],
   level: AccessLevel
 ) => {

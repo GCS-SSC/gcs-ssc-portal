@@ -10,9 +10,10 @@ import * as structure from '../../server/utils/government-structure'
 import { createAdministrator } from '../../server/utils/administrator-accounts'
 import * as admin from '../../server/utils/government-admin'
 import * as portal from '../../server/utils/portal'
+import { decodePublicId } from '../../server/utils/public-identifiers'
 import { secretHash } from '../../server/utils/government-access'
-let db: Kysely<Database>, actor: GovernmentActor, agencyId: string, otherId: string
-const owner = { id: 'applicant', name: 'Applicant', email: 'survey@example.test' }
+let db: Kysely<Database>, actor: GovernmentActor, agencyId: number, otherId: number
+const owner = { id: 0, name: 'Applicant', email: 'survey@example.test' }
 const names = { nameEn: 'Agency', nameFr: 'Organisme' }
 const definition: SurveyDefinition = {
   schemaVersion: 1,
@@ -48,16 +49,20 @@ beforeAll(async () => {
     }
   }
   db = await createDatabase({ url })
-  await db
-    .insertInto('user')
-    .values({
-      ...owner,
-      emailVerified: false,
-      image: null,
-      createdAt: new Date(),
-      updatedAt: new Date()
-    })
-    .execute()
+  owner.id = (
+    await db
+      .insertInto('user')
+      .values({
+        name: owner.name,
+        email: owner.email,
+        emailVerified: false,
+        image: null,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      })
+      .returning('id')
+      .executeTakeFirstOrThrow()
+  ).id
   const root = await createAdministrator(db, {
     name: 'Root',
     email: 'survey-root@example.test',
@@ -108,26 +113,27 @@ describe('survey persistence and access', () => {
     const { organization } = await portal.createOrganization(db, owner.id, {
       name: 'Applicant organization'
     })
+    const organizationId = decodePublicId(organization.id, 'organization')
     await surveys.attachSurvey(db, actor, call.id, { surveyId: survey.id, revision: 1 })
     await expect(
-      surveys.applicantSurvey(db, organization.id, owner.id, call.id)
+      surveys.applicantSurvey(db, organizationId, owner.id, call.id)
     ).rejects.toMatchObject({ statusCode: 403 })
-    await portal.updatePermissions(db, organization.id, owner.id, owner.id, {
+    await portal.updatePermissions(db, organizationId, owner.id, owner.id, {
       permissions: ['user', 'admin', 'application']
     })
     await expect(
-      surveys.applicantSurvey(db, organization.id, owner.id, call.id)
+      surveys.applicantSurvey(db, organizationId, owner.id, call.id)
     ).rejects.toMatchObject({ statusCode: 404 })
     await structure.publishCall(db, actor, call.id, { published: true })
     expect(
-      (await surveys.applicantSurvey(db, organization.id, owner.id, call.id)).survey.definition
+      (await surveys.applicantSurvey(db, organizationId, owner.id, call.id)).survey.definition
     ).toEqual(definition)
     await surveys.updateSurvey(db, actor, survey.id, {
       expectedRevision: 1,
       definition: { ...definition, title: { en: 'New', fr: 'Nouveau' } }
     })
     expect(
-      (await surveys.applicantSurvey(db, organization.id, owner.id, call.id)).survey.revision
+      (await surveys.applicantSurvey(db, organizationId, owner.id, call.id)).survey.revision
     ).toBe(1)
     await expect(
       surveys.attachSurvey(db, actor, call.id, { surveyId: survey.id, revision: 2 })
@@ -141,11 +147,11 @@ describe('survey persistence and access', () => {
     await surveys.attachSurvey(db, actor, call.id, { surveyId: survey.id, revision: 2 })
     await structure.publishCall(db, actor, call.id, { published: true })
     expect(
-      (await surveys.applicantSurvey(db, organization.id, owner.id, call.id)).survey.revision
+      (await surveys.applicantSurvey(db, organizationId, owner.id, call.id)).survey.revision
     ).toBe(2)
-    await expect(
-      surveys.applicantSurvey(db, organization.id, 'outsider', call.id)
-    ).rejects.toMatchObject({ statusCode: 404 })
+    await expect(surveys.applicantSurvey(db, organizationId, -1, call.id)).rejects.toMatchObject({
+      statusCode: 404
+    })
   })
   it('saves a structured revision without rewriting v1 and rejects invalid flow at the API boundary', async () => {
     const { survey } = await surveys.createSurvey(db, actor, { agencyId, definition })

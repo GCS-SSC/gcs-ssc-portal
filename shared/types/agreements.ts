@@ -5,6 +5,7 @@ import type {
   SetInput,
   SetSnapshot
 } from '../schemas/agreements'
+import type { ResponseCodes } from '../utils/response-code'
 export interface FundingAgreement {
   id: string
   organizationId: string
@@ -26,8 +27,11 @@ export interface OrganizationAgreementSummary extends Pick<
   agencyNameEn: string
   agencyNameFr: string
 }
-export interface SubmissionSet extends SetInput {
+export interface SubmissionSet extends Omit<SetInput, 'organizationId' | 'agencyId' | 'agreementId'> {
   id: string
+  organizationId: string
+  agencyId: string
+  agreementId: string | null
   revision: number
   published: boolean
   snapshot: SetSnapshot | null
@@ -39,9 +43,11 @@ export interface SetResponse {
   setRevision: number
   organizationId: string
   revision: number
-  status: 'draft' | 'submitted'
+  status: 'draft' | 'submitted' | 'awaiting_documentation'
+  gcsStatus: AgreementStatus | null
   locale: 'en' | 'fr'
   items: ResponseItem[]
+  forecastIterations: Record<string, number>
   snapshot: SetSnapshot
   createdAt: string
   updatedAt: string
@@ -78,6 +84,34 @@ export interface ResponseResult {
   response: SetResponse
   balances: LineBalance[]
   submittedBalances: LineBalance[] | null
+  details: SubmissionDetail[]
+}
+
+export interface SubmissionDetail {
+  id: string
+  body: string
+  attachmentIds: string[]
+  createdAt: string
+}
+
+export interface ResponseSummary {
+  id: string
+  codes: ResponseCodes
+  setId: string
+  agreementId: string | null
+  callId: string | null
+  nameEn: string
+  nameFr: string
+  kinds: Array<'claim' | 'forecast' | 'survey'>
+  claimPeriodStart: number | null
+  claimPeriodEnd: number | null
+  finalClaim: boolean | null
+  forecastFiscalYear: number | null
+  forecastIteration: number | null
+  status: SetResponse['status']
+  gcsStatus: AgreementStatus | null
+  submittedAt: string | null
+  updatedAt: string
 }
 
 export interface ResponseAttachment {

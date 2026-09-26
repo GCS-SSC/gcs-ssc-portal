@@ -80,7 +80,7 @@ const text = computed(() =>
         <GcdsButton
           v-if="signedIn"
           size="small"
-          class="gc-nav-account"
+          class="gc-nav-account gc-nav-signout"
           @gcds-click="emit('signout')"
         >
           {{ text.signout }}

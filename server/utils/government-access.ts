@@ -4,12 +4,12 @@ import type { Kysely, Transaction } from 'kysely'
 import type { Database } from '../db/schema'
 export type GovernmentDb = Kysely<Database> | Transaction<Database>
 export type GovernmentActor =
-  { kind: 'administrator'; administratorId: string } | { kind: 'integration'; tokenHash: string }
+  { kind: 'administrator'; administratorId: number } | { kind: 'integration'; tokenHash: string }
 export const governmentFail = (statusCode: number, code: string): never => {
   throw createError({ statusCode, message: code, data: { code } })
 }
 export const secretHash = (value: string) => createHash('sha256').update(value).digest('hex')
-export const isGovernmentAccount = async (db: GovernmentDb, userId: string): Promise<boolean> =>
+export const isGovernmentAccount = async (db: GovernmentDb, userId: number): Promise<boolean> =>
   Boolean(
     await db
       .selectFrom('government_user')
@@ -18,14 +18,14 @@ export const isGovernmentAccount = async (db: GovernmentDb, userId: string): Pro
       .executeTakeFirst()
   )
 
-export const requireOrganizationAccount = async (db: GovernmentDb, userId: string) => {
+export const requireOrganizationAccount = async (db: GovernmentDb, userId: number) => {
   if (await isGovernmentAccount(db, userId)) governmentFail(403, 'ORGANIZATION_ACCESS_FORBIDDEN')
 }
 /** Resolve current authority in the transaction; callers cannot supply cached grants. */
 export const requireGovernment = async (
   db: GovernmentDb,
   actor: GovernmentActor,
-  options: { agencyId?: string; administrator?: boolean; lock?: boolean } = {}
+  options: { agencyId?: number; administrator?: boolean; lock?: boolean } = {}
 ) => {
   if (actor.kind === 'integration') {
     if (options.administrator) return governmentFail(403, 'ADMINISTRATOR_REQUIRED')

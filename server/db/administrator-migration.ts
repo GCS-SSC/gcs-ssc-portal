@@ -3,7 +3,7 @@ import { sql, type Kysely } from 'kysely'
 export const administratorMigration = {
   up: async (db: Kysely<unknown>) => {
     await sql`CREATE TABLE administrator (
-      id uuid PRIMARY KEY,
+      id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
       name text NOT NULL,
       email text NOT NULL UNIQUE,
       "passwordHash" text NOT NULL,
@@ -12,7 +12,7 @@ export const administratorMigration = {
     )`.execute(db)
     await sql`CREATE TABLE administrator_session (
       "tokenHash" text PRIMARY KEY,
-      "administratorId" uuid NOT NULL REFERENCES administrator(id) ON DELETE CASCADE,
+      "administratorId" integer NOT NULL REFERENCES administrator(id) ON DELETE CASCADE,
       "expiresAt" timestamptz NOT NULL,
       "createdAt" timestamptz NOT NULL
     )`.execute(db)

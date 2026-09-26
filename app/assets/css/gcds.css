@@ -25,6 +25,9 @@
   margin-inline-start: var(--gcds-spacing-300);
   margin-block-end: var(--gcds-spacing-100);
 }
+.gc-nav-signout {
+  margin-block-end: 0;
+}
 .gc-status {
   display: inline-block;
   padding: var(--gcds-spacing-50) var(--gcds-spacing-150);

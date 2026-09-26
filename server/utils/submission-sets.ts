@@ -1,5 +1,5 @@
 import { sql, type Kysely, type Selectable } from 'kysely'
-import { v7 as uuid } from 'uuid'
+import { publicCode } from '../../shared/utils/response-code'
 import {
   setInput,
   setUpdateInput,
@@ -21,15 +21,15 @@ const map = (row: Selectable<Database['submission_set']>) => ({
   ...row,
   createdAt: new Date(row.createdAt).toISOString()
 })
-export const setRow = async (db: GovernmentDb, id: string) =>
+export const setRow = async (db: GovernmentDb, id: number) =>
   (await db.selectFrom('submission_set').selectAll().where('id', '=', id).executeTakeFirst()) ??
   fail(404, 'SET_NOT_FOUND')
-export const getSet = async (db: GovernmentDb, actor: GovernmentActor, id: string) => {
+export const getSet = async (db: GovernmentDb, actor: GovernmentActor, id: number) => {
   const row = await setRow(db, id)
   await requireGovernment(db, actor, { agencyId: row.agencyId })
   return { set: map(row) }
 }
-export const listSets = async (db: GovernmentDb, actor: GovernmentActor, agencyId: string) => {
+export const listSets = async (db: GovernmentDb, actor: GovernmentActor, agencyId: number) => {
   await requireGovernment(db, actor, { agencyId })
   return {
     sets: (
@@ -47,7 +47,7 @@ export const saveSet = async (
   db: Kysely<Database>,
   actor: GovernmentActor,
   body: unknown,
-  id?: string
+  id?: number
 ) => {
   const update = id ? setUpdateInput.parse(body) : null
   const input = update?.value ?? setInput.parse(body)
@@ -101,19 +101,19 @@ export const saveSet = async (
         .where('id', '=', id)
         .execute()
     } else {
-      id = uuid()
-      await tx
+      const created = await tx
         .insertInto('submission_set')
         .values({
           ...input,
-          id,
           items: sql`${JSON.stringify(input.items)}::jsonb`,
           snapshot: null,
           revision: 1,
           published: false,
           createdAt: new Date()
         })
-        .execute()
+        .returning('id')
+        .executeTakeFirstOrThrow()
+      id = created.id
     }
     return getSet(tx, actor, id)
   })
@@ -121,7 +121,7 @@ export const saveSet = async (
 export const publishSet = async (
   db: Kysely<Database>,
   actor: GovernmentActor,
-  id: string,
+  id: number,
   body: unknown,
   published: boolean
 ) => {
@@ -141,7 +141,7 @@ export const publishSet = async (
     if (published && !row.snapshot) {
       const snapshot: SetSnapshot = {
         schemaVersion: 1,
-        publicationId: uuid(),
+        publicationId: `${publicCode(row.id, 'S')}-${publicCode(row.revision, 'V')}`,
         agreementReference: null,
         nameEn: row.nameEn,
         nameFr: row.nameFr,
@@ -209,8 +209,8 @@ export const publishSet = async (
 }
 export const organizationSets = async (
   db: GovernmentDb,
-  organizationId: string,
-  userId: string
+  organizationId: number,
+  userId: number
 ) => {
   const permissions = await requireBusinessAccess(db, organizationId, userId, [], 'viewer')
   const rows = await db
@@ -233,9 +233,9 @@ export const organizationSets = async (
 
 export const organizationSet = async (
   db: GovernmentDb,
-  organizationId: string,
-  userId: string,
-  id: string
+  organizationId: number,
+  userId: number,
+  id: number
 ) => {
   const row = await setRow(db, id)
   if (row.callId || row.organizationId !== organizationId || !row.published || !row.snapshot)

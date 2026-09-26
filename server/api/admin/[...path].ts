@@ -11,6 +11,12 @@ import {
 } from '../../utils/administrator-auth'
 import * as admin from '../../utils/government-admin'
 import * as structure from '../../utils/government-structure'
+import {
+  decodePublicId,
+  encodePublicId,
+  publicReferences,
+  resolvePublicInput
+} from '../../utils/public-identifiers'
 
 const credentials = z
   .object({ email: z.email().max(254), password: z.string().min(1).max(128) })
@@ -38,15 +44,15 @@ export default defineEventHandler(async (event) => {
   const db = await useDatabase()
   try {
     if (path[0] === 'session' && path.length === 1 && method === 'GET')
-      return { administrator: await administratorSession(db, event) }
+      return publicReferences({ administrator: await administratorSession(db, event) })
     if (path[0] === 'login' && path.length === 1 && method === 'POST')
-      return {
+      return publicReferences({
         administrator: await signInAdministrator(
           db,
           event,
           credentials.parse(parseJsonBody(await readBoundedBody(toBoundedRequest(event))))
         )
-      }
+      })
     if (path[0] === 'logout' && path.length === 1 && method === 'POST') {
       await signOutAdministrator(db, event)
       return { success: true }
@@ -54,32 +60,43 @@ export default defineEventHandler(async (event) => {
     const administrator = await requireAdministrator(db, event)
     const actor = { kind: 'administrator' as const, administratorId: administrator.id }
     if (path.length === 1 && path[0] === 'agencies') {
-      if (method === 'GET') return structure.listAgencies(db, actor)
+      if (method === 'GET') return publicReferences(await structure.listAgencies(db, actor))
       if (method === 'POST')
-        return structure.createAgency(
-          db,
-          actor,
-          parseJsonBody(await readBoundedBody(toBoundedRequest(event)))
+        return publicReferences(
+          await structure.createAgency(
+            db,
+            actor,
+            parseJsonBody(await readBoundedBody(toBoundedRequest(event)))
+          )
         )
     }
     if (path.length === 2 && path[0] === 'agencies' && method === 'PATCH')
-      return structure.updateAgency(
-        db,
-        actor,
-        z.uuid().parse(path[1]),
-        parseJsonBody(await readBoundedBody(toBoundedRequest(event)))
-      )
-    if (path.length === 1 && path[0] === 'integration-tokens') {
-      if (method === 'GET') return admin.listTokens(db, actor)
-      if (method === 'POST')
-        return admin.createToken(
+      return publicReferences(
+        await structure.updateAgency(
           db,
           actor,
+          decodePublicId(path[1]!, 'agency'),
           parseJsonBody(await readBoundedBody(toBoundedRequest(event)))
         )
+      )
+    if (path.length === 1 && path[0] === 'integration-tokens') {
+      if (method === 'GET')
+        return (await admin.listTokens(db, actor)).map((token) => ({
+          ...token,
+          id: encodePublicId(token.id, 'token'),
+          agencyId: encodePublicId(token.agencyId, 'agency')
+        }))
+      if (method === 'POST') {
+        const result = await admin.createToken(
+          db,
+          actor,
+          resolvePublicInput(parseJsonBody(await readBoundedBody(toBoundedRequest(event))))
+        )
+        return { ...result, id: encodePublicId(result.id, 'token') }
+      }
     }
     if (path.length === 2 && path[0] === 'integration-tokens' && method === 'DELETE')
-      return admin.revokeToken(db, actor, z.uuid().parse(path[1]))
+      return admin.revokeToken(db, actor, decodePublicId(path[1]!, 'token'))
     throw createError({ statusCode: 404, message: 'NOT_FOUND', data: { code: 'NOT_FOUND' } })
   } catch (error) {
     if (error instanceof ZodError)
