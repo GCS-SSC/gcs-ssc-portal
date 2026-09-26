@@ -1,3 +1,4 @@
+import { setEvidenceActor } from '../../utils/evidence'
 import {
   governmentAttachment,
   authorizeGovernmentUpload,
@@ -71,7 +72,13 @@ const governmentHandler = defineEventHandler(async (event) => {
       kind: 'integration',
       tokenHash: secretHash(authorization.slice(7))
     }
-    await requireGovernment(db, actor)
+    const authority = await requireGovernment(db, actor)
+    if (authority.tokenId)
+      setEvidenceActor(event, {
+        kind: 'integration',
+        id: authority.tokenId,
+        agencyId: authority.agencyIds[0]
+      })
     const routeKinds: Record<string, PublicIdKind> = {
       agencies: 'agency',
       programs: 'program',

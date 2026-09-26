@@ -4,6 +4,7 @@ import { getCookie, setCookie, deleteCookie, createError } from 'h3'
 import type { H3Event } from 'h3'
 import { sql, type Kysely } from 'kysely'
 import type { Database } from '../db/schema'
+import { setEvidenceActor } from './evidence'
 import { portalConfig } from './config'
 
 const cookieName = 'portal_administrator'
@@ -26,6 +27,7 @@ export const administratorSession = async (db: Kysely<Database>, event: H3Event)
     .where('s.tokenHash', '=', tokenHash(token))
     .executeTakeFirst()
   if (!row?.active || new Date(row.expiresAt).getTime() <= Date.now()) return null
+  setEvidenceActor(event, { kind: 'administrator', id: row.id })
   return { id: row.id, name: row.name, email: row.email }
 }
 
@@ -88,10 +90,12 @@ export const signInAdministrator = async (
     })
     .execute()
   setCookie(event, cookieName, token, cookieOptions())
+  setEvidenceActor(event, { kind: 'administrator', id: row.id })
   return { id: row.id, name: row.name, email: row.email }
 }
 
 export const signOutAdministrator = async (db: Kysely<Database>, event: H3Event) => {
+  await administratorSession(db, event)
   const token = getCookie(event, cookieName)
   if (token)
     await db.deleteFrom('administrator_session').where('tokenHash', '=', tokenHash(token)).execute()

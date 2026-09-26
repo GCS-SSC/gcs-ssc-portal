@@ -1,4 +1,4 @@
-import { createError, defineEventHandler, getHeader, getRequestURL, setHeader } from 'h3'
+import { createError, defineEventHandler, getHeader, getQuery, getRequestURL, setHeader } from 'h3'
 import { z, ZodError } from 'zod'
 import { useDatabase } from '../../utils/database'
 import { isPortalOriginAllowed } from '../../utils/config'
@@ -9,6 +9,7 @@ import {
   signInAdministrator,
   signOutAdministrator
 } from '../../utils/administrator-auth'
+import { listEvidence, setEvidenceActor } from '../../utils/evidence'
 import * as admin from '../../utils/government-admin'
 import * as structure from '../../utils/government-structure'
 import {
@@ -58,7 +59,26 @@ export default defineEventHandler(async (event) => {
       return { success: true }
     }
     const administrator = await requireAdministrator(db, event)
+    setEvidenceActor(event, { kind: 'administrator', id: administrator.id })
     const actor = { kind: 'administrator' as const, administratorId: administrator.id }
+    if (
+      path.length === 1 &&
+      ['audit-events', 'access-events'].includes(path[0]!) &&
+      method === 'GET'
+    ) {
+      const query = z
+        .object({
+          page: z.coerce.number().int().min(1).max(100000).default(1),
+          limit: z.coerce.number().int().min(1).max(100).default(25)
+        })
+        .parse(getQuery(event))
+      return listEvidence(
+        db,
+        path[0] === 'audit-events' ? 'audit' : 'access',
+        query.page,
+        query.limit
+      )
+    }
     if (path.length === 1 && path[0] === 'agencies') {
       if (method === 'GET') return publicReferences(await structure.listAgencies(db, actor))
       if (method === 'POST')

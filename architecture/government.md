@@ -36,3 +36,9 @@ curl --fail-with-body "$PORTAL_URL/api/government/programs" \
   -H 'Content-Type: application/json' \
   --data '{"agencyId":"<agency G-code>","nameEn":"Community innovation","nameFr":"Innovation communautaire"}'
 ```
+
+## Administrator evidence
+
+The clean-cutover baseline schema creates `audit_event` and `access_event`; portal code only inserts into these tables. Existing databases must be reset for this schema. `/admin/evidence` shows both lists to every authenticated administrator; `/api/admin/audit-events` and `/api/admin/access-events` enforce that session on the server and paginate results (25 by default, 100 maximum). No agency or role filter applies to administrators.
+
+The request middleware records every `/api/*` response status, duration, method, route pattern, verified actor type and ID, agency ID for integration credentials, and a correlation ID. It writes an audit event for each successful non-read API request. Access records include denied and anonymous requests. The route pattern replaces unrecognized URL segments with `:id`; query strings, request bodies, authorization headers and credential values are never stored. Evidence is persisted after response completion, so it may appear shortly after the operation, and a process failure between response and persistence can lose that record. These records describe API activity; they do not yet contain GCS–SSC's database-row before/after capture or SQL query evidence. Retention and durable retry for failed evidence writes are not implemented yet.

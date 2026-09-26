@@ -49,7 +49,11 @@ CREATE TABLE membership ("organizationId" integer NOT NULL REFERENCES organizati
 CREATE INDEX membership_user_idx ON membership ("userId");
 CREATE TABLE permission ("organizationId" integer NOT NULL, "userId" integer NOT NULL, permission text NOT NULL CHECK (permission = 'admin'), PRIMARY KEY ("organizationId", "userId", permission), FOREIGN KEY ("organizationId", "userId") REFERENCES membership ("organizationId", "userId") ON DELETE CASCADE);
 CREATE TABLE invitation (id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY, "organizationId" integer NOT NULL REFERENCES organization(id) ON DELETE CASCADE, email text NOT NULL, name text NOT NULL DEFAULT '', "tokenHash" text UNIQUE NOT NULL, status text NOT NULL CHECK (status IN ('pending','accepted','revoked')), "createdBy" integer NOT NULL REFERENCES "user"(id), "createdAt" timestamptz NOT NULL, "expiresAt" timestamptz NOT NULL);
-CREATE INDEX invitation_org_idx ON invitation ("organizationId");`
+CREATE INDEX invitation_org_idx ON invitation ("organizationId");
+CREATE TABLE access_event (id uuid PRIMARY KEY, "createdAt" timestamptz NOT NULL, method text NOT NULL, path text NOT NULL, status integer NOT NULL, "durationMs" integer NOT NULL, "actorKind" text NOT NULL, "actorId" integer, "agencyId" integer, "requestId" uuid NOT NULL);
+CREATE INDEX access_event_created ON access_event ("createdAt" DESC, id DESC);
+CREATE TABLE audit_event (id uuid PRIMARY KEY, "createdAt" timestamptz NOT NULL, operation text NOT NULL, resource text NOT NULL, path text NOT NULL, "actorKind" text NOT NULL, "actorId" integer, "agencyId" integer, "requestId" uuid NOT NULL);
+CREATE INDEX audit_event_created ON audit_event ("createdAt" DESC, id DESC);`
             for (const statement of statements
               .split(';')
               .map((value) => value.trim())

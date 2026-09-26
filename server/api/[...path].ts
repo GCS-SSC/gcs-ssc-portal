@@ -8,6 +8,7 @@ import * as responses from '../utils/set-responses'
 import { applicantSurvey } from '../utils/surveys'
 import { createError, defineEventHandler, getHeader, getQuery, getRequestURL, setHeader } from 'h3'
 import { ZodError } from 'zod'
+import { setEvidenceActor } from '../utils/evidence'
 import { useAuth } from '../utils/auth'
 import { useDatabase } from '../utils/database'
 import { isPortalOriginAllowed } from '../utils/config'
@@ -67,6 +68,7 @@ const portalHandler = defineEventHandler(async (event) => {
     const user = session
       ? { id: internalUserId(session.user.id), name: session.user.name, email: session.user.email }
       : null
+    if (user) setEvidenceActor(event, { kind: 'organization', id: user.id })
     if (path[0] === 'session' && path.length === 1 && method === 'GET')
       return {
         user,

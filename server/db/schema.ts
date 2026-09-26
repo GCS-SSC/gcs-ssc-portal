@@ -14,6 +14,29 @@ interface ForeignIdentity {
   foreignSystemId: Generated<string | null>
 }
 export interface Database {
+  access_event: {
+    id: string
+    createdAt: Timestamp
+    method: string
+    path: string
+    status: number
+    durationMs: number
+    actorKind: string
+    actorId: number | null
+    agencyId: number | null
+    requestId: string
+  }
+  audit_event: {
+    id: string
+    createdAt: Timestamp
+    operation: string
+    resource: string
+    path: string
+    actorKind: string
+    actorId: number | null
+    agencyId: number | null
+    requestId: string
+  }
   administrator: {
     id: Generated<number>
     name: string

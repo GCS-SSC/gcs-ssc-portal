@@ -39,7 +39,7 @@ export const requireGovernment = async (
       return governmentFail(401, 'INVALID_INTEGRATION_TOKEN')
     if (options.agencyId && token.agencyId !== options.agencyId)
       return governmentFail(404, 'AGENCY_NOT_FOUND')
-    return { role: 'integration' as const, agencyIds: [token.agencyId] }
+    return { role: 'integration' as const, agencyIds: [token.agencyId], tokenId: token.id }
   }
   let query = db.selectFrom('administrator').selectAll().where('id', '=', actor.administratorId)
   if (options.lock) query = query.forUpdate()

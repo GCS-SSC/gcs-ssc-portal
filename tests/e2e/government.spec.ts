@@ -52,7 +52,22 @@ test('administrators register agencies and issue scoped extension keys', async (
     await machine.close()
   }
   expect((await page.request.get('/api/organizations')).status()).toBe(401)
+  await expect
+    .poll(async () => {
+      const response = await page.request.get('/api/admin/audit-events')
+      const body = (await response.json()) as { items: { path: string }[] }
+      return body.items.some((item) => item.path === '/api/admin/integration-tokens')
+    })
+    .toBe(true)
+  await page.goto('/admin/evidence')
+  await expect(page.getByRole('heading', { name: 'Audit events', exact: true })).toBeVisible()
+  await expect(page.getByText('/api/admin/integration-tokens').first()).toBeVisible()
+  await page.getByRole('link', { name: 'Access logs', exact: true }).last().click()
+  await expect(page.getByRole('heading', { name: 'Access logs', exact: true })).toBeVisible()
+  await expect(page.getByText('/api/government/agencies/:id').first()).toBeVisible()
   await page.getByRole('button', { name: 'Sign out', exact: true }).click()
   await expect(page).toHaveURL(/\/admin\/login$/)
   expect((await page.request.get('/api/admin/agencies')).status()).toBe(401)
+  expect((await page.request.get('/api/admin/audit-events')).status()).toBe(401)
+  expect((await page.request.get('/api/admin/access-events')).status()).toBe(401)
 })

@@ -61,7 +61,8 @@ const navigation = computed(() =>
     ? administrator.value
       ? [
           { to: '/admin', label: g('agencies') },
-          { to: '/admin/integrations', label: g('integrations') }
+          { to: '/admin/integrations', label: g('integrations') },
+          { to: '/admin/evidence', label: g('evidence') }
         ]
       : []
     : user.value
