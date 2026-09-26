@@ -141,6 +141,10 @@ test('extension key publishes a pinned form for an authorized organization', asy
         active: false,
         status: { en: 'On hold', fr: 'En suspens', colour: '#245A80' },
         config: {
+          claimInstruction: {
+            en: 'List each trip and keep the matching receipt.',
+            fr: 'Indiquez chaque déplacement et conservez le reçu correspondant.'
+          },
           fiscalYears: [{ id: 'fy', startYear: 2026, foreignSystemId: '91' }],
           budgetLines: [
             {
@@ -152,6 +156,21 @@ test('extension key publishes a pinned form for an authorized organization', asy
               costCategory: 'Operations',
               costSubsection: 'Travel',
               budgetedAmount: '100.00',
+              balance: '80.50',
+              claimedAmount: '19.50',
+              forecastAmount: '0.00',
+              balanceAsOf: '2026-09-26T00:04:51.283Z',
+              currency: 'cad'
+            },
+            {
+              id: 'computer',
+              fiscalYearId: 'fy',
+              foreignSystemId: '93',
+              nameEn: 'Computer',
+              nameFr: 'Ordinateur',
+              costCategory: 'Capital costs',
+              costSubsection: 'Equipment',
+              budgetedAmount: '500.00',
               currency: 'cad'
             }
           ]
@@ -326,6 +345,76 @@ test('extension key publishes a pinned form for an authorized organization', asy
     ).toBeVisible()
     await applicant.getByRole('button', { name: 'Start new submission' }).click()
     await expect(applicant.getByRole('heading', { level: 1, name: 'Travel claim' })).toBeVisible()
+    const responseBreadcrumbs = [
+      'Home',
+      'Your organizations',
+      `Applicant organization ${suffix}`,
+      'Agreements',
+      'Status agreement'
+    ]
+    await expect(applicant.locator('gcds-breadcrumbs-item')).toHaveText(responseBreadcrumbs)
+    await expect(applicant.locator('gcds-breadcrumbs-item').last().getByRole('link')).toHaveAttribute(
+      'href',
+      `/organizations/${organizationCode}/agreements/${createdAgreement.id}`
+    )
+    await expect(applicant.getByRole('heading', { name: 'Claim instructions' })).toBeVisible()
+    await expect(applicant.getByText('List each trip and keep the matching receipt.')).toBeVisible()
+    await expect(applicant.getByText('Item 1 / 1')).toHaveCount(0)
+    await expect(applicant.getByText('This draft is shared by your organization.')).toHaveCount(0)
+    await expect(applicant.getByText('$80.50')).toBeVisible()
+    const localBalanceTime = await applicant.evaluate(() =>
+      new Intl.DateTimeFormat('en-CA', { dateStyle: 'medium', timeStyle: 'short' }).format(
+        new Date('2026-09-26T00:04:51.283Z')
+      )
+    )
+    await expect(
+      applicant
+        .locator('dt', { hasText: 'Balance as of' })
+        .locator('xpath=following-sibling::dd[1]')
+    ).toHaveText(localBalanceTime)
+    await expect(applicant.getByRole('button', { name: 'Refresh balances' })).toBeVisible()
+    await expect(applicant.getByRole('button', { name: 'Save draft' })).toBeVisible()
+    await expect(applicant.getByRole('button', { name: 'Submit', exact: true })).toBeVisible()
+    await expect(applicant.getByRole('button', { name: 'Delete draft' })).toHaveCount(0)
+    const claimTable = applicant.getByRole('table', { name: 'Claim items' })
+    await expect(claimTable.getByRole('columnheader')).toHaveText([
+      'Cost category',
+      'Cost subsection',
+      'Line',
+      'Description',
+      'Amount',
+      'Actions'
+    ])
+    const amount = applicant.getByRole('textbox', { name: 'Amount', exact: true })
+    await amount.fill('1250.50')
+    await applicant.getByRole('heading', { name: 'Claim instructions' }).click()
+    await expect(amount).toHaveValue('$1,250.50')
+    await applicant.getByRole('button', { name: 'Save draft' }).click()
+    await expect(applicant.getByText('Changes saved.')).toBeVisible()
+    await applicant.getByRole('button', { name: 'Add item' }).click()
+    await expect(claimTable.getByRole('row')).toHaveCount(3)
+    await expect(applicant.getByRole('combobox', { name: 'Cost category' })).toHaveValue(
+      'Operations'
+    )
+    await expect(applicant.getByRole('combobox', { name: 'Cost subsection' })).toHaveValue('Travel')
+    await expect(applicant.getByRole('combobox', { name: 'Line' })).toHaveValue('travel')
+    await applicant.getByRole('combobox', { name: 'Cost category' }).selectOption('Capital costs')
+    await expect(applicant.getByRole('combobox', { name: 'Cost subsection' })).toHaveValue(
+      'Equipment'
+    )
+    await expect(applicant.getByRole('combobox', { name: 'Line' })).toHaveValue('computer')
+    await applicant.getByRole('combobox', { name: 'Cost category' }).selectOption('Operations')
+    await expect(applicant.getByRole('combobox', { name: 'Line' })).toHaveValue('travel')
+    await applicant.getByRole('textbox', { name: 'Description' }).fill('Second trip')
+    await amount.fill('25.25')
+    await applicant.getByRole('heading', { name: 'Claim instructions' }).click()
+    await applicant.getByRole('button', { name: 'Save draft' }).click()
+    await applicant.reload()
+    await expect(applicant.locator('gcds-breadcrumbs-item')).toHaveText(responseBreadcrumbs)
+    await expect(
+      applicant.getByRole('table', { name: 'Claim items' }).getByRole('row')
+    ).toHaveCount(3)
+    await expect(applicant.getByText('Second trip')).toBeVisible()
     const claimResponsePath = new URL(applicant.url()).pathname
     expect(claimResponsePath).toMatch(new RegExp(`/responses/C-[A-HJKMNP-Z2-9]{5,}$`))
     await applicant.getByRole('link', { name: 'Back' }).click()

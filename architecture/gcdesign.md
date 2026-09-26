@@ -83,6 +83,8 @@ Keep organization identity and its menu stable while switching Overview, Agreeme
 
 `PortalWorkspace` composes the record H1, status badges, responsive side navigation, and labelled content region for both organization and agreement pages. Each page supplies its own navigation and content; the shared component moves focus to the content region when the current navigation item changes. The agreement page's shell breadcrumb follows Home → Your organizations → organization name → Agreements. The organization name is loaded for direct agreement URLs as well as in-app navigation; the agreement page does not repeat an Agreements link above its H1.
 
+For an agreement response, the shell adds the agreement as the fifth parent breadcrumb: Home → Your organizations → organization name → Agreements → agreement name. It resolves the response's pinned agreement reference, then uses the organization's agreement summary for the localized name. The response heading names the current form and is not duplicated in the breadcrumb trail. Direct response URLs and in-app navigation use the same path; responses without an agreement do not invent an agreement parent.
+
 [Side navigation](https://design-system.canada.ca/en/components/side-navigation/) is documented as page links. It must not be substituted blindly for state-changing buttons. The workspace now uses route-backed section links within the same organization page. `PortalSideNav` uses the official component and preserves in-page interaction, active state, browser history, keyboard behavior, and accessible semantics. Do not invent a `gcds-tabs` API or mix page navigation and local switching merely to achieve matching styles.
 
 ## Reference layout decisions

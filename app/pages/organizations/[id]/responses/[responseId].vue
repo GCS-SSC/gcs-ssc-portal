@@ -46,7 +46,6 @@ const response = ref<SetResponse | null>(null),
   submittedBalances = ref<LineBalance[] | null>(null),
   review = ref<SubmissionCheck | null>(null),
   position = ref(0),
-  deleting = ref(false),
   saved = ref('')
 const documentationMessage = ref('')
 const sentAttachmentIds = computed(
@@ -137,6 +136,7 @@ const attachmentChange = (result: {
   }
 }
 const current = computed(() => response.value?.items[position.value])
+const isClaim = computed(() => current.value?.kind === 'claim')
 const published = computed(() => response.value?.snapshot.items[position.value])
 const save = () =>
   perform(async () => {
@@ -174,15 +174,6 @@ const submit = () =>
     balances.value = result.submittedBalances ?? result.balances
     review.value = null
     saved.value = JSON.stringify(result.response.items)
-  })
-const remove = () =>
-  perform(async () => {
-    await api<unknown>(endpoint, {
-      method: 'DELETE',
-      body: { expectedRevision: response.value!.revision }
-    })
-    saved.value = JSON.stringify(response.value!.items)
-    await navigateTo(back.value)
   })
 const showRecorded = () => {
   if (submittedBalances.value) {
@@ -225,7 +216,9 @@ const changePosition = async (next: number) => {
           response.gcsStatus[locale]
         }}</PortalBadge>
       </div>
-      <PortalText>{{ c(response.status === 'draft' ? 'sharedDraft' : 'finalNotice') }}</PortalText>
+      <PortalText v-if="response.status !== 'draft' || !isClaim">{{
+        c(response.status === 'draft' ? 'sharedDraft' : 'finalNotice')
+      }}</PortalText>
       <PortalNotice v-if="error" variant="error"
         >{{ error }}
         <PortalButton variant="secondary" @click="reload">{{
@@ -272,7 +265,9 @@ const changePosition = async (next: number) => {
         >{{ c('recordedBalances') }}</PortalButton
       >
       <div id="response-item" tabindex="-1">
-        <PortalText>{{ c('item') }} {{ position + 1 }} / {{ response.items.length }}</PortalText>
+        <PortalText v-if="response.items.length > 1"
+          >{{ c('item') }} {{ position + 1 }} / {{ response.items.length }}</PortalText
+        >
         <template v-if="current && published">
           <ResponseSurvey
             v-if="current.kind === 'survey' && published.survey"
@@ -374,16 +369,7 @@ const changePosition = async (next: number) => {
         </template>
       </section>
       <PortalText v-if="dirty">{{ c('dirty') }}</PortalText>
-      <div class="form-actions">
-        <PortalButton v-if="editable" :disabled="uploading || busy" @click="save">{{
-          c('saveDraft')
-        }}</PortalButton>
-        <PortalButton
-          v-if="manager && !review"
-          :disabled="uploading || busy || !!dirty"
-          @click="prepare"
-          >{{ c('reviewSubmit') }}</PortalButton
-        >
+      <div class="form-actions response-actions">
         <PortalButton
           v-if="response.snapshot.agreement"
           variant="secondary"
@@ -391,28 +377,31 @@ const changePosition = async (next: number) => {
           @click="updateBalances"
           >{{ c('refreshBalances') }}</PortalButton
         >
-        <PortalButton
-          v-if="manager && !review"
-          variant="secondary"
-          :disabled="uploading || busy"
-          @click="deleting = true"
-          >{{ c('deleteDraft') }}</PortalButton
-        >
-      </div>
-      <section v-if="deleting" class="confirmation">
-        <PortalText>{{ c('deleteConfirm') }}</PortalText>
-        <div class="form-actions">
-          <PortalButton :disabled="uploading || busy" @click="remove">{{
-            c('deleteDraft')
-          }}</PortalButton
-          ><PortalButton
+        <div class="form-actions response-actions-right">
+          <PortalButton
+            v-if="editable"
             variant="secondary"
             :disabled="uploading || busy"
-            @click="deleting = false"
-            >{{ c('cancel') }}</PortalButton
+            @click="save"
+            >{{ c('saveDraft') }}</PortalButton
+          >
+          <PortalButton
+            v-if="manager && !review"
+            :disabled="uploading || busy || !!dirty"
+            @click="prepare"
+            >{{ c('submitAction') }}</PortalButton
           >
         </div>
-      </section>
+      </div>
     </template>
   </section>
 </template>
+<style scoped>
+.response-actions {
+  justify-content: space-between;
+  margin-top: var(--gcds-spacing-400);
+}
+.response-actions-right {
+  margin-left: auto;
+}
+</style>

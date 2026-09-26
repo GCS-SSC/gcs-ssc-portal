@@ -42,6 +42,10 @@ Response status is `draft`, `submitted`, or `awaiting_documentation`. The govern
 
 ## Authoritative balances and warnings
 
+Claim drafts start with one editable row and may add, remove, or repeat rows up to the schema limit of 200. Each row selects a published budget line through its cost category, subsection, and line name; the budget line ID is the stored reference. The server verifies that ID against the published agreement fiscal year. A claim needs at least one row to submit. Repeated rows remain separate in the immutable export, while balance checks sum their amounts by budget line. Forecasts keep their fixed twelve month rows per budget line.
+
+Agreement config accepts an optional bilingual `claimInstruction` from the government agreement API. A published claim set pins it in its agreement snapshot for the applicant form. Existing agreements without an instruction remain valid. Demo seed migration 010 adds sample instructions to demo agreements, published claim sets, and active claim drafts without modifying submitted records.
+
 Published definitions stay fixed; live balances match the current agreement by source, stable line identity, fiscal year and currency. Missing/changed lines warn as unavailable. Null balance means unknown, never zero. `claimedAmount` and `forecastAmount` come from the source, not portal aggregation.
 
 A manager saves the draft and requests review. The server validates the response and returns current balances, warnings and `balanceRevision`. It warns if total claims or total forecasts in the set exceed a line's balance, if balance is unknown, or if the line is unavailable. Claims and forecasts are compared separately. A manager may acknowledge warnings and submit.

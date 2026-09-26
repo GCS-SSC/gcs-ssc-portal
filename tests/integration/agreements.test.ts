@@ -46,10 +46,7 @@ let db: Kysely<Database>,
   organizationId: number,
   agencyId: number,
   streamId: number
-let owner: number,
-  viewer: number,
-  contributor: number,
-  manager: number
+let owner: number, viewer: number, contributor: number, manager: number
 const names = (name: string) => ({ nameEn: name, nameFr: name + ' FR' })
 beforeAll(async () => {
   const url = process.env.PORTAL_TEST_DATABASE_URL
@@ -75,7 +72,12 @@ beforeAll(async () => {
   })
   root = { kind: 'administrator', administratorId: account.id }
   const users: number[] = []
-  for (const name of ['agreement-owner', 'agreement-viewer', 'agreement-contributor', 'agreement-manager']) {
+  for (const name of [
+    'agreement-owner',
+    'agreement-viewer',
+    'agreement-contributor',
+    'agreement-manager'
+  ]) {
     const created = await db
       .insertInto('user')
       .values({
@@ -266,13 +268,24 @@ describe('agreement submissions and reconciliation', () => {
     const id = initial.response.id,
       item = initial.response.items[0]!
     if (item.kind !== 'claim') throw new Error('Expected claim')
-    item.lines[0]!.amount = '125.5'
+    item.lines[0]!.amount = '80.25'
+    item.lines.push({ budgetLineId: 'travel', description: 'Second trip', amount: '45.25' })
+    const forgedClaim = structuredClone(item)
+    forgedClaim.lines[1]!.budgetLineId = 'another-line'
+    await expect(
+      mutateResponse(db, organizationId, contributor, id, 'save', {
+        expectedRevision: 1,
+        items: [forgedClaim]
+      })
+    ).rejects.toMatchObject({ statusCode: 400 })
     const saved = await mutateResponse(db, organizationId, contributor, id, 'save', {
       expectedRevision: 1,
       items: [item]
     })
     if (!('response' in saved)) throw new Error('Expected response')
-    expect(saved.response.items[0]).toMatchObject({ lines: [{ amount: '125.50' }] })
+    expect(saved.response.items[0]).toMatchObject({
+      lines: [{ amount: '80.25' }, { budgetLineId: 'travel', amount: '45.25' }]
+    })
     expect(
       (await listResponses(db, organizationId, viewer)).responses.find((row) => row.id === id)
     ).toMatchObject({ claimPeriodStart: 0, claimPeriodEnd: 11, finalClaim: false })
@@ -323,7 +336,10 @@ describe('agreement submissions and reconciliation', () => {
             fiscalYearId: '91',
             periodStart: 0,
             periodEnd: 11,
-            lineItems: [{ budgetLineItemId: '9007199254740993', amount: '125.50', currency: 'cad' }]
+            lineItems: [
+              { budgetLineItemId: '9007199254740993', amount: '80.25', currency: 'cad' },
+              { budgetLineItemId: '9007199254740993', amount: '45.25', currency: 'cad' }
+            ]
           }
         }
       ]
@@ -371,9 +387,7 @@ describe('agreement submissions and reconciliation', () => {
     const fileId = uploaded.attachments.find(
       (file) => file.itemId === documentationAttachmentItemId
     )!.id
-    expect(
-      (await governmentResponse(db, root, submitted.response.id)).attachments
-    ).toEqual([])
+    expect((await governmentResponse(db, root, submitted.response.id)).attachments).toEqual([])
     await expect(
       governmentAttachment(db, root, submitted.response.id, fileId, storage)
     ).rejects.toMatchObject({ statusCode: 404 })
@@ -397,17 +411,12 @@ describe('agreement submissions and reconciliation', () => {
         expectedRevision: followup.response.revision
       })
     ).rejects.toMatchObject({ statusCode: 409 })
+    expect((await governmentResponse(db, root, submitted.response.id)).details).toHaveLength(1)
     expect(
-      (await governmentResponse(db, root, submitted.response.id)).details
-    ).toHaveLength(1)
-    expect(
-      (await governmentAttachment(db, root, submitted.response.id, fileId, storage))
-        .bytes
+      (await governmentAttachment(db, root, submitted.response.id, fileId, storage)).bytes
     ).toEqual(new Uint8Array([1, 2, 3]))
     expect(
-      JSON.stringify(
-        (await exportSubmission(db, root, submitted.response.id)).submission
-      )
+      JSON.stringify((await exportSubmission(db, root, submitted.response.id)).submission)
     ).toBe(immutableExport)
     await updateBalances(db, root, fundingAgreement.id, {
       expectedRevision: 1,
@@ -670,9 +679,7 @@ describe('agreement submissions and reconciliation', () => {
       warningsAcknowledged: false
     })
     const final = await getResponse(db, organizationId, viewer, replacement.id)
-    expect(
-      (await exportSubmission(db, root, final.response.id)).submission
-    ).toMatchObject({
+    expect((await exportSubmission(db, root, final.response.id)).submission).toMatchObject({
       agreementReference: { id: fundingAgreement.id },
       items: [
         {
@@ -684,5 +691,4 @@ describe('agreement submissions and reconciliation', () => {
     const orgSet = await saveSet(db, root, { ...value, agreementId: null, foreignSystemId: null })
     expect(orgSet.set.agreementId).toBeNull()
   })
-
 })

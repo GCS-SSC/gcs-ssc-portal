@@ -232,6 +232,7 @@ it('creates usable credentials and scoped sample data once, preserving edits on 
     { en: 'Under review', fr: 'À l’étude', colour: '#795600' },
     { en: 'Completed', fr: 'Terminée', colour: '#286A46' }
   ])
+  expect(agreements.every((item) => !!item.config.claimInstruction?.en)).toBe(true)
   const customStatus = { en: 'Custom status', fr: 'Statut personnalisé', colour: '#443366' }
   await db
     .updateTable('funding_agreement')

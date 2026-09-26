@@ -5,7 +5,11 @@ import type { PortalInputProps } from '../../../shared/types/ui'
 
 defineProps<PortalInputProps>()
 const locale = inject<Ref<'en' | 'fr'>>('portal-locale', ref('en'))
-const emit = defineEmits<{ 'update:modelValue': [value: string] }>()
+const emit = defineEmits<{
+  'update:modelValue': [value: string]
+  focus: []
+  blur: []
+}>()
 const updateValue = (event: Event) => {
   const value = (event as CustomEvent<string>).detail
   emit('update:modelValue', String(value ?? ''))
@@ -29,9 +33,12 @@ const updateValue = (event: Event) => {
     :hint="hint"
     :error-message="error"
     :maxlength="maxlength"
+    :inputmode="inputmode"
     :minlength="minlength"
     validate-on="submit"
     @gcds-input="updateValue"
     @gcds-change="updateValue"
+    @gcds-focus="emit('focus')"
+    @gcds-blur="emit('blur')"
   />
 </template>

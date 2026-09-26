@@ -19,6 +19,7 @@ export interface PortalInputProps {
   error?: string
   minlength?: number
   maxlength?: number
+  inputmode?: 'decimal'
 }
 export interface PortalTextareaProps {
   id: string

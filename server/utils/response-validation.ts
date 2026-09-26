@@ -30,16 +30,16 @@ export const validateResponseItems = (
     const budget =
       snapshot.agreement?.config.budgetLines.filter((line) => line.fiscalYearId === fiscalYearId) ??
       []
-    const expectedCount = budget.length * (item.kind === 'forecast' ? 12 : 1)
-    if (item.lines.length !== expectedCount) return fail(400, 'RESPONSE_INVALID')
-    const keys = item.lines.map(
-      (line) => `${line.budgetLineId}:${'month' in line ? line.month : ''}`
-    )
-    if (
-      new Set(keys).size !== keys.length ||
-      item.lines.some((line) => !budget.some((allowed) => allowed.id === line.budgetLineId))
-    )
+    if (item.kind === 'forecast' && item.lines.length !== budget.length * 12)
       return fail(400, 'RESPONSE_INVALID')
+    if (item.kind === 'claim' && mode === 'submit' && item.lines.length === 0)
+      return fail(400, 'RESPONSE_INVALID')
+    if (item.lines.some((line) => !budget.some((allowed) => allowed.id === line.budgetLineId)))
+      return fail(400, 'RESPONSE_INVALID')
+    if (item.kind === 'forecast') {
+      const keys = item.lines.map((line) => `${line.budgetLineId}:${line.month}`)
+      if (new Set(keys).size !== keys.length) return fail(400, 'RESPONSE_INVALID')
+    }
     if (item.kind === 'claim' && item.periodEnd < item.periodStart)
       return fail(400, 'RESPONSE_INVALID')
     const lines = item.lines.map((line) => {
@@ -66,7 +66,7 @@ export const initialResponseItems = (snapshot: SetSnapshot, locale: 'en' | 'fr')
         isFinalForYear: false,
         periodStart: 0,
         periodEnd: 11,
-        lines: budget.map((line) => ({
+        lines: budget.slice(0, 1).map((line) => ({
           budgetLineId: line.id,
           description: locale === 'en' ? line.nameEn : line.nameFr,
           amount: ''

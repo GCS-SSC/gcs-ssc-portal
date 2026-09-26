@@ -43,6 +43,11 @@ export const agreementConfigSchema = z
     foreignSystemId: externalId.nullable().default(null),
     externalStreamId: externalId.nullable().default(null),
     externalApplicantRecipientId: externalId.nullable().default(null),
+    claimInstruction: z
+      .object({ en: z.string().trim().min(1).max(4000), fr: z.string().trim().min(1).max(4000) })
+      .strict()
+      .nullable()
+      .default(null),
     fiscalYears: z.array(fiscalYearSchema).max(20),
     budgetLines: z.array(budgetLineSchema).max(200)
   })

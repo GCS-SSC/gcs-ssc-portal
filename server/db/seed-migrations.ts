@@ -9,6 +9,7 @@ import { demoSecondAgencyMigration } from './seeds/006-demo-second-agency'
 import { demoOrganizationsMigration } from './seeds/007-demo-organizations'
 import { demoAgreementStatusesMigration } from './seeds/008-demo-agreement-statuses'
 import { demoSubmissionsMigration } from './seeds/009-demo-submissions'
+import { demoClaimInstructionsMigration } from './seeds/010-demo-claim-instructions'
 import { reportMigrationResults } from './migrations'
 
 export const requireSeedEnvironment = () => {
@@ -34,7 +35,8 @@ export const seedDemo = async (db: Kysely<Database>) => {
         '006_demo_second_agency': demoSecondAgencyMigration,
         '007_demo_organizations': demoOrganizationsMigration,
         '008_demo_agreement_statuses': demoAgreementStatusesMigration,
-        '009_demo_submissions': demoSubmissionsMigration
+        '009_demo_submissions': demoSubmissionsMigration,
+        '010_demo_claim_instructions': demoClaimInstructionsMigration
       })
     }
   })

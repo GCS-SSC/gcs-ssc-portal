@@ -1,30 +1,59 @@
 <script setup lang="ts">
 import type { Organization } from '~~/shared/types/api'
+import type { OrganizationAgreementSummary, ResponseResult } from '~~/shared/types/agreements'
 const { locale, t } = useLocale()
 const { user, signOut } = usePortalSession()
 const { administrator, signOut: adminSignOut } = useAdministratorSession()
 const route = useRoute()
-const { g } = useGovernmentLocale()
+const { g, localized } = useGovernmentLocale()
 const { c } = useAgreementLocale()
 const requestFetch = useRequestFetch()
 const agreementOrganizationId = computed(
   () => /^\/organizations\/([^/]+)\/agreements\/[^/]+$/.exec(route.path)?.[1] ?? null
 )
-const { data: agreementOrganization } = await useAsyncData(
-  'agreement-breadcrumb-organization',
+const responseRoute = computed(() =>
+  /^\/organizations\/([^/]+)\/responses\/([^/]+)$/.exec(route.path)
+)
+const breadcrumbOrganizationId = computed(
+  () => agreementOrganizationId.value ?? responseRoute.value?.[1] ?? null
+)
+const breadcrumbResponseId = computed(() => responseRoute.value?.[2] ?? null)
+const { data: recordBreadcrumb } = await useAsyncData(
+  'record-breadcrumb-context',
   async () => {
-    const id = agreementOrganizationId.value
+    const id = breadcrumbOrganizationId.value
+    const responseId = breadcrumbResponseId.value
     if (!id) return null
     try {
-      const result = await requestFetch<{ organization: Organization }>(
-        `/api/organizations/${encodeURIComponent(id)}`
-      )
-      return { id, name: result.organization.name }
+      const base = `/api/organizations/${encodeURIComponent(id)}`
+      const [organizationResult, responseResult] = await Promise.all([
+        requestFetch<{ organization: Organization }>(base),
+        responseId
+          ? requestFetch<ResponseResult>(`${base}/responses/${encodeURIComponent(responseId)}`)
+          : Promise.resolve(null)
+      ])
+      const reference = responseResult?.response.snapshot.agreementReference
+      const agreementId = reference ? String(reference.id) : null
+      const agreements = agreementId
+        ? await requestFetch<{ agreements: OrganizationAgreementSummary[] }>(`${base}/agreements`)
+        : null
+      const agreement = agreements?.agreements.find((entry) => entry.id === agreementId)
+      return {
+        organizationId: id,
+        responseId,
+        organizationName: organizationResult.organization.name,
+        agreementId,
+        agreementName: agreement
+          ? { nameEn: agreement.nameEn, nameFr: agreement.nameFr }
+          : reference
+            ? { nameEn: reference.agreementNumber, nameFr: reference.agreementNumber }
+            : null
+      }
     } catch {
       return null
     }
   },
-  { watch: [agreementOrganizationId] }
+  { watch: [breadcrumbOrganizationId, breadcrumbResponseId] }
 )
 const inAdmin = computed(() => route.path.startsWith('/admin'))
 const navigation = computed(() =>
@@ -53,12 +82,21 @@ const breadcrumbs = computed(() => {
   ) {
     items.push({ to: '/organizations', label: t('organizations') })
   }
-  const id = agreementOrganizationId.value
-  if (id && agreementOrganization.value?.id === id) {
-    items.push(
-      { to: `/organizations/${id}`, label: agreementOrganization.value.name },
-      { to: `/organizations/${id}?section=agreements`, label: c('agreements') }
+  const id = breadcrumbOrganizationId.value
+  if (id && recordBreadcrumb.value?.organizationId === id) {
+    items.push({ to: `/organizations/${id}`, label: recordBreadcrumb.value.organizationName })
+    if (agreementOrganizationId.value || recordBreadcrumb.value.agreementId)
+      items.push({ to: `/organizations/${id}?section=agreements`, label: c('agreements') })
+    if (
+      breadcrumbResponseId.value &&
+      recordBreadcrumb.value.responseId === breadcrumbResponseId.value &&
+      recordBreadcrumb.value.agreementId &&
+      recordBreadcrumb.value.agreementName
     )
+      items.push({
+        to: `/organizations/${id}/agreements/${recordBreadcrumb.value.agreementId}`,
+        label: localized(recordBreadcrumb.value.agreementName)
+      })
   }
   return items
 })
