@@ -34,6 +34,7 @@ import {
   responseCodes
 } from '../../shared/utils/response-code'
 import { setRow } from './submission-sets'
+import { agreementRow } from './agreements'
 import { initialResponseItems, validateResponseItems } from './response-validation'
 import { buildSubmissionExport } from './submission-export'
 const map = (row: Selectable<Database['set_response']>) => ({
