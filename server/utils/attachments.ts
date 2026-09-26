@@ -298,7 +298,7 @@ export const governmentAttachment = async (
     .innerJoin('submission_set as s', 's.id', 'r.setId')
     .select(['r.id', 's.agencyId'])
     .where('r.id', '=', submissionId)
-    .where('r.status', 'in', ['submitted', 'awaiting_documentation'])
+    .where('r.status', 'in', ['submitted', 'awaiting_documentation', 'withdrawn'])
     .executeTakeFirst()
   if (!row) return fail(404, 'RESPONSE_NOT_FOUND')
   await requireGovernment(db, actor, { agencyId: row.agencyId })

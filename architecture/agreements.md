@@ -38,7 +38,7 @@ Drafts can omit amounts and required survey answers, but supplied values must be
 
 Forecast iteration is a stable one-based number per agreement and fiscal year. Draft creation assigns the next number while holding the organization lock, and the response stores it separately from the immutable GCS export. Deleting an earlier draft does not renumber later forecasts.
 
-Response status is `draft`, `submitted`, or `awaiting_documentation`. The government status update endpoint accepts only the latter two states for an existing submission and a nullable bilingual GCS status object with a validated hex colour. Setting `awaiting_documentation` requires a nonempty message and `senderName` identifying the GCS sender; the status and message are stored in one transaction. It uses response revision compare-and-swap and current agency authority. GCS status is secondary display information and does not grant access. The original export, answers, and submission timestamp remain immutable. Contributors may append a message, files, or both while a response is awaiting documentation; each send records a separate follow-up. The agency integration may append further messages with optional attachments while the request is open and must provide `senderName` on every message. Portal replies snapshot the signed-in user's name at send time. Message reads include `sender` (`government` or `organization`) and required `senderName`. The supplied GCS name is display metadata from the extension, not independently authenticated portal staff identity. Already sent files cannot be removed, and staged files are invisible to the other side until sent. Closing the documentation request detaches unsent staged files for cleanup. Draft answers and attachments stay locked throughout documentation review.
+Response status is `draft`, `submitted`, `awaiting_documentation`, or `withdrawn`. The government status update endpoint accepts only `submitted` and `awaiting_documentation` for an active submission and a nullable bilingual GCS status object with a validated hex colour and required boolean `isWithdrawable`. Existing status objects without that flag are treated as non-withdrawable. Setting `awaiting_documentation` requires a nonempty message and `senderName` identifying the GCS sender; the status and message are stored in one transaction. Status changes use response revision compare-and-swap and current agency authority. GCS status is secondary display information. A manager may withdraw a submitted or awaiting-documentation response before GCS supplies a status; once GCS supplies one, its `isWithdrawable` flag controls withdrawal. Withdrawal is terminal: government review updates, follow-ups, and edits cannot change that record. The original export, answers, messages, and submission timestamp remain available to the extension. A contributor may reopen a withdrawn response as a new linked draft if the current publication is active and, for a claim or forecast, its item and budget-line structure still matches. Financial amounts are copied; unchanged survey definitions retain answers, while changed definitions start blank. Attachments remain with the original submission and must be added again to the new draft. An existing shared draft blocks reopening. Contributors may append a message, files, or both while a response is awaiting documentation; each send records a separate follow-up. The agency integration may append further messages with optional attachments while the request is open and must provide `senderName` on every message. Portal replies snapshot the signed-in user's name at send time. Message reads include `sender` (`government` or `organization`) and required `senderName`. The supplied GCS name is display metadata from the extension, not independently authenticated portal staff identity. Already sent files cannot be removed, and staged files are invisible to the other side until sent. Closing the documentation request detaches unsent staged files for cleanup. Draft answers and attachments stay locked throughout documentation review.
 
 ## Authoritative balances and warnings
 
@@ -109,19 +109,21 @@ Creation is not upsert: persist portal IDs and reconcile foreign identities from
 
 Organization paths start /api/organizations/:organizationId:
 
-| Method/path                         | Contract                                                                                   |
-| ----------------------------------- | ------------------------------------------------------------------------------------------ |
-| GET /agreements                     | Agreement summaries after subject access                                                   |
-| GET /sets                           | Accessible published metadata                                                              |
-| GET /sets/:setId                    | Accessible published definition                                                            |
-| POST /sets/:setId/responses         | {locale:'en' or 'fr'} → existing/new shared draft                                          |
-| GET /responses                      | Accessible response summaries                                                              |
-| GET /responses/:responseId          | {response,balances,submittedBalances}; current plus optional frozen balances               |
-| PUT /responses/:responseId          | {expectedRevision,items}; save draft                                                       |
-| POST /responses/:responseId/check   | {expectedRevision} → {balanceRevision,balances,warnings}; manager                          |
-| POST /responses/:responseId/submit  | {expectedRevision,balanceRevision,warningsAcknowledged}; manager                           |
-| DELETE /responses/:responseId       | {expectedRevision}; manager, draft only                                                    |
-| POST /responses/:responseId/details | {expectedRevision,body,attachmentIds} → response; contributor, awaiting documentation only |
+| Method/path                          | Contract                                                                                   |
+| ------------------------------------ | ------------------------------------------------------------------------------------------ |
+| GET /agreements                      | Agreement summaries after subject access                                                   |
+| GET /sets                            | Accessible published metadata                                                              |
+| GET /sets/:setId                     | Accessible published definition                                                            |
+| POST /sets/:setId/responses          | {locale:'en' or 'fr'} → existing/new shared draft                                          |
+| GET /responses                       | Accessible response summaries                                                              |
+| GET /responses/:responseId           | {response,balances,submittedBalances}; current plus optional frozen balances               |
+| PUT /responses/:responseId           | {expectedRevision,items}; save draft                                                       |
+| POST /responses/:responseId/check    | {expectedRevision} → {balanceRevision,balances,warnings}; manager                          |
+| POST /responses/:responseId/submit   | {expectedRevision,balanceRevision,warningsAcknowledged}; manager                           |
+| POST /responses/:responseId/withdraw | {expectedRevision} → withdrawn response; manager, GCS flag required                        |
+| POST /responses/:responseId/reopen   | {expectedRevision} → linked draft; contributor, active compatible publication              |
+| DELETE /responses/:responseId        | {expectedRevision}; manager, draft only                                                    |
+| POST /responses/:responseId/details  | {expectedRevision,body,attachmentIds} → response; contributor, awaiting documentation only |
 
 Missing permission is 403; inaccessible scoped records are 404. Revision/balance conflicts, withdrawn/superseded publications and final-response mutations return 409. Invalid input returns 400. Reads and exports are no-store.
 

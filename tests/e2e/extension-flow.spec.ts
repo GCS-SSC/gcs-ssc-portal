@@ -337,7 +337,7 @@ test('extension key publishes a pinned form for an authorized organization', asy
       applicant.getByRole('heading', { level: 3, name: 'Awaiting Documentation' })
     ).toBeVisible()
     await expect(applicant.getByRole('heading', { level: 3, name: 'Submitted' })).toBeVisible()
-    await expect(applicant.locator('gcds-search')).toHaveCount(3)
+    await expect(applicant.locator('gcds-search')).toHaveCount(4)
     await expect(
       applicant.getByRole('searchbox', { name: 'Search submissions — In Progress' })
     ).toBeVisible()
@@ -642,6 +642,9 @@ test('extension key publishes a pinned form for an authorized organization', asy
     expect(submitted.ok()).toBe(true)
     const submission = (await submitted.json()).response
     expect(submission.submissionId).toMatch(publicId('K'))
+    await applicant.goto(`/organizations/${organizationCode}/responses/${draft.id}`)
+    await expect(applicant.getByRole('button', { name: 'Withdraw submission' })).toBeVisible()
+    await applicant.getByRole('link', { name: 'Back' }).click()
     const statusChange = await extension.request.put(
       `/api/government/submissions/${submission.submissionId}/status`,
       {
@@ -650,7 +653,12 @@ test('extension key publishes a pinned form for an authorized organization', asy
           status: 'awaiting_documentation',
           message: 'Please attach the receipt for this submission.',
           senderName: 'GCS Case Officer',
-          gcsStatus: { en: 'Receipt needed', fr: 'Reçu requis', colour: '#245A80' }
+          gcsStatus: {
+            en: 'Receipt needed',
+            fr: 'Reçu requis',
+            colour: '#245A80',
+            isWithdrawable: true
+          }
         }
       }
     )
@@ -753,13 +761,28 @@ test('extension key publishes a pinned form for an authorized organization', asy
     await applicant.getByLabel('Message').fill('We will send the itemized list tomorrow.')
     await applicant.getByRole('button', { name: 'Send additional details' }).click()
     await expect(applicant.getByText('We will send the itemized list tomorrow.')).toBeVisible()
+    applicant.once('dialog', (dialog) => dialog.accept())
+    await applicant.getByRole('button', { name: 'Withdraw submission' }).click()
+    await expect(
+      applicant.getByText('This submission was withdrawn and cannot be edited.')
+    ).toBeVisible()
+    await expect(applicant.getByRole('button', { name: 'Send additional details' })).toHaveCount(0)
+    const withdrawnExport = await extension.request.get(
+      `/api/government/submissions/${submission.submissionId}`
+    )
+    expect(withdrawnExport.ok()).toBe(true)
+    await applicant.getByRole('button', { name: 'Reopen as draft' }).click()
+    await expect(applicant.getByText('This draft is shared by your organization.')).toBeVisible()
+    await expect(applicant).not.toHaveURL(
+      `/organizations/${organizationCode}/responses/${draft.id}`
+    )
     await applicant.getByRole('link', { name: 'Back' }).click()
     await expect(applicant).toHaveURL(
       `/organizations/${organizationCode}/agreements/${createdAgreement.id}?section=other`
     )
     await expect(
       applicant
-        .getByRole('region', { name: 'Awaiting Documentation' })
+        .getByRole('region', { name: 'Withdrawn' })
         .getByRole('link', { name: /^K-[A-HJKMNP-Z2-9]{5,}$/ })
     ).toBeVisible()
     await applicant.reload()

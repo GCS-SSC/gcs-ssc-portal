@@ -22,7 +22,7 @@ Upload optional attachments under each enabled form or financial item. Unsaved a
 
 Managers save the draft, select **Review and submit**, review any balance warnings, then confirm. Claims and forecasts may exceed the latest supplied balance: warnings must be acknowledged, but managers may submit. Source balances may not include pending submissions. A changed balance revision requires a fresh review.
 
-Submitted responses are final. Read the recorded balances and attachments, or explicitly refresh the financial display to current balances. Submission history remains accessible when a call closes or a form is withdrawn. The extension can retrieve immutable JSON exports and attachments with the agency key.
+Submitted responses cannot be edited. A manager can withdraw one when GCS marks its status withdrawable. A withdrawn response stays in the history and cannot be changed; a contributor can reopen it as a new draft while the form remains available. Claim and forecast reopening also requires the current financial lines and categories to match the original. Attachments stay with the original submission and must be added again to the new draft. Read the recorded balances and attachments, or explicitly refresh the financial display to current balances. Submission history remains accessible when a call closes or a form is withdrawn. The extension can retrieve immutable JSON exports and attachments with the agency key.
 
 ## Operators
 

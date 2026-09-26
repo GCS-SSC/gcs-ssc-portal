@@ -193,7 +193,12 @@ const startNew = () => {
               </ul>
             </section>
             <AgreementSubmissionSection
-              v-for="status in ['draft', 'awaiting_documentation', 'submitted'] as const"
+              v-for="status in [
+                'draft',
+                'awaiting_documentation',
+                'submitted',
+                'withdrawn'
+              ] as const"
               :key="`${section}-${status}`"
               :organization-id="id"
               :category="section"

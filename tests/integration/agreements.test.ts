@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import type { Kysely } from 'kysely'
+import { sql, type Kysely } from 'kysely'
 import pg from 'pg'
 import type { Database } from '../../server/db/schema'
 import { createDatabase } from '../../server/utils/database'
@@ -24,6 +24,7 @@ import {
   exportSubmission,
   listResponses,
   updateSubmissionStatus,
+  transitionResponse,
   addSubmissionDetail,
   addGovernmentDetail,
   governmentResponse
@@ -173,6 +174,140 @@ const newSet = async (fundingAgreement: FundingAgreement, kind: 'claim' | 'forec
   ).set
 }
 describe('agreement submissions and reconciliation', () => {
+  it('withdraws only when GCS allows it and reopens an unchanged financial form as a linked draft', async () => {
+    const agreement = await newAgreement()
+    const set = await newSet(agreement)
+    const initial = (await startResponse(db, organizationId, contributor, set.id, { locale: 'en' }))
+      .response
+    const item = initial.items[0]!
+    if (item.kind !== 'claim') throw new Error('Expected claim')
+    item.lines[0]!.amount = '10.00'
+    const saved = await mutateResponse(db, organizationId, contributor, initial.id, 'save', {
+      expectedRevision: initial.revision,
+      items: [item]
+    })
+    if (!('response' in saved)) throw new Error('Expected response')
+    const check = await checkResponse(db, organizationId, manager, initial.id, {
+      expectedRevision: saved.response.revision
+    })
+    const submitted = await mutateResponse(db, organizationId, manager, initial.id, 'submit', {
+      expectedRevision: saved.response.revision,
+      balanceRevision: check.balanceRevision,
+      warningsAcknowledged: true
+    })
+    if (!('response' in submitted)) throw new Error('Expected response')
+    const originalExport = (await exportSubmission(db, root, initial.id)).submission
+    const locked = await updateSubmissionStatus(db, root, initial.id, {
+      expectedRevision: submitted.response.revision,
+      status: 'submitted',
+      gcsStatus: { en: 'Accepted', fr: 'Acceptée', colour: '#245A80', isWithdrawable: false }
+    })
+    await expect(
+      transitionResponse(db, organizationId, manager, initial.id, 'withdraw', {
+        expectedRevision: locked.response.revision
+      })
+    ).rejects.toMatchObject({ statusCode: 409 })
+    const status = await updateSubmissionStatus(db, root, initial.id, {
+      expectedRevision: locked.response.revision,
+      status: 'submitted',
+      gcsStatus: { en: 'Accepted', fr: 'Acceptée', colour: '#245A80', isWithdrawable: true }
+    })
+    await expect(
+      transitionResponse(db, organizationId, contributor, initial.id, 'withdraw', {
+        expectedRevision: status.response.revision
+      })
+    ).rejects.toMatchObject({ statusCode: 403 })
+    const withdrawn = await transitionResponse(
+      db,
+      organizationId,
+      manager,
+      initial.id,
+      'withdraw',
+      {
+        expectedRevision: status.response.revision
+      }
+    )
+    expect(withdrawn.response.status).toBe('withdrawn')
+    expect((await exportSubmission(db, root, initial.id)).submission).toEqual(originalExport)
+    await expect(
+      updateSubmissionStatus(db, root, initial.id, {
+        expectedRevision: withdrawn.response.revision,
+        status: 'submitted',
+        gcsStatus: null
+      })
+    ).rejects.toMatchObject({ statusCode: 409 })
+    const reopened = await transitionResponse(
+      db,
+      organizationId,
+      contributor,
+      initial.id,
+      'reopen',
+      {
+        expectedRevision: withdrawn.response.revision
+      }
+    )
+    expect(reopened.response).toMatchObject({
+      status: 'draft',
+      resubmissionOfId: submitted.response.submissionId
+    })
+    expect(reopened.response.id).not.toBe(initial.id)
+    expect(reopened.response.items[0]).toMatchObject({ lines: [{ amount: '10.00' }] })
+    expect((await getResponse(db, organizationId, viewer, initial.id)).response.status).toBe(
+      'withdrawn'
+    )
+    await expect(
+      transitionResponse(db, organizationId, contributor, initial.id, 'reopen', {
+        expectedRevision: withdrawn.response.revision
+      })
+    ).rejects.toMatchObject({ statusCode: 409 })
+    const reopenedCheck = await checkResponse(db, organizationId, manager, reopened.response.id, {
+      expectedRevision: reopened.response.revision
+    })
+    const resubmitted = await mutateResponse(
+      db,
+      organizationId,
+      manager,
+      reopened.response.id,
+      'submit',
+      {
+        expectedRevision: reopened.response.revision,
+        balanceRevision: reopenedCheck.balanceRevision,
+        warningsAcknowledged: true
+      }
+    )
+    if (!('response' in resubmitted)) throw new Error('Expected response')
+    expect(resubmitted.response.gcsStatus).toBeNull()
+    const withdrawnBeforeGcsStatus = await transitionResponse(
+      db,
+      organizationId,
+      manager,
+      reopened.response.id,
+      'withdraw',
+      { expectedRevision: resubmitted.response.revision }
+    )
+    expect(withdrawnBeforeGcsStatus.response.status).toBe('withdrawn')
+    const current = await db
+      .selectFrom('funding_agreement')
+      .select('config')
+      .where('id', '=', Number(agreement.id))
+      .executeTakeFirstOrThrow()
+    const changed = structuredClone(current.config)
+    changed.budgetLines.push({
+      ...changed.budgetLines[0]!,
+      id: 'new-line',
+      foreignSystemId: '999'
+    })
+    await db
+      .updateTable('funding_agreement')
+      .set({ config: sql`${JSON.stringify(changed)}::jsonb` })
+      .where('id', '=', Number(agreement.id))
+      .execute()
+    await expect(
+      transitionResponse(db, organizationId, contributor, initial.id, 'reopen', {
+        expectedRevision: withdrawn.response.revision
+      })
+    ).rejects.toMatchObject({ statusCode: 409, data: { code: 'FORM_SHAPE_CHANGED' } })
+  })
   it('stores extension statuses and preserves them when older updates omit the fields', async () => {
     const created = await newAgreement()
     expect(created).toMatchObject({ active: true, status: null })
@@ -452,7 +587,12 @@ describe('agreement submissions and reconciliation', () => {
       status: 'awaiting_documentation',
       message: 'Please provide the receipts for this submission.',
       senderName: 'GCS Case Officer',
-      gcsStatus: { en: 'Documents needed', fr: 'Documents requis', colour: '#245A80' }
+      gcsStatus: {
+        en: 'Documents needed',
+        fr: 'Documents requis',
+        colour: '#245A80',
+        isWithdrawable: true
+      }
     })
     expect(awaiting.response.status).toBe('awaiting_documentation')
     expect(

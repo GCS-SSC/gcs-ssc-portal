@@ -165,8 +165,13 @@ export const demoSubmissionsMigration = {
           status === 'draft'
             ? null
             : status === 'submitted'
-              ? { en: 'Under review', fr: 'À l’étude', colour: '#245A80' }
-              : { en: 'Documents requested', fr: 'Documents demandés', colour: '#795600' }
+              ? { en: 'Under review', fr: 'À l’étude', colour: '#245A80', isWithdrawable: true }
+              : {
+                  en: 'Documents requested',
+                  fr: 'Documents demandés',
+                  colour: '#795600',
+                  isWithdrawable: true
+                }
         const forecastIterations = Object.fromEntries(
           sample.snapshot.items.flatMap((entry) =>
             entry.item.kind === 'forecast' ? [[entry.item.fiscalYearId, index + 1] as const] : []

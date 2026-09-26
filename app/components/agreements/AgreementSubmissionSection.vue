@@ -17,7 +17,9 @@ const heading = computed(() =>
       ? 'inProgress'
       : props.status === 'awaiting_documentation'
         ? 'awaitingDocumentationSection'
-        : 'submitted'
+        : props.status === 'withdrawn'
+          ? 'withdrawnSection'
+          : 'submitted'
   )
 )
 const columns = computed(() => [
