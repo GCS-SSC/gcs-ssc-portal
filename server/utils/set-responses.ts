@@ -33,7 +33,7 @@ import {
   responseCodes
 } from '../../shared/utils/response-code'
 import { setRow } from './submission-sets'
-import { validateResponseItems } from './response-validation'
+import { initialResponseItems, validateResponseItems } from './response-validation'
 import { buildSubmissionExport } from './submission-export'
 const map = (row: Selectable<Database['set_response']>) => ({
   id: row.id,
@@ -47,6 +47,13 @@ const map = (row: Selectable<Database['set_response']>) => ({
   revision: row.revision,
   status: row.status,
   gcsStatus: row.gcsStatus,
+  resubmissionOfId:
+    row.resubmissionOfId === null
+      ? null
+      : primaryResponseCode(
+          row.resubmissionOfId,
+          row.snapshot.items.map((entry) => entry.item.kind)
+        ),
   submissionId:
     row.status === 'draft'
       ? null
@@ -275,6 +282,139 @@ export const mutateResponse = async (
     return getResponse(tx, organizationId, userId, id)
   })
 }
+
+const financialShape = (snapshot: import('../../shared/schemas/agreements').SetSnapshot) => ({
+  items: snapshot.items.flatMap(({ item }) =>
+    item.kind === 'survey'
+      ? []
+      : [{ id: item.id, kind: item.kind, fiscalYearId: item.fiscalYearId }]
+  ),
+  lines:
+    snapshot.agreement?.config.budgetLines
+      .map(({ id, fiscalYearId, costCategory, costSubsection, nameEn, nameFr, currency }) => ({
+        id,
+        fiscalYearId,
+        costCategory,
+        costSubsection,
+        nameEn,
+        nameFr,
+        currency
+      }))
+      .sort((a, b) => a.id.localeCompare(b.id)) ?? []
+})
+
+/** A withdrawn record and its export remain intact; reopening creates a linked draft. */
+export const transitionResponse = async (
+  db: Kysely<Database>,
+  organizationId: number,
+  userId: number,
+  id: number,
+  mode: 'withdraw' | 'reopen',
+  body: unknown
+) => {
+  const input = versionInput.parse(body)
+  return db.transaction().execute(async (tx) => {
+    await lockOrganization(tx, organizationId)
+    const row = await tx
+      .selectFrom('set_response')
+      .selectAll()
+      .where('id', '=', id)
+      .where('organizationId', '=', organizationId)
+      .forUpdate()
+      .executeTakeFirst()
+    if (!row) return fail(404, 'RESPONSE_NOT_FOUND')
+    await requireBusinessAccess(
+      tx,
+      organizationId,
+      userId,
+      responseSubjects(row.snapshot),
+      mode === 'withdraw' ? 'manager' : 'contributor'
+    )
+    if (row.revision !== input.expectedRevision) return fail(409, 'REVISION_CONFLICT')
+    if (mode === 'withdraw') {
+      if (
+        (row.status !== 'submitted' && row.status !== 'awaiting_documentation') ||
+        (row.gcsStatus !== null && row.gcsStatus.isWithdrawable !== true)
+      )
+        return fail(409, 'RESPONSE_NOT_WITHDRAWABLE')
+      const now = new Date()
+      await tx
+        .updateTable('set_response')
+        .set({ status: 'withdrawn', revision: row.revision + 1, updatedBy: userId, updatedAt: now })
+        .where('id', '=', id)
+        .execute()
+      const sentIds = new Set(
+        (await submissionDetails(tx, row.id)).flatMap((detail) => detail.attachmentIds)
+      )
+      const staged = await tx
+        .selectFrom('response_attachment')
+        .select('id')
+        .where('responseId', '=', row.id)
+        .where('itemId', '=', documentationAttachmentItemId)
+        .execute()
+      const unused = staged.filter((file) => !sentIds.has(file.id)).map((file) => file.id)
+      if (unused.length)
+        await tx
+          .updateTable('response_attachment')
+          .set({ responseId: null })
+          .where('id', 'in', unused)
+          .execute()
+      return getResponse(tx, organizationId, userId, id)
+    }
+    if (row.status !== 'withdrawn') return fail(409, 'RESPONSE_NOT_WITHDRAWN')
+    const set = await setRow(tx, row.setId)
+    if (set.organizationId !== organizationId || !set.published || !set.snapshot)
+      return fail(409, 'SET_WITHDRAWN')
+    await requireResponsePublication(tx, set.id, set.snapshot)
+    if (row.snapshot.items.some(({ item }) => item.kind !== 'survey')) {
+      if (
+        JSON.stringify(financialShape(row.snapshot)) !==
+        JSON.stringify(financialShape(set.snapshot))
+      )
+        return fail(409, 'FORM_SHAPE_CHANGED')
+      if (!set.snapshot.agreement) return fail(409, 'FORM_SHAPE_CHANGED')
+      const currentAgreement = await agreementRow(tx, set.snapshot.agreement.id)
+      if (
+        JSON.stringify(financialShape(row.snapshot)) !==
+        JSON.stringify(
+          financialShape({
+            ...set.snapshot,
+            agreement: { ...set.snapshot.agreement, config: currentAgreement.config }
+          })
+        )
+      )
+        return fail(409, 'FORM_SHAPE_CHANGED')
+    }
+    const existing = await tx
+      .selectFrom('set_response')
+      .select('id')
+      .where('setId', '=', set.id)
+      .where('status', '=', 'draft')
+      .executeTakeFirst()
+    if (existing) return fail(409, 'DRAFT_EXISTS')
+    const draftId = await createResponseDraft(tx, set, userId, row.locale)
+    const items = initialResponseItems(set.snapshot, row.locale).map((initial, index) => {
+      const previous = row.items.find(
+        (item) => item.id === initial.id && item.kind === initial.kind
+      )
+      if (!previous) return initial
+      if (initial.kind !== 'survey') return previous
+      const oldDefinition = row.snapshot.items.find(({ item }) => item.id === initial.id)?.survey
+      const newDefinition = set.snapshot!.items[index]?.survey
+      return JSON.stringify(oldDefinition) === JSON.stringify(newDefinition) ? previous : initial
+    })
+    await tx
+      .updateTable('set_response')
+      .set({
+        items: sql`${JSON.stringify(items)}::jsonb`,
+        resubmissionOfId: row.id,
+        updatedAt: new Date()
+      })
+      .where('id', '=', draftId)
+      .execute()
+    return getResponse(tx, organizationId, userId, draftId)
+  })
+}
 export const listSubmissions = async (
   db: GovernmentDb,
   actor: GovernmentActor,
@@ -302,7 +442,7 @@ export const listSubmissions = async (
       'r.submittedAt'
     ])
     .where('s.agencyId', '=', agencyId)
-    .where('r.status', 'in', ['submitted', 'awaiting_documentation'])
+    .where('r.status', 'in', ['submitted', 'awaiting_documentation', 'withdrawn'])
     .orderBy('r.submittedAt')
     .orderBy('r.id')
     .offset(offset)
@@ -330,7 +470,7 @@ export const exportSubmission = async (
     .innerJoin('submission_set as s', 's.id', 'r.setId')
     .select(['s.agencyId', 'r.export'])
     .where('r.id', '=', submissionId)
-    .where('r.status', 'in', ['submitted', 'awaiting_documentation'])
+    .where('r.status', 'in', ['submitted', 'awaiting_documentation', 'withdrawn'])
     .executeTakeFirst()
   if (!row) return fail(404, 'RESPONSE_NOT_FOUND')
   await requireGovernment(db, actor, { agencyId: row.agencyId })
@@ -383,7 +523,7 @@ export const governmentResponse = async (
     .innerJoin('organization as o', 'o.id', 'r.organizationId')
     .select(['r.id', 's.agencyId', 'o.id as organizationId', 'o.name as organizationName'])
     .where('r.id', '=', submissionId)
-    .where('r.status', 'in', ['submitted', 'awaiting_documentation'])
+    .where('r.status', 'in', ['submitted', 'awaiting_documentation', 'withdrawn'])
     .executeTakeFirst()
   if (!parent) return fail(404, 'RESPONSE_NOT_FOUND')
   await requireGovernment(db, actor, { agencyId: parent.agencyId })
@@ -435,6 +575,7 @@ export const updateSubmissionStatus = async (
       .forUpdate()
       .executeTakeFirstOrThrow()
     if (row.status === 'draft') return fail(409, 'RESPONSE_NOT_SUBMITTED')
+    if (row.status === 'withdrawn') return fail(409, 'RESPONSE_FINAL')
     if (row.revision !== input.expectedRevision) return fail(409, 'REVISION_CONFLICT')
     const updatedAt = new Date()
     await tx

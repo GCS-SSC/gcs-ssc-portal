@@ -42,11 +42,11 @@ CREATE INDEX submission_set_organization ON submission_set ("organizationId");
 CREATE TABLE set_response (
  id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY, "setId" integer NOT NULL, "organizationId" integer NOT NULL,
  "setRevision" integer NOT NULL, snapshot jsonb NOT NULL, items jsonb NOT NULL, "forecastIterations" jsonb NOT NULL DEFAULT '{}'::jsonb,
- locale text NOT NULL CHECK (locale IN ('en','fr')), revision integer NOT NULL CHECK (revision > 0), status text NOT NULL CHECK (status IN ('draft','submitted','awaiting_documentation')), "gcsStatus" jsonb,
+ locale text NOT NULL CHECK (locale IN ('en','fr')), revision integer NOT NULL CHECK (revision > 0), status text NOT NULL CHECK (status IN ('draft','submitted','awaiting_documentation','withdrawn')), "gcsStatus" jsonb,
  "createdBy" integer NOT NULL REFERENCES "user"(id), "updatedBy" integer NOT NULL REFERENCES "user"(id), "submittedBy" integer REFERENCES "user"(id),
- "createdAt" timestamptz NOT NULL, "updatedAt" timestamptz NOT NULL, "submittedAt" timestamptz, export jsonb,
+ "createdAt" timestamptz NOT NULL, "updatedAt" timestamptz NOT NULL, "submittedAt" timestamptz, export jsonb, "resubmissionOfId" integer REFERENCES set_response(id),
  FOREIGN KEY ("setId", "organizationId") REFERENCES submission_set(id, "organizationId"),
- CHECK ((status = 'draft' AND "submittedAt" IS NULL AND export IS NULL AND "submittedBy" IS NULL) OR (status IN ('submitted','awaiting_documentation') AND "submittedAt" IS NOT NULL AND export IS NOT NULL AND "submittedBy" IS NOT NULL))
+ CHECK ((status = 'draft' AND "submittedAt" IS NULL AND export IS NULL AND "submittedBy" IS NULL) OR (status IN ('submitted','awaiting_documentation','withdrawn') AND "submittedAt" IS NOT NULL AND export IS NOT NULL AND "submittedBy" IS NOT NULL))
 );
 CREATE UNIQUE INDEX set_response_one_draft ON set_response ("setId") WHERE status = 'draft';
 CREATE INDEX set_response_organization ON set_response ("organizationId");

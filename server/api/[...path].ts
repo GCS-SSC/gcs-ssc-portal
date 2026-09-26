@@ -185,6 +185,19 @@ const portalHandler = defineEventHandler(async (event) => {
               'submit',
               resolvePublicInput(parseJsonBody(body))
             )
+          if (
+            path.length === 5 &&
+            (path[4] === 'withdraw' || path[4] === 'reopen') &&
+            method === 'POST'
+          )
+            return await responses.transitionResponse(
+              db,
+              id,
+              user.id,
+              responseId,
+              path[4],
+              resolvePublicInput(parseJsonBody(body))
+            )
           if (path.length === 5 && path[4] === 'details' && method === 'POST')
             return await responses.addSubmissionDetail(
               db,
@@ -224,9 +237,20 @@ const portalHandler = defineEventHandler(async (event) => {
         if (path.length === 3 && path[2] === 'members' && method === 'GET')
           return await portal.listMembers(db, id, user.id)
         if (path.length === 4 && path[2] === 'members' && method === 'PATCH')
-          return await portal.updatePermissions(db, id, user.id, decodePublicId(path[3]!, 'user'), parseJsonBody(body))
+          return await portal.updatePermissions(
+            db,
+            id,
+            user.id,
+            decodePublicId(path[3]!, 'user'),
+            parseJsonBody(body)
+          )
         if (path.length === 3 && path[2] === 'transfer' && method === 'POST')
-          return await portal.transferOwnership(db, id, user.id, resolvePublicInput(parseJsonBody(body)))
+          return await portal.transferOwnership(
+            db,
+            id,
+            user.id,
+            resolvePublicInput(parseJsonBody(body))
+          )
         if (path.length === 3 && path[2] === 'invitations') {
           if (method === 'GET') return await portal.listInvitations(db, id, user.id)
           if (method === 'POST')

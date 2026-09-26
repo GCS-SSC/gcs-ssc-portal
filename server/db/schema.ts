@@ -1,6 +1,7 @@
 import type {
   AgreementConfig,
   AgreementStatus,
+  SubmissionGcsStatus,
   SetItem,
   SetSnapshot,
   ResponseItem
@@ -171,11 +172,12 @@ export interface Database {
     forecastIterations: Generated<Record<string, number>>
     locale: 'en' | 'fr'
     revision: number
-    status: 'draft' | 'submitted' | 'awaiting_documentation'
-    gcsStatus: Generated<AgreementStatus | null>
+    status: 'draft' | 'submitted' | 'awaiting_documentation' | 'withdrawn'
+    gcsStatus: Generated<SubmissionGcsStatus | null>
     createdBy: number
     updatedBy: number
     submittedBy: number | null
+    resubmissionOfId: Generated<number | null>
     createdAt: Timestamp
     updatedAt: Timestamp
     submittedAt: ColumnType<Date | null, Date | null, Date | null>

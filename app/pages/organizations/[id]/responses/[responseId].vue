@@ -172,6 +172,26 @@ const submit = () =>
     review.value = null
     saved.value = JSON.stringify(result.response.items)
   })
+const withdraw = () => {
+  if (!window.confirm(c('withdrawConfirm'))) return
+  void perform(async () => {
+    const result = await api<ResponseResult>(`${endpoint}/withdraw`, {
+      method: 'POST',
+      body: { expectedRevision: response.value!.revision }
+    })
+    response.value = result.response
+    data.value!.attachments = result.attachments
+    data.value!.details = result.details
+  }, 'withdrawalComplete')
+}
+const reopen = () =>
+  perform(async () => {
+    const result = await api<ResponseResult>(`${endpoint}/reopen`, {
+      method: 'POST',
+      body: { expectedRevision: response.value!.revision }
+    })
+    await navigateTo(`/organizations/${organizationId}/responses/${result.response.id}`)
+  })
 const leave = (event: BeforeUnloadEvent) => {
   if (dirty.value || uploading.value) event.preventDefault()
 }
@@ -201,7 +221,13 @@ const changePosition = async (next: number) => {
         }}</PortalBadge>
       </div>
       <PortalText v-if="response.status !== 'draft' || !isFinancial">{{
-        c(response.status === 'draft' ? 'sharedDraft' : 'finalNotice')
+        c(
+          response.status === 'draft'
+            ? 'sharedDraft'
+            : response.status === 'withdrawn'
+              ? 'withdrawnNotice'
+              : 'finalNotice'
+        )
       }}</PortalText>
       <PortalNotice v-if="error" variant="error"
         >{{ error }}
@@ -352,6 +378,25 @@ const changePosition = async (next: number) => {
       </section>
       <PortalText v-if="dirty">{{ c('dirty') }}</PortalText>
       <div class="form-actions response-actions">
+        <PortalButton
+          v-if="
+            response.status !== 'draft' &&
+            response.status !== 'withdrawn' &&
+            (response.gcsStatus === null || response.gcsStatus.isWithdrawable === true) &&
+            allowed('manager')
+          "
+          variant="secondary"
+          :disabled="uploading || busy"
+          @click="withdraw"
+          >{{ c('withdrawSubmission') }}</PortalButton
+        >
+        <PortalButton
+          v-if="response.status === 'withdrawn' && allowed('contributor')"
+          variant="secondary"
+          :disabled="uploading || busy"
+          @click="reopen"
+          >{{ c('reopenSubmission') }}</PortalButton
+        >
         <div class="form-actions response-actions-right">
           <PortalButton
             v-if="editable"

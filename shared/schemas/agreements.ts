@@ -91,6 +91,12 @@ export const agreementStatusSchema = z
   })
   .strict()
 export type AgreementStatus = z.infer<typeof agreementStatusSchema>
+export const submissionGcsStatusSchema = agreementStatusSchema
+  .extend({
+    isWithdrawable: z.boolean()
+  })
+  .strict()
+export type SubmissionGcsStatus = z.infer<typeof submissionGcsStatusSchema>
 export const agreementInput = bilingualName.extend({
   organizationId: databaseId,
   streamId: databaseId,
@@ -148,14 +154,14 @@ export const submissionStatusInput = z.discriminatedUnion('status', [
     .object({
       expectedRevision: z.number().int().positive(),
       status: z.literal('submitted'),
-      gcsStatus: agreementStatusSchema.nullable()
+      gcsStatus: submissionGcsStatusSchema.nullable()
     })
     .strict(),
   z
     .object({
       expectedRevision: z.number().int().positive(),
       status: z.literal('awaiting_documentation'),
-      gcsStatus: agreementStatusSchema.nullable(),
+      gcsStatus: submissionGcsStatusSchema.nullable(),
       message: z.string().trim().min(1).max(4000),
       senderName: z.string().trim().min(1).max(120)
     })

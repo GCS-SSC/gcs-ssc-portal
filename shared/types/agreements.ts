@@ -1,6 +1,7 @@
 import type {
   AgreementConfig,
   AgreementStatus,
+  SubmissionGcsStatus,
   ResponseItem,
   SetInput,
   SetSnapshot
@@ -46,8 +47,8 @@ export interface SetResponse {
   setRevision: number
   organizationId: string
   revision: number
-  status: 'draft' | 'submitted' | 'awaiting_documentation'
-  gcsStatus: AgreementStatus | null
+  status: 'draft' | 'submitted' | 'awaiting_documentation' | 'withdrawn'
+  gcsStatus: SubmissionGcsStatus | null
   locale: 'en' | 'fr'
   items: ResponseItem[]
   forecastIterations: Record<string, number>
@@ -56,6 +57,7 @@ export interface SetResponse {
   updatedAt: string
   submittedAt: string | null
   submissionId: string | null
+  resubmissionOfId: string | null
 }
 export interface LineBalance {
   budgetLineId: string
@@ -114,7 +116,7 @@ export interface ResponseSummary {
   forecastFiscalYear: number | null
   forecastIteration: number | null
   status: SetResponse['status']
-  gcsStatus: AgreementStatus | null
+  gcsStatus: SubmissionGcsStatus | null
   submittedAt: string | null
   updatedAt: string
 }
