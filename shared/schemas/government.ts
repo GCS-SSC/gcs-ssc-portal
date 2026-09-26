@@ -18,12 +18,29 @@ export const calendarDate = z
       date.toISOString().slice(0, 10) === value
     )
   }, 'Invalid calendar date')
-export const callInput = structureInput
-  .extend({ streamId: z.number().int().positive(), startDate: calendarDate, endDate: calendarDate })
-  .refine((value) => value.endDate >= value.startDate, {
-    path: ['endDate'],
-    message: 'End date must not precede start date'
+export const utcTime = z
+  .string()
+  .regex(/^([01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d{1,6})?)?$/, 'Use a UTC time')
+  .transform((value) => {
+    const [hour, minute, seconds = '00'] = value.split(':')
+    const [second, fraction = ''] = seconds.split('.')
+    return `${hour}:${minute}:${second}.${fraction.padEnd(6, '0')}`
   })
+export const callInput = structureInput
+  .extend({
+    streamId: z.number().int().positive(),
+    startDate: calendarDate,
+    startTime: utcTime.default('00:00:00.000000'),
+    endDate: calendarDate,
+    endTime: utcTime.default('23:59:59.999999')
+  })
+  .refine(
+    (value) => `${value.endDate}T${value.endTime}` > `${value.startDate}T${value.startTime}`,
+    {
+      path: ['endTime'],
+      message: 'End date and time must follow start date and time'
+    }
+  )
 export const publishInput = z.object({ published: z.boolean() }).strict()
 export const integrationTokenInput = z
   .object({

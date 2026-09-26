@@ -240,7 +240,9 @@ export interface SetSnapshot {
     programId: number
     streamId: number
     startDate: string
+    startTime?: string
     endDate: string
+    endTime?: string
     sourceSystem: string
     foreignSystemId: string | null
     externalStreamId: string | null

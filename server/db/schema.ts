@@ -117,7 +117,9 @@ export interface Database {
     nameEn: string
     nameFr: string
     startDate: ColumnType<string, string, string>
+    startTime: ColumnType<string, string | undefined, string>
     endDate: ColumnType<string, string, string>
+    endTime: ColumnType<string, string | undefined, string>
     published: boolean
     surveyId: Generated<number | null>
     surveyRevision: Generated<number | null>

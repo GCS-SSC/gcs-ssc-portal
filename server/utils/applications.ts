@@ -78,7 +78,9 @@ export const startApplication = async (
           programId: stream.programId,
           streamId: stream.id,
           startDate: calendarText(call.startDate),
+          startTime: call.startTime,
           endDate: calendarText(call.endDate),
+          endTime: call.endTime,
           sourceSystem: call.sourceSystem,
           foreignSystemId: call.foreignSystemId,
           externalStreamId:

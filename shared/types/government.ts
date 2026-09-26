@@ -29,7 +29,9 @@ export interface FundingCall extends BilingualName {
   streamNameEn: string
   streamNameFr: string
   startDate: string
+  startTime: string
   endDate: string
+  endTime: string
   surveyId: string | null
   surveyRevision: number | null
   published: boolean

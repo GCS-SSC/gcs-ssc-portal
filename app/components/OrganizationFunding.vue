@@ -15,6 +15,14 @@ const { busy, error: actionError, perform } = useAgreementAction()
 const api = usePortalApi(),
   message = useApiMessage()
 const search = ref('')
+const now = ref(Date.now())
+let clock: ReturnType<typeof setInterval> | undefined
+onMounted(() => {
+  clock = setInterval(() => (now.value = Date.now()), 30000)
+})
+onUnmounted(() => {
+  if (clock) clearInterval(clock)
+})
 const {
   data,
   error,
@@ -29,8 +37,9 @@ const {
   return { ...funding, organization, responses: responses.filter((response) => response.callId) }
 })
 const status = (call: FundingCall) => {
-  const today = new Date().toISOString().slice(0, 10)
-  return today < call.startDate ? 'upcoming' : today > call.endDate ? 'closed' : 'open'
+  const start = Date.parse(`${call.startDate}T${call.startTime}Z`)
+  const end = Date.parse(`${call.endDate}T${call.endTime}Z`)
+  return now.value < start ? 'upcoming' : now.value > end ? 'closed' : 'open'
 }
 const agencyGroups = computed(() => {
   const query = search.value.trim().toLocaleLowerCase()
@@ -112,7 +121,8 @@ const start = (callId: string) =>
               {{ localized({ nameEn: call.streamNameEn, nameFr: call.streamNameFr }) }}
             </PortalText>
             <PortalText size="small" text-role="secondary" margin-bottom="100">
-              {{ g('startDate') }}: {{ call.startDate }} · {{ g('endDate') }}: {{ call.endDate }}
+              {{ g('startDate') }}: {{ call.startDate }} {{ call.startTime.slice(0, 5) }} UTC ·
+              {{ g('endDate') }}: {{ call.endDate }} {{ call.endTime.slice(0, 5) }} UTC
             </PortalText>
           </template>
           <template #actions>

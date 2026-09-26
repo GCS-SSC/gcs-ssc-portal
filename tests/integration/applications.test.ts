@@ -30,6 +30,7 @@ import {
 } from '../../server/utils/attachments'
 import { sha256, type AttachmentStorage } from '../../server/utils/attachment-storage'
 import { attachmentsAllowed } from '../../shared/schemas/agreements'
+import { callInput } from '../../shared/schemas/government'
 let db: Kysely<Database>, actor: GovernmentActor, agencyId: number, streamId: number, orgId: number
 type Role = 'owner' | 'viewer' | 'contributor' | 'manager'
 const users = {} as Record<Role, number>
@@ -198,6 +199,77 @@ const upload = (id: string, revision: number, target = storage) =>
     bytes,
     target
   )
+it('validates UTC call times and enforces both boundaries on existing drafts', async () => {
+  const details = { streamId, ...names, startDate: '2026-09-25', endDate: '2026-09-25' }
+  expect(callInput.safeParse({ ...details, startTime: '12:30', endTime: '12:29' }).success).toBe(
+    false
+  )
+  expect(callInput.safeParse({ ...details, startTime: '24:00', endTime: '25:00' }).success).toBe(
+    false
+  )
+  expect(callInput.parse(details)).toMatchObject({
+    startTime: '00:00:00.000000',
+    endTime: '23:59:59.999999'
+  })
+  const configured = await structure.saveCall(db, actor, {
+    ...details,
+    startTime: '09:00',
+    endTime: '17:00'
+  })
+  expect(
+    (await structure.agencyStructure(db, actor, agencyId)).calls.find(
+      (call) => call.id === configured.id
+    )
+  ).toMatchObject({ startTime: '09:00:00.000000', endTime: '17:00:00.000000' })
+  expect(
+    callInput.safeParse({
+      ...details,
+      startTime: '09:00:00.000000',
+      endTime: '17:00:00.000000'
+    }).success
+  ).toBe(true)
+
+  const callId = await createCall(false)
+  const draft = await start(callId)
+  const futureStart = new Date(Date.now() + 180000).toISOString()
+  const futureEnd = new Date(Date.now() + 360000).toISOString()
+  await db
+    .updateTable('funding_call')
+    .set({
+      startDate: futureStart.slice(0, 10),
+      startTime: futureStart.slice(11, 16),
+      endDate: futureEnd.slice(0, 10),
+      endTime: futureEnd.slice(11, 16)
+    })
+    .where('id', '=', callId)
+    .execute()
+  await expect(save(draft.id, draft.revision)).rejects.toMatchObject({ statusCode: 409 })
+
+  const pastStart = new Date(Date.now() - 360000).toISOString()
+  const pastEnd = new Date(Date.now() - 180000).toISOString()
+  await db
+    .updateTable('funding_call')
+    .set({
+      startDate: pastStart.slice(0, 10),
+      startTime: pastStart.slice(11, 16),
+      endDate: pastEnd.slice(0, 10),
+      endTime: pastEnd.slice(11, 16)
+    })
+    .where('id', '=', callId)
+    .execute()
+  await expect(
+    checkResponse(db, orgId, users.manager, draft.id, {
+      expectedRevision: draft.revision
+    })
+  ).rejects.toMatchObject({ statusCode: 409 })
+  await expect(
+    mutateResponse(db, orgId, users.manager, draft.id, 'submit', {
+      expectedRevision: draft.revision,
+      balanceRevision: null,
+      warningsAcknowledged: true
+    })
+  ).rejects.toMatchObject({ statusCode: 409 })
+})
 it('uses application permissions and immutable pinned forms, privately stores files and exports submitted evidence', async () => {
   const callId = await createCall()
   await expect(

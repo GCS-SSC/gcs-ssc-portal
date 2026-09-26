@@ -70,7 +70,9 @@ test('extension key publishes a pinned form for an authorized organization', asy
         nameEn: `Funding call ${suffix}`,
         nameFr: `Appel ${suffix}`,
         startDate: '2020-01-01',
-        endDate: '2099-12-31'
+        startTime: '08:30',
+        endDate: '2099-12-31',
+        endTime: '17:00'
       }
     })
     expect(callResponse.ok()).toBe(true)
@@ -275,6 +277,9 @@ test('extension key publishes a pinned form for an authorized organization', asy
     await expect(menu.getByRole('navigation', { name: /^Manage organization/ })).toBeVisible()
     await menu.getByRole('link', { name: 'Apply for funding', exact: true }).click()
     await expect(applicant.getByRole('heading', { name: `Funding call ${suffix}` })).toBeVisible()
+    await expect(
+      applicant.locator('section.record-summary').filter({ hasText: `Funding call ${suffix}` })
+    ).toContainText('Start date: 2020-01-01 08:30 UTC · End date: 2099-12-31 17:00 UTC')
     const fundingSearch = applicant.getByRole('searchbox', { name: 'Search funding calls' })
     await expect(applicant.locator('gcds-search')).toHaveCount(1)
     await fundingSearch.fill('no matching funding call')

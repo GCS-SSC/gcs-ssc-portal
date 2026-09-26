@@ -6,12 +6,15 @@ export const calendarText = (value: Date | string) =>
 export const requireOpenCall = (call: {
   published: boolean
   startDate: Date | string
+  startTime: string
   endDate: Date | string
+  endTime: string
 }) => {
   if (!call.published) return fail(409, 'SET_WITHDRAWN')
-  const today = new Date().toISOString().slice(0, 10)
-  if (today < calendarText(call.startDate) || today > calendarText(call.endDate))
-    return fail(409, 'CALL_NOT_OPEN')
+  const now = Date.now()
+  const start = Date.parse(`${calendarText(call.startDate)}T${call.startTime}Z`)
+  const end = Date.parse(`${calendarText(call.endDate)}T${call.endTime}Z`)
+  if (now < start || now > end) return fail(409, 'CALL_NOT_OPEN')
 }
 /** Called inside an organization-locked transaction; call row serializes publication/deadline changes. */
 export const requireResponsePublication = async (

@@ -37,7 +37,7 @@ export const governmentEn = {
   open: 'Open',
   closed: 'Closed',
   fundingScope:
-    'Contributors prepare shared drafts. Managers review and submit applications during the call dates.',
+    'Contributors prepare shared drafts. Managers review and submit applications during the call window (UTC).',
   confirm: 'Confirm',
   confirmChange: 'Confirm this change',
   revokeConfirm: 'Revoke this credential? The integration will lose access immediately.',
@@ -87,7 +87,7 @@ export const governmentFr: Record<keyof typeof governmentEn, string> = {
   open: 'Ouvert',
   closed: 'Fermé',
   fundingScope:
-    'Les contributeurs préparent les brouillons partagés. Les gestionnaires examinent et soumettent les demandes pendant la période de l’appel.',
+    'Les contributeurs préparent les brouillons partagés. Les gestionnaires examinent et soumettent les demandes pendant la période de l’appel (UTC).',
   confirm: 'Confirmer',
   confirmChange: 'Confirmer cette modification',
   revokeConfirm: 'Révoquer cet identifiant? L’intégration perdra immédiatement son accès.',
