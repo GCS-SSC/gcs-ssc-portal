@@ -206,7 +206,8 @@ export const demoSubmissionsMigration = {
               locale: 'en',
               submittedAt: submittedAt.toISOString(),
               snapshot: sample.snapshot,
-              items
+              items,
+              forecastIterations
             }),
             attachments: [],
             balanceRevision: sample.snapshot.agreement?.revision ?? null,

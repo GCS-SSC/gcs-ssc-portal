@@ -142,6 +142,8 @@ The application uses GCDS 1.6.0 through `Portal*` adapters. The MyACOA reference
 
 The 1.6.0 Vue Table slot wrapper does not register the underlying custom element. `PortalTable` explicitly calls the official Table registration function. The core table identifies rows by index while the Vue wrapper prefers `data.id`; the adapter supplies matching index IDs to the vendor and keeps original domain rows in typed cell slots. No business identifier is changed. Recheck this bridge when upgrading GCDS, and verify that live cell controls still submit and update the correct record. Never render Vue actions through cloned HTML templates.
 
+The installed Table exposes no public per-row highlight option. The forecast breakdown marks the active line within its Line cell using GCDS colour tokens; it does not style the table's private row markup. Its short Edit buttons keep line-specific accessible names. The installed mobile table stacks row cells, keeping those buttons available without a separate line selector.
+
 ## Bounded fallbacks
 
 - `PortalBadge` is readable status text, not an interactive control. The reviewed catalogue has no badge component. It uses official typography, spacing and colour tokens for fixed tones. Agreement statuses supplied by GCS use a validated six-digit hex background and computed black or white text for readable contrast; this bounded dynamic-colour case cannot use a fixed token. Meaning remains readable without colour. Recheck the catalogue before extending it.

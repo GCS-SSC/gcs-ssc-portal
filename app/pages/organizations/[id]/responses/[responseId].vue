@@ -42,8 +42,6 @@ const attachmentGeneration = ref(0)
 const uploading = ref(false)
 const response = ref<SetResponse | null>(null),
   balances = ref<LineBalance[]>([]),
-  recorded = ref(false),
-  submittedBalances = ref<LineBalance[] | null>(null),
   review = ref<SubmissionCheck | null>(null),
   position = ref(0),
   saved = ref('')
@@ -65,9 +63,7 @@ watch(
   (next) => {
     if (next) {
       response.value = structuredClone(next.response)
-      balances.value = next.submittedBalances ?? next.balances
-      submittedBalances.value = next.submittedBalances
-      recorded.value = !!next.submittedBalances
+      balances.value = next.balances
       saved.value = JSON.stringify(next.response.items)
       review.value = null
     }
@@ -136,7 +132,9 @@ const attachmentChange = (result: {
   }
 }
 const current = computed(() => response.value?.items[position.value])
-const isClaim = computed(() => current.value?.kind === 'claim')
+const isFinancial = computed(
+  () => current.value?.kind === 'claim' || current.value?.kind === 'forecast'
+)
 const published = computed(() => response.value?.snapshot.items[position.value])
 const save = () =>
   perform(async () => {
@@ -145,9 +143,7 @@ const save = () =>
       body: { expectedRevision: response.value!.revision, items: response.value!.items }
     })
     response.value = result.response
-    submittedBalances.value = result.submittedBalances
-    recorded.value = !!result.submittedBalances
-    balances.value = result.submittedBalances ?? result.balances
+    balances.value = result.balances
     saved.value = JSON.stringify(result.response.items)
   })
 const prepare = () =>
@@ -169,24 +165,9 @@ const submit = () =>
       }
     })
     response.value = result.response
-    submittedBalances.value = result.submittedBalances
-    recorded.value = !!result.submittedBalances
-    balances.value = result.submittedBalances ?? result.balances
+    balances.value = result.balances
     review.value = null
     saved.value = JSON.stringify(result.response.items)
-  })
-const showRecorded = () => {
-  if (submittedBalances.value) {
-    balances.value = submittedBalances.value
-    recorded.value = true
-  }
-}
-const updateBalances = () =>
-  perform(async () => {
-    const result = await api<{ balances: LineBalance[] }>(endpoint)
-    balances.value = result.balances
-    recorded.value = false
-    review.value = null
   })
 const leave = (event: BeforeUnloadEvent) => {
   if (dirty.value || uploading.value) event.preventDefault()
@@ -216,7 +197,7 @@ const changePosition = async (next: number) => {
           response.gcsStatus[locale]
         }}</PortalBadge>
       </div>
-      <PortalText v-if="response.status !== 'draft' || !isClaim">{{
+      <PortalText v-if="response.status !== 'draft' || !isFinancial">{{
         c(response.status === 'draft' ? 'sharedDraft' : 'finalNotice')
       }}</PortalText>
       <PortalNotice v-if="error" variant="error"
@@ -255,15 +236,6 @@ const changePosition = async (next: number) => {
           }}</PortalButton>
         </div>
       </section>
-      <PortalText v-if="response.snapshot.agreement && response.status !== 'draft'">
-        {{ c(recorded ? 'recordedBalances' : 'latestBalances') }}
-      </PortalText>
-      <PortalButton
-        v-if="submittedBalances && !recorded"
-        variant="secondary"
-        @click="showRecorded"
-        >{{ c('recordedBalances') }}</PortalButton
-      >
       <div id="response-item" tabindex="-1">
         <PortalText v-if="response.items.length > 1"
           >{{ c('item') }} {{ position + 1 }} / {{ response.items.length }}</PortalText
@@ -282,6 +254,7 @@ const changePosition = async (next: number) => {
             :model-value="current"
             :snapshot="response.snapshot"
             :balances="balances"
+            :show-balances="response.status === 'draft'"
             :readonly="!editable"
             @update:model-value="response!.items[position] = $event"
           />
@@ -370,13 +343,6 @@ const changePosition = async (next: number) => {
       </section>
       <PortalText v-if="dirty">{{ c('dirty') }}</PortalText>
       <div class="form-actions response-actions">
-        <PortalButton
-          v-if="response.snapshot.agreement"
-          variant="secondary"
-          :disabled="uploading || busy"
-          @click="updateBalances"
-          >{{ c('refreshBalances') }}</PortalButton
-        >
         <div class="form-actions response-actions-right">
           <PortalButton
             v-if="editable"
@@ -398,7 +364,6 @@ const changePosition = async (next: number) => {
 </template>
 <style scoped>
 .response-actions {
-  justify-content: space-between;
   margin-top: var(--gcds-spacing-400);
 }
 .response-actions-right {

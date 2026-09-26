@@ -145,6 +145,10 @@ test('extension key publishes a pinned form for an authorized organization', asy
             en: 'List each trip and keep the matching receipt.',
             fr: 'Indiquez chaque déplacement et conservez le reçu correspondant.'
           },
+          forecastInstruction: {
+            en: 'Enter a monthly estimate for every published budget line.',
+            fr: 'Saisissez une estimation mensuelle pour chaque poste budgétaire publié.'
+          },
           fiscalYears: [{ id: 'fy', startYear: 2026, foreignSystemId: '91' }],
           budgetLines: [
             {
@@ -353,7 +357,9 @@ test('extension key publishes a pinned form for an authorized organization', asy
       'Status agreement'
     ]
     await expect(applicant.locator('gcds-breadcrumbs-item')).toHaveText(responseBreadcrumbs)
-    await expect(applicant.locator('gcds-breadcrumbs-item').last().getByRole('link')).toHaveAttribute(
+    await expect(
+      applicant.locator('gcds-breadcrumbs-item').last().getByRole('link')
+    ).toHaveAttribute(
       'href',
       `/organizations/${organizationCode}/agreements/${createdAgreement.id}`
     )
@@ -372,7 +378,26 @@ test('extension key publishes a pinned form for an authorized organization', asy
         .locator('dt', { hasText: 'Balance as of' })
         .locator('xpath=following-sibling::dd[1]')
     ).toHaveText(localBalanceTime)
-    await expect(applicant.getByRole('button', { name: 'Refresh balances' })).toBeVisible()
+    await expect(applicant.getByRole('button', { name: 'Refresh balances' })).toHaveCount(0)
+    const changedBalances = await extension.request.put(
+      `/api/government/agreements/${createdAgreement.id}/balances`,
+      {
+        data: {
+          expectedRevision: createdAgreement.revision,
+          asOf: '2026-09-27T00:04:51.283Z',
+          lines: [
+            {
+              foreignSystemId: '92',
+              budgetedAmount: '100.00',
+              balance: '75.00',
+              claimedAmount: '25.00',
+              forecastAmount: '0.00'
+            }
+          ]
+        }
+      }
+    )
+    expect(changedBalances.ok()).toBe(true)
     await expect(applicant.getByRole('button', { name: 'Save draft' })).toBeVisible()
     await expect(applicant.getByRole('button', { name: 'Submit', exact: true })).toBeVisible()
     await expect(applicant.getByRole('button', { name: 'Delete draft' })).toHaveCount(0)
@@ -391,6 +416,11 @@ test('extension key publishes a pinned form for an authorized organization', asy
     await expect(amount).toHaveValue('$1,250.50')
     await applicant.getByRole('button', { name: 'Save draft' }).click()
     await expect(applicant.getByText('Changes saved.')).toBeVisible()
+    await expect(
+      applicant
+        .locator('dt', { hasText: 'Remaining balance' })
+        .locator('xpath=following-sibling::dd[1]')
+    ).toHaveText('$75.00')
     await applicant.getByRole('button', { name: 'Add item' }).click()
     await expect(claimTable.getByRole('row')).toHaveCount(3)
     await expect(applicant.getByRole('combobox', { name: 'Cost category' })).toHaveValue(
@@ -450,6 +480,73 @@ test('extension key publishes a pinned form for an authorized organization', asy
     await expect(
       applicant.getByRole('heading', { level: 1, name: 'Travel forecast' })
     ).toBeVisible()
+    await expect(applicant.getByRole('heading', { name: 'Forecast instructions' })).toBeVisible()
+    await expect(
+      applicant.getByText('Enter a monthly estimate for every published budget line.')
+    ).toBeVisible()
+    const breakdown = applicant.getByRole('table', { name: /Forecast breakdown/ })
+    await expect(breakdown.getByRole('columnheader')).toHaveText([
+      'Cost category',
+      'Cost subsection',
+      'Line',
+      'April',
+      'May',
+      'June',
+      'Quarter total 2',
+      'Quarter total 3',
+      'Quarter total 4',
+      'Actions'
+    ])
+    await expect(breakdown.getByRole('row')).toHaveCount(3)
+    const activeCellColour = await applicant
+      .locator('.forecast-line-indicator--active')
+      .first()
+      .evaluate((cell) => getComputedStyle(cell).backgroundColor)
+    const inactiveCellColour = await applicant
+      .locator('.forecast-line-indicator:not(.forecast-line-indicator--active)')
+      .first()
+      .evaluate((cell) => getComputedStyle(cell).backgroundColor)
+    expect(activeCellColour).not.toBe(inactiveCellColour)
+    await expect(applicant.locator('.forecast-line-indicator--active').first()).toContainText(
+      'Travel'
+    )
+    await expect(applicant.getByRole('combobox', { name: 'Line' })).toHaveCount(0)
+    await expect(applicant.locator('.forecast-line-facts dt')).toHaveText([
+      'Cost category',
+      'Cost subsection',
+      'Line'
+    ])
+    await applicant.getByRole('textbox', { name: /April — Travel/ }).fill('10.25')
+    const desktopViewport = applicant.viewportSize()
+    await applicant.setViewportSize({ width: 390, height: 844 })
+    await expect(applicant.getByRole('button', { name: 'Edit — Computer' })).toBeVisible()
+    await applicant.getByRole('button', { name: 'Edit — Computer' }).click()
+    await expect(applicant.getByRole('textbox', { name: /April — Computer/ })).toBeVisible()
+    await expect(applicant.locator('.forecast-line-indicator--active').first()).toContainText(
+      'Computer'
+    )
+    await applicant.getByRole('button', { name: 'Edit — Travel' }).click()
+    if (desktopViewport) await applicant.setViewportSize(desktopViewport)
+    await applicant.getByRole('button', { name: /Quarter 2 \(July–September\)/ }).click()
+    await expect(breakdown.getByRole('columnheader')).toHaveText([
+      'Cost category',
+      'Cost subsection',
+      'Line',
+      'Quarter total 1',
+      'July',
+      'August',
+      'September',
+      'Quarter total 3',
+      'Quarter total 4',
+      'Actions'
+    ])
+    await applicant.getByRole('textbox', { name: /July — Travel/ }).fill('20.50')
+    await applicant.getByRole('button', { name: 'Save draft' }).click()
+    await applicant.reload()
+    await expect(applicant.getByRole('textbox', { name: /April — Travel/ })).toHaveValue('$10.25')
+    await expect(breakdown.getByRole('cell', { name: '$10.25' })).toBeVisible()
+    await applicant.getByRole('button', { name: /Quarter 2 \(July–September\)/ }).click()
+    await expect(applicant.getByRole('textbox', { name: /July — Travel/ })).toHaveValue('$20.50')
     const forecastResponsePath = new URL(applicant.url()).pathname
     expect(forecastResponsePath).toMatch(new RegExp(`/responses/F-[A-HJKMNP-Z2-9]{5,}$`))
     await applicant.getByRole('link', { name: 'Back' }).click()

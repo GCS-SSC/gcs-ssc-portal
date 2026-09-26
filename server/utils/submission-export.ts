@@ -11,6 +11,7 @@ export const buildSubmissionExport = (options: {
   submittedAt: string
   snapshot: SetSnapshot
   items: ResponseItem[]
+  forecastIterations: Record<string, number>
 }) => ({
   schemaVersion: 1,
   submissionId: options.submissionId,
@@ -52,7 +53,7 @@ export const buildSubmissionExport = (options: {
     })
     const mappingComplete = Boolean(
       config.foreignSystemId &&
-      config.externalStreamId &&
+      (item.kind === 'forecast' || config.externalStreamId) &&
       fiscalYear.foreignSystemId &&
       lines.every((line) => line.foreignSystemId)
     )
@@ -90,6 +91,7 @@ export const buildSubmissionExport = (options: {
       ...item,
       lines,
       mappingComplete,
+      portalIteration: options.forecastIterations[fiscalYearId] ?? null,
       forecast: {
         agreementId: config.foreignSystemId,
         header: { egcs_fc_fiscalyear: fiscalYear.foreignSystemId },

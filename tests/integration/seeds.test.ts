@@ -233,6 +233,7 @@ it('creates usable credentials and scoped sample data once, preserving edits on 
     { en: 'Completed', fr: 'Terminée', colour: '#286A46' }
   ])
   expect(agreements.every((item) => !!item.config.claimInstruction?.en)).toBe(true)
+  expect(agreements.every((item) => !!item.config.forecastInstruction?.en)).toBe(true)
   const customStatus = { en: 'Custom status', fr: 'Statut personnalisé', colour: '#443366' }
   await db
     .updateTable('funding_agreement')
@@ -259,6 +260,31 @@ it('creates usable credentials and scoped sample data once, preserving edits on 
   expect(sets.every((set) => set.published && set.agreementId)).toBe(true)
   expect(sets.some((set) => set.items.every((item) => item.kind === 'claim'))).toBe(true)
   expect(sets.some((set) => set.items.every((item) => item.kind === 'forecast'))).toBe(true)
+  const forecastSet = sets.find(
+    (set) =>
+      set.agreementId === agreements[0]!.id && set.items.every((item) => item.kind === 'forecast')
+  )
+  const forecastPublication = await db
+    .selectFrom('submission_set')
+    .select('snapshot')
+    .where('id', '=', forecastSet!.id)
+    .executeTakeFirstOrThrow()
+  expect(forecastPublication.snapshot?.agreement?.config.forecastInstruction?.en).toBeTruthy()
+  const forecastRecords = await db
+    .selectFrom('set_response')
+    .select(['status', 'snapshot', 'items'])
+    .where('setId', '=', forecastSet!.id)
+    .execute()
+  expect(
+    forecastRecords.some(
+      (row) => row.status === 'draft' && !!row.snapshot.agreement?.config.forecastInstruction
+    )
+  ).toBe(true)
+  expect(
+    forecastRecords.some(
+      (row) => row.status === 'submitted' && !row.snapshot.agreement?.config.forecastInstruction
+    )
+  ).toBe(true)
   expect(sets.some((set) => set.items.every((item) => item.kind === 'survey'))).toBe(true)
   const demoResponses = (await listResponses(db, org.id, org.ownerId)).responses.filter(
     (response) => response.agreementId === agreements[0]!.id

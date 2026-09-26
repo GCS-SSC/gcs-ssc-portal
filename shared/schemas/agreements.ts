@@ -48,6 +48,11 @@ export const agreementConfigSchema = z
       .strict()
       .nullable()
       .default(null),
+    forecastInstruction: z
+      .object({ en: z.string().trim().min(1).max(4000), fr: z.string().trim().min(1).max(4000) })
+      .strict()
+      .nullable()
+      .default(null),
     fiscalYears: z.array(fiscalYearSchema).max(20),
     budgetLines: z.array(budgetLineSchema).max(200)
   })

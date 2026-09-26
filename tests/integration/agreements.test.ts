@@ -119,7 +119,12 @@ beforeAll(async () => {
 afterAll(async () => {
   await db?.destroy()
 })
-const newAgreement = async (): Promise<FundingAgreement> =>
+const newAgreement = async (
+  options: {
+    externalStreamId?: string | null
+    forecastInstruction?: { en: string; fr: string } | null
+  } = {}
+): Promise<FundingAgreement> =>
   (
     await saveAgreement(db, root, {
       ...names('Agreement'),
@@ -129,8 +134,10 @@ const newAgreement = async (): Promise<FundingAgreement> =>
       config: {
         sourceSystem: 'gcs-ssc',
         foreignSystemId: String(Date.now()) + String(Math.floor(Math.random() * 1000)),
-        externalStreamId: '9223372036854775806',
+        externalStreamId:
+          options.externalStreamId === undefined ? '9223372036854775806' : options.externalStreamId,
         externalApplicantRecipientId: '82',
+        forecastInstruction: options.forecastInstruction ?? null,
         fiscalYears: [{ id: 'fy', startYear: 2026, foreignSystemId: '91' }],
         budgetLines: [
           {
@@ -253,6 +260,77 @@ describe('agreement submissions and reconciliation', () => {
     expect(summaries.find((response) => response.id === second.id)).toMatchObject({
       forecastFiscalYear: 2026,
       forecastIteration: 2
+    })
+  })
+  it('pins forecast instructions at publication and preserves submitted instructions after updates', async () => {
+    const original = { en: 'Plan each month.', fr: 'Planifiez chaque mois.' }
+    const revised = { en: 'Revise future months.', fr: 'Révisez les mois à venir.' }
+    const agreement = await newAgreement({ forecastInstruction: original })
+    const firstSet = await newSet(agreement, 'forecast')
+    const first = (
+      await startResponse(db, organizationId, contributor, firstSet.id, { locale: 'en' })
+    ).response
+    expect(first.snapshot.agreement?.config.forecastInstruction).toEqual(original)
+    const firstItem = first.items[0]!
+    if (firstItem.kind !== 'forecast') throw new Error('Expected forecast')
+    for (const line of firstItem.lines) line.amount = '0'
+    await mutateResponse(db, organizationId, contributor, first.id, 'save', {
+      expectedRevision: first.revision,
+      items: [firstItem]
+    })
+    await mutateResponse(db, organizationId, manager, first.id, 'submit', {
+      expectedRevision: first.revision + 1,
+      balanceRevision: agreement.revision,
+      warningsAcknowledged: true
+    })
+    const immutableExport = (await exportSubmission(db, root, first.id)).submission
+    const updatedValue = agreementInput.parse({
+      ...names('Agreement'),
+      organizationId,
+      streamId,
+      agreementNumber: agreement.agreementNumber,
+      config: { ...agreement.config, forecastInstruction: revised }
+    })
+    const updated = (
+      await saveAgreement(
+        db,
+        root,
+        {
+          expectedRevision: agreement.revision,
+          value: updatedValue
+        },
+        agreement.id
+      )
+    ).agreement
+    expect(updated.config.forecastInstruction).toEqual(revised)
+    expect(
+      (await getResponse(db, organizationId, viewer, first.id)).response.snapshot.agreement?.config
+        .forecastInstruction
+    ).toEqual(original)
+    expect((await exportSubmission(db, root, first.id)).submission).toEqual(immutableExport)
+    const secondSet = await newSet(updated, 'forecast')
+    const second = (
+      await startResponse(db, organizationId, contributor, secondSet.id, { locale: 'fr' })
+    ).response
+    expect(second.snapshot.agreement?.config.forecastInstruction).toEqual(revised)
+    expect(second.forecastIterations).toEqual({ fy: 2 })
+    const secondItem = second.items[0]!
+    if (secondItem.kind !== 'forecast') throw new Error('Expected forecast')
+    for (const line of secondItem.lines) line.amount = '0'
+    await mutateResponse(db, organizationId, contributor, second.id, 'save', {
+      expectedRevision: second.revision,
+      items: [secondItem]
+    })
+    await mutateResponse(db, organizationId, manager, second.id, 'submit', {
+      expectedRevision: second.revision + 1,
+      balanceRevision: updated.revision,
+      warningsAcknowledged: true
+    })
+    expect((await exportSubmission(db, root, second.id)).submission.items[0]).toMatchObject({
+      portalIteration: 2,
+      forecast: {
+        lineItems: expect.arrayContaining([expect.objectContaining({ egcs_fc_version: '0' })])
+      }
     })
   })
   it('gives contributors drafts, reserves final actions for managers, and allows acknowledged balance warnings', async () => {
@@ -496,7 +574,7 @@ describe('agreement submissions and reconciliation', () => {
     })
   })
   it('rejects forged budget rows, retains twelve fiscal months and exports forecast identifiers', async () => {
-    const fundingAgreement = await newAgreement(),
+    const fundingAgreement = await newAgreement({ externalStreamId: null }),
       set = await newSet(fundingAgreement, 'forecast')
     const initial = await startResponse(db, organizationId, contributor, set.id, { locale: 'en' }),
       item = initial.response.items[0]!
@@ -530,6 +608,8 @@ describe('agreement submissions and reconciliation', () => {
     expect(payload.submission).toMatchObject({
       items: [
         {
+          mappingComplete: true,
+          portalIteration: 1,
           forecast: {
             header: { egcs_fc_fiscalyear: '91' },
             lineItems: expect.arrayContaining([
@@ -551,6 +631,25 @@ describe('agreement submissions and reconciliation', () => {
           }
         }
       ]
+    })
+    const claimSet = await newSet(fundingAgreement)
+    const claim = (
+      await startResponse(db, organizationId, contributor, claimSet.id, { locale: 'en' })
+    ).response
+    const claimItem = claim.items[0]!
+    if (claimItem.kind !== 'claim') throw new Error('Expected claim')
+    claimItem.lines[0]!.amount = '0'
+    await mutateResponse(db, organizationId, contributor, claim.id, 'save', {
+      expectedRevision: claim.revision,
+      items: [claimItem]
+    })
+    await mutateResponse(db, organizationId, manager, claim.id, 'submit', {
+      expectedRevision: claim.revision + 1,
+      balanceRevision: fundingAgreement.revision,
+      warningsAcknowledged: true
+    })
+    expect((await exportSubmission(db, root, claim.id)).submission.items[0]).toMatchObject({
+      mappingComplete: false
     })
   })
   it('protects organization and government scopes, publication and established foreign identities', async () => {

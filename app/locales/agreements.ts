@@ -1,6 +1,4 @@
 export const agreementsEn = {
-  recordedBalances: 'Balances recorded at submission',
-  latestBalances: 'Latest reported balances',
   timestampHint:
     'UTC date and time, for example 2026-09-19T12:00:00Z. Use a newer timestamp when balances change.',
   agreements: 'Agreements',
@@ -62,6 +60,9 @@ export const agreementsEn = {
   budgetLine: 'Line',
   claimItems: 'Claim items',
   claimItemDetails: 'Claim item details',
+  edit: 'Edit',
+  view: 'View',
+  currentlyEditing: 'Currently editing',
   editItem: 'Edit item',
   viewItem: 'View item',
   removeItem: 'Remove item',
@@ -90,7 +91,11 @@ export const agreementsEn = {
   survey: 'Designed form',
   claim: 'Claims',
   claimInstruction: 'Claim instructions',
+  forecastInstruction: 'Forecast instructions',
   forecast: 'Forecasts',
+  forecastBreakdown: 'Forecast breakdown',
+  quarter: 'Quarter',
+  quarterTotal: 'Quarter total',
   form: 'Standalone forms',
   application: 'Applications',
   viewer: 'Viewer',
@@ -154,7 +159,7 @@ export const agreementsEn = {
   balanceUnknown: 'No balance has been supplied for this line.',
   lineUnavailable: 'This line is no longer in the current budget.',
   warningHint:
-    'A manager may submit with these warnings. The reviewed balances will be recorded with the submission.',
+    'A manager may submit with these warnings. Submission checks the latest reported balances.',
   invalid: 'Check required fields, identifiers, amounts and form responses.',
   conflict: 'This record changed. Reload it before saving or submitting again.',
   withdrawn:
@@ -167,12 +172,9 @@ export const agreementsEn = {
   item: 'Item',
   fillZero: 'Fill blank amounts with zero',
   agreementSaved: 'Agreement saved.',
-  viewOnly: 'Read-only access. A contributor can prepare drafts and a manager can submit them.',
-  refreshBalances: 'Refresh balances'
+  viewOnly: 'Read-only access. A contributor can prepare drafts and a manager can submit them.'
 } as const
 export const agreementsFr: Record<keyof typeof agreementsEn, string> = {
-  recordedBalances: 'Soldes enregistrés lors de la soumission',
-  latestBalances: 'Derniers soldes déclarés',
   timestampHint:
     'Date et heure UTC, par exemple 2026-09-19T12:00:00Z. Utilisez une date plus récente lors de la modification des soldes.',
   agreements: 'Ententes',
@@ -234,6 +236,9 @@ export const agreementsFr: Record<keyof typeof agreementsEn, string> = {
   budgetLine: 'Poste',
   claimItems: 'Postes de la réclamation',
   claimItemDetails: 'Détails du poste de réclamation',
+  edit: 'Modifier',
+  view: 'Voir',
+  currentlyEditing: 'En cours de modification',
   editItem: 'Modifier le poste',
   viewItem: 'Voir le poste',
   removeItem: 'Retirer le poste',
@@ -262,7 +267,11 @@ export const agreementsFr: Record<keyof typeof agreementsEn, string> = {
   survey: 'Formulaire conçu',
   claim: 'Réclamations',
   claimInstruction: 'Instructions pour la réclamation',
+  forecastInstruction: 'Instructions pour les prévisions',
   forecast: 'Prévisions',
+  forecastBreakdown: 'Répartition des prévisions',
+  quarter: 'Trimestre',
+  quarterTotal: 'Total du trimestre',
   form: 'Formulaires autonomes',
   application: 'Demandes',
   viewer: 'Lecteur',
@@ -328,7 +337,7 @@ export const agreementsFr: Record<keyof typeof agreementsEn, string> = {
   balanceUnknown: 'Aucun solde fourni pour ce poste.',
   lineUnavailable: 'Ce poste ne figure plus au budget actuel.',
   warningHint:
-    'Un gestionnaire peut soumettre malgré ces avertissements. Les soldes vérifiés seront conservés avec la soumission.',
+    'Un gestionnaire peut soumettre malgré ces avertissements. La soumission vérifie les derniers soldes déclarés.',
   invalid: 'Vérifiez les champs obligatoires, les identifiants, les montants et les réponses.',
   conflict: 'Cet élément a changé. Rechargez-le avant de réessayer.',
   withdrawn:
@@ -342,6 +351,5 @@ export const agreementsFr: Record<keyof typeof agreementsEn, string> = {
   fillZero: 'Remplir les montants vides par zéro',
   agreementSaved: 'Entente enregistrée.',
   viewOnly:
-    'Accès en lecture seule. Un contributeur peut préparer les brouillons et un gestionnaire peut les soumettre.',
-  refreshBalances: 'Actualiser les soldes'
+    'Accès en lecture seule. Un contributeur peut préparer les brouillons et un gestionnaire peut les soumettre.'
 }

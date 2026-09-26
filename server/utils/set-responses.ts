@@ -237,7 +237,8 @@ export const mutateResponse = async (
           locale: row.locale,
           submittedAt: now.toISOString(),
           snapshot: row.snapshot,
-          items
+          items,
+          forecastIterations: row.forecastIterations
         }),
         attachments: await attachmentMetadata(tx, row.id),
         balanceRevision,
