@@ -11,7 +11,11 @@ import {
 } from '@gcs-ssc/survey'
 import SurveyFields from '../survey/SurveyFields.vue'
 import SurveyGroups from '../survey/SurveyGroups.vue'
-const props = defineProps<{ definition: SurveyDefinition; readonly?: boolean }>()
+const props = defineProps<{
+  definition: SurveyDefinition
+  readonly?: boolean
+  disabled?: boolean
+}>()
 const answers = defineModel<SurveyAnswers>({ required: true })
 const readQuestions = computed(() => {
   const route = resolveSurvey(props.definition, answers.value)
@@ -53,7 +57,12 @@ const readQuestions = computed(() => {
                 .join(' | ')
             : raw
     return [
-      { id, label: `${question.label[locale.value]}${context ? ` — ${context}` : ''}`, value }
+      {
+        id,
+        label: `${question.label[locale.value]}${context ? ` — ${context}` : ''}`,
+        hint: question.hint?.[locale.value],
+        value
+      }
     ]
   })
 })
@@ -61,6 +70,7 @@ const { locale } = useLocale(),
   { s } = useSurveyLocale()
 const prefix = useId()
 const navigate = async (action: (() => boolean) | (() => void)) => {
+  if (props.disabled) return
   const result = action()
   await nextTick()
   document.getElementById(`${prefix}-${result === false ? 'errors' : 'page'}`)?.focus()
@@ -70,14 +80,28 @@ const navigate = async (action: (() => boolean) | (() => void)) => {
   <section class="content-section">
     <template v-if="readonly">
       <PortalHeading tag="h2">{{ definition.title[locale] }}</PortalHeading>
+      <PortalText v-if="'description' in definition && definition.description">{{
+        definition.description[locale]
+      }}</PortalText>
       <dl>
         <template v-for="question in readQuestions" :key="question.id"
           ><dt>{{ question.label }}</dt>
-          <dd>{{ question.value || '—' }}</dd></template
+          <dd>
+            <PortalText v-if="question.hint" size="small" text-role="secondary">{{
+              question.hint
+            }}</PortalText>
+            {{ question.value || '—' }}
+          </dd></template
         >
       </dl>
     </template>
-    <HeadlessSurvey v-else v-model="answers" :definition="definition" :locale="locale">
+    <HeadlessSurvey
+      v-else
+      v-model="answers"
+      :definition="definition"
+      :locale="locale"
+      :disabled="disabled"
+    >
       <template
         #default="{
           fields,
@@ -114,8 +138,11 @@ const navigate = async (action: (() => boolean) | (() => void)) => {
               </PortalHeading>
               <PortalText v-if="page.description">{{ page.description[locale] }}</PortalText>
               <SurveyFields
-                :fields="fields" :ids="page.questionIds" :prefix="prefix"
-                :legend-size="definition.schemaVersion === 1 ? 'h3' : 'h4'" />
+                :fields="fields"
+                :ids="page.questionIds"
+                :prefix="prefix"
+                :legend-size="definition.schemaVersion === 1 ? 'h3' : 'h4'"
+              />
               <SurveyGroups
                 v-if="'groups' in page"
                 :groups="page.groups"
@@ -154,10 +181,14 @@ const navigate = async (action: (() => boolean) | (() => void)) => {
             </template>
           </div>
           <div class="form-actions">
-            <PortalButton v-if="canBack" variant="secondary" @click="navigate(back)">{{
-              s('previousPage')
-            }}</PortalButton>
-            <PortalButton v-if="!complete" type="submit">{{
+            <PortalButton
+              v-if="canBack"
+              variant="secondary"
+              :disabled="disabled"
+              @click="navigate(back)"
+              >{{ s('previousPage') }}</PortalButton
+            >
+            <PortalButton v-if="!complete" type="submit" :disabled="disabled">{{
               s(isLastPage ? 'check' : 'nextPage')
             }}</PortalButton>
           </div>

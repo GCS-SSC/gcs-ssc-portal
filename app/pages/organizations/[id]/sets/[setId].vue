@@ -36,7 +36,10 @@ const start = () =>
 </script>
 <template>
   <section>
-    <PortalLink :to="`/organizations/${id}?section=agreements`">{{ c('back') }}</PortalLink>
+    <PortalLink
+      :to="`/organizations/${id}?section=${data?.set.agreementId ? 'agreements' : 'forms'}`"
+      >{{ c('back') }}</PortalLink
+    >
     <PortalNotice v-if="loadError" variant="error"
       >{{ errorMessage(loadError) }}
       <PortalButton @click="refresh()">{{ c('reload') }}</PortalButton></PortalNotice

@@ -19,6 +19,7 @@ provide(
   computed(() => props.locale)
 )
 const emit = defineEmits<{ signout: []; locale: [locale: 'en' | 'fr'] }>()
+const pathWithoutQuery = computed(() => props.currentPath.split(/[?#]/, 1)[0] ?? '/')
 const text = computed(() =>
   props.locale === 'fr'
     ? {
@@ -64,7 +65,7 @@ const text = computed(() =>
             v-for="item in navigation ?? [{ to: '/organizations', label: text.organizations }]"
             :key="item.to"
             :href="item.to"
-            :current="currentPath === item.to"
+            :current="pathWithoutQuery === item.to"
             >{{ item.label }}</GcdsNavLink
           >
         </GcdsNavGroup>
@@ -73,7 +74,7 @@ const text = computed(() =>
           type="link"
           size="small"
           class="gc-nav-account"
-          :href="currentPath.startsWith('/admin') ? '/admin/login' : '/login'"
+          :href="pathWithoutQuery.startsWith('/admin') ? '/admin/login' : '/login'"
         >
           {{ text.signin }}
         </GcdsButton>

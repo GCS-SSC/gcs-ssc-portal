@@ -108,6 +108,14 @@ test('published advanced form supports dependent choices, nested repeats and tab
             { id: 'item', label: label('Item', 'Élément'), type: 'text', required: true },
             { id: 'amount', label: label('Amount', 'Montant'), type: 'number', required: true }
           ]
+        },
+        {
+          id: 'impact',
+          type: 'text',
+          label: label('Expected impact', 'Retombées attendues'),
+          hint: label('Describe the benefit.', 'Décrivez les avantages.'),
+          required: true,
+          maxLength: 500
         }
       ],
       pages: [
@@ -132,6 +140,23 @@ test('published advanced form supports dependent choices, nested repeats and tab
               ]
             }
           ],
+          branches: [
+            {
+              when: {
+                match: 'all',
+                conditions: [{ questionId: 'sector', operator: 'equals', value: 'arts' }]
+              },
+              destination: { kind: 'page', pageId: 'impact_page' }
+            }
+          ],
+          next: { kind: 'end' }
+        },
+        {
+          id: 'impact_page',
+          title: label('Community impact', 'Retombées communautaires'),
+          description: label('Explain the expected result.', 'Expliquez le résultat attendu.'),
+          questionIds: ['impact'],
+          groups: [],
           branches: []
         }
       ]
@@ -223,12 +248,7 @@ test('published advanced form supports dependent choices, nested repeats and tab
       (
         await applicant.request.patch(`/api/organizations/${organization.id}/members/${userId}`, {
           data: {
-            permissions: [
-              'user',
-              'admin',
-              'application:manager',
-              'form:manager'
-            ]
+            permissions: ['user', 'admin', 'application:manager', 'form:manager']
           }
         })
       ).ok()
@@ -236,7 +256,9 @@ test('published advanced form supports dependent choices, nested repeats and tab
     await applicant.goto(`/organizations/${organization.id}?section=funding`)
     await expect(applicant.getByRole('heading', { name: 'Community project plan' })).toBeVisible()
     await expect(applicant.getByRole('heading', { name: 'Follow-up report' })).toBeVisible()
-    const project = applicant.locator('section.record-summary').filter({ hasText: 'Community project plan' })
+    const project = applicant
+      .locator('section.record-summary')
+      .filter({ hasText: 'Community project plan' })
     await project.getByRole('button', { name: 'Start application' }).click()
     await expect(
       applicant.getByRole('heading', { level: 1, name: 'Community project plan' })
@@ -256,16 +278,59 @@ test('published advanced form supports dependent choices, nested repeats and tab
     await applicant.getByRole('button', { name: 'Add row' }).click()
     await applicant.getByRole('textbox', { name: 'Item' }).fill('Seeds')
     await applicant.getByRole('textbox', { name: 'Amount' }).fill('0')
+    await applicant.getByRole('button', { name: 'Next page' }).click()
+    await expect(applicant.getByRole('heading', { name: /Community impact/ })).toBeVisible()
+    await applicant.locator('gcds-lang-toggle').getByRole('link').click()
+    await expect(applicant.getByRole('heading', { name: /Retombées communautaires/ })).toBeVisible()
+    await expect(applicant.getByText('Expliquez le résultat attendu.')).toBeVisible()
+    await expect(applicant.getByText('Décrivez les avantages.')).toBeVisible()
+    await applicant.getByRole('textbox', { name: 'Retombées attendues' }).fill('Un jardin partagé')
+    await applicant.locator('gcds-lang-toggle').getByRole('link').click()
+    await expect(applicant.getByRole('textbox', { name: 'Expected impact' })).toHaveValue(
+      'Un jardin partagé'
+    )
     await applicant.getByRole('button', { name: 'Check responses' }).click()
     await expect(applicant.getByText('The responses are valid.')).toBeVisible()
     await applicant.getByRole('button', { name: 'Save draft' }).click()
     await expect(applicant.getByText('You have unsaved changes.')).toHaveCount(0)
+    await expect(applicant.getByRole('heading', { name: /Community impact/ })).toBeVisible()
+    await expect(applicant.getByRole('textbox', { name: 'Expected impact' })).toHaveValue(
+      'Un jardin partagé'
+    )
     const responseId = applicant.url().split('/').at(-1)!
-    const draft = (
+    let draft = (
       await (
         await applicant.request.get(`/api/organizations/${organization.id}/responses/${responseId}`)
       ).json()
     ).response
+    expect(draft.items[0].answers).toMatchObject({
+      sector: 'arts',
+      discipline: 'painting',
+      impact: 'Un jardin partagé'
+    })
+    await applicant.reload()
+    await expect(applicant.getByRole('combobox', { name: 'Sector' })).toHaveValue('arts')
+    await applicant.getByRole('button', { name: 'Next page' }).click()
+    await expect(applicant.getByRole('textbox', { name: 'Expected impact' })).toHaveValue(
+      'Un jardin partagé'
+    )
+    await applicant.getByRole('button', { name: 'Previous page' }).click()
+    await applicant.getByRole('combobox', { name: 'Sector' }).selectOption('science')
+    await expect(
+      applicant.getByRole('combobox', { name: 'Discipline' }).locator('option')
+    ).toHaveText(['Select an option', 'Physics'])
+    await expect(applicant.getByRole('combobox', { name: 'Discipline' })).toHaveValue('')
+    await applicant.getByRole('combobox', { name: 'Discipline' }).selectOption('physics')
+    await expect(applicant.getByRole('heading', { name: /Community impact/ })).toHaveCount(0)
+    await applicant.getByRole('button', { name: 'Check responses' }).click()
+    await applicant.getByRole('button', { name: 'Save draft' }).click()
+    draft = (
+      await (
+        await applicant.request.get(`/api/organizations/${organization.id}/responses/${responseId}`)
+      ).json()
+    ).response
+    expect(draft.items[0].answers).toMatchObject({ sector: 'science', discipline: 'physics' })
+    expect(draft.items[0].answers).not.toHaveProperty('impact')
     expect(JSON.stringify(draft.items)).toContain('costs@r_')
     expect(
       (

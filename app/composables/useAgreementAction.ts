@@ -1,21 +1,23 @@
 export const useAgreementAction = () => {
-  const busy = ref(false),
-    error = ref(''),
-    success = ref('')
   const { c, errorMessage } = useAgreementLocale()
+  const busy = ref(false),
+    failure = shallowRef<unknown>(null),
+    successKey = ref<Parameters<typeof c>[0] | null>(null)
+  const error = computed(() => (failure.value ? errorMessage(failure.value) : ''))
+  const success = computed(() => (successKey.value ? c(successKey.value) : ''))
   const perform = async (
     action: () => Promise<unknown>,
-    successKey: Parameters<typeof c>[0] = 'saved'
+    messageKey: Parameters<typeof c>[0] | null = 'saved'
   ) => {
     if (busy.value) return
     busy.value = true
-    error.value = ''
-    success.value = ''
+    failure.value = null
+    successKey.value = null
     try {
       await action()
-      success.value = c(successKey)
-    } catch (failure) {
-      error.value = errorMessage(failure)
+      successKey.value = messageKey
+    } catch (error) {
+      failure.value = error
     } finally {
       busy.value = false
     }

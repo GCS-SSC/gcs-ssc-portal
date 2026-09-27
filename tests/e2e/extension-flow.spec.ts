@@ -57,7 +57,13 @@ test('extension key publishes a pinned form for an authorized organization', asy
           title: { en: 'Project form', fr: 'Formulaire de projet' },
           attachments: { enabled: false },
           questions: [
-            { id: 'project', type: 'text', label: { en: 'Project', fr: 'Projet' }, required: true }
+            {
+              id: 'project',
+              type: 'text',
+              label: { en: 'Project', fr: 'Projet' },
+              hint: { en: 'Describe the project.', fr: 'Décrivez le projet.' },
+              required: true
+            }
           ]
         }
       }
@@ -213,6 +219,31 @@ test('extension key publishes a pinned form for an authorized organization', asy
     )
     expect(publication.ok()).toBe(true)
     expect(JSON.stringify(await publication.json())).not.toMatch(uuid)
+    const organizationFormResponse = await extension.request.post('/api/government/sets', {
+      data: {
+        organizationId: organizationCode,
+        agencyId: agency.id,
+        agreementId: null,
+        nameEn: 'Organization profile form',
+        nameFr: 'Formulaire de profil de l’organisme',
+        items: [{ id: 'project', kind: 'survey', surveyId: survey.id, surveyRevision: 1 }]
+      }
+    })
+    expect(organizationFormResponse.ok()).toBe(true)
+    const organizationForm = (await organizationFormResponse.json()).set
+    expect(
+      (
+        await extension.request.post(`/api/government/sets/${organizationForm.id}/publish`, {
+          data: { expectedRevision: organizationForm.revision }
+        })
+      ).ok()
+    ).toBe(true)
+    const organizationDraftResponse = await applicant.request.post(
+      `/api/organizations/${organizationCode}/sets/${organizationForm.id}/responses`,
+      { data: { locale: 'en' } }
+    )
+    expect(organizationDraftResponse.ok()).toBe(true)
+    const organizationDraft = (await organizationDraftResponse.json()).response
     for (const kind of ['claim', 'forecast'] as const) {
       const financialSetResponse = await extension.request.post('/api/government/sets', {
         data: {
@@ -291,6 +322,65 @@ test('extension key publishes a pinned form for an authorized organization', asy
     await expect(applicant.getByRole('heading', { name: `Funding call ${suffix}` })).toBeVisible()
     await menu.getByRole('link', { name: 'Agreements', exact: true }).click()
     await expect(applicant.getByRole('heading', { level: 2, name: 'Agreements' })).toBeVisible()
+    await menu.getByRole('link', { name: 'Forms', exact: true }).click()
+    const standaloneForms = applicant.getByRole('region', { name: 'Forms' }).last()
+    const organizationResponseLink = standaloneForms.getByRole('link', {
+      name: 'Organization profile form'
+    }).last()
+    await expect(organizationResponseLink).toHaveAttribute(
+      'href', `/organizations/${organizationCode}/responses/${organizationDraft.id}`)
+    const organizationSaved = await applicant.request.put(
+      `/api/organizations/${organizationCode}/responses/${organizationDraft.id}`,
+      {
+        data: {
+          expectedRevision: organizationDraft.revision,
+          items: [{ id: 'project', kind: 'survey', answers: { project: 'Our organization' } }]
+        }
+      }
+    )
+    expect(organizationSaved.ok()).toBe(true)
+    const organizationSavedRevision = (await organizationSaved.json()).response.revision
+    expect(
+      (
+        await applicant.request.post(
+          `/api/organizations/${organizationCode}/responses/${organizationDraft.id}/check`,
+          { data: { expectedRevision: organizationSavedRevision } }
+        )
+      ).ok()
+    ).toBe(true)
+    expect(
+      (
+        await applicant.request.post(
+          `/api/organizations/${organizationCode}/responses/${organizationDraft.id}/submit`,
+          {
+            data: {
+              expectedRevision: organizationSavedRevision,
+              balanceRevision: null,
+              warningsAcknowledged: true
+            }
+          }
+        )
+      ).ok()
+    ).toBe(true)
+    await applicant.reload()
+    await expect(organizationResponseLink).toHaveAttribute(
+      'href', `/organizations/${organizationCode}/responses/${organizationDraft.id}`)
+    await expect(standaloneForms).toContainText('Submitted')
+    await organizationResponseLink.click()
+    await expect(applicant.getByRole('region', { name: 'Additional documentation' })).toHaveCount(0)
+    await applicant.getByRole('link', { name: 'Back' }).click()
+    await expect(applicant).toHaveURL(`/organizations/${organizationCode}?section=forms`)
+    await applicant.locator('gcds-lang-toggle').getByRole('link').click()
+    await expect(applicant).toHaveURL(`/organizations/${organizationCode}?section=forms`)
+    await expect(menu.getByRole('link', { name: 'Formulaires', exact: true })).toBeVisible()
+    await expect(
+      applicant
+        .getByRole('region', { name: 'Formulaires' }).last()
+        .getByRole('heading', { name: 'Formulaires', exact: true })
+    ).toBeVisible()
+    await applicant.locator('gcds-lang-toggle').getByRole('link').click()
+    await expect(applicant).toHaveURL(`/organizations/${organizationCode}?section=forms`)
+    await menu.getByRole('link', { name: 'Agreements', exact: true }).click()
     const agreementSummary = applicant.locator('li.record-summary').filter({
       hasText: 'AGR-STATUS'
     })
@@ -648,6 +738,10 @@ test('extension key publishes a pinned form for an authorized organization', asy
     const submission = (await submitted.json()).response
     expect(submission.submissionId).toMatch(publicId('K'))
     await applicant.goto(`/organizations/${organizationCode}/responses/${draft.id}`)
+    await expect(applicant.getByText('Describe the project.')).toBeVisible()
+    await applicant.locator('gcds-lang-toggle').getByRole('link').click()
+    await expect(applicant.getByText('Décrivez le projet.')).toBeVisible()
+    await applicant.locator('gcds-lang-toggle').getByRole('link').click()
     await expect(applicant.getByRole('button', { name: 'Withdraw submission' })).toBeVisible()
     await applicant.getByRole('link', { name: 'Back' }).click()
     const statusChange = await extension.request.put(

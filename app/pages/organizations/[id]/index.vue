@@ -21,6 +21,7 @@ const base = `/api/organizations/${encodeURIComponent(id)}`
 const sections = [
   'overview',
   'agreements',
+  'forms',
   'funding',
   'members',
   'invitations',
@@ -65,6 +66,7 @@ const workspaceItems = computed(() => {
   ]
   if (subjects.some((subject) => subject !== 'application' && hasAccess(permissions, subject)))
     items.push({ section: 'agreements', label: c('agreements') })
+  if (hasAccess(permissions, 'form')) items.push({ section: 'forms', label: c('formsNav') })
   if (hasAccess(permissions, 'application')) items.push({ section: 'funding', label: g('apply') })
   items.push({ section: 'members', label: t('members') })
   if (canAdmin.value)
@@ -285,6 +287,7 @@ await load()
             </div>
           </section>
           <OrganizationAgreements v-if="tab === 'agreements'" :organization-id="id" embedded />
+          <OrganizationForms v-if="tab === 'forms'" :organization-id="id" />
           <OrganizationFunding v-if="tab === 'funding'" :organization-id="id" embedded />
           <template v-if="tab === 'overview'">
             <PortalHeading tag="h2" margin-top="0">{{ t('overview') }}</PortalHeading>

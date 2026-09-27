@@ -78,8 +78,12 @@ const dirty = computed(() => response.value && JSON.stringify(response.value.ite
 const currentOutcome = computed(() => {
   const submissionId = response.value?.submissionId
   if (!submissionId) return null
-  return data.value?.outcomes.find((outcome) =>
-    outcome.itemSubmissionId === `${submissionId}-${publicCode(position.value + 1, 'Y')}`) ?? null
+  return (
+    data.value?.outcomes.find(
+      (outcome) =>
+        outcome.itemSubmissionId === `${submissionId}-${publicCode(position.value + 1, 'Y')}`
+    ) ?? null
+  )
 })
 const reload = async () => {
   if (uploading.value || (dirty.value && !window.confirm(a('discard')))) return
@@ -111,7 +115,7 @@ const back = computed(() =>
     ? `/organizations/${organizationId}?section=funding`
     : response.value?.snapshot.agreementReference
       ? `/organizations/${organizationId}/agreements/${response.value.snapshot.agreementReference.id}?section=${agreementSection.value}`
-      : `/organizations/${organizationId}?section=agreements`
+      : `/organizations/${organizationId}?section=forms`
 )
 const canDocument = computed(
   () => response.value?.status === 'awaiting_documentation' && allowed('contributor')
@@ -145,6 +149,12 @@ const current = computed(() => response.value?.items[position.value])
 const isFinancial = computed(
   () => current.value?.kind === 'claim' || current.value?.kind === 'forecast'
 )
+const hasFinancialItems = computed(
+  () =>
+    response.value?.snapshot.items.some(
+      ({ item }) => item.kind === 'claim' || item.kind === 'forecast'
+    ) ?? false
+)
 const published = computed(() => response.value?.snapshot.items[position.value])
 const save = () =>
   perform(async () => {
@@ -152,7 +162,12 @@ const save = () =>
       method: 'PUT',
       body: { expectedRevision: response.value!.revision, items: response.value!.items }
     })
-    response.value = result.response
+    const { snapshot, items, ...savedResponse } = result.response
+    Object.assign(response.value!, savedResponse)
+    if (JSON.stringify(items) !== JSON.stringify(response.value!.items))
+      response.value!.items = items
+    if (snapshot.publicationId !== response.value!.snapshot.publicationId)
+      response.value!.snapshot = snapshot
     balances.value = result.balances
     saved.value = JSON.stringify(result.response.items)
   })
@@ -163,7 +178,7 @@ const prepare = () =>
       body: { expectedRevision: response.value!.revision }
     })
     balances.value = review.value.balances
-  })
+  }, null)
 const submit = () =>
   perform(async () => {
     const result = await api<ResponseResult>(`${endpoint}/submit`, {
@@ -178,7 +193,7 @@ const submit = () =>
     balances.value = result.balances
     review.value = null
     saved.value = JSON.stringify(result.response.items)
-  })
+  }, 'submittedSuccess')
 const withdraw = () => {
   if (!window.confirm(c('withdrawConfirm'))) return
   void perform(async () => {
@@ -245,7 +260,7 @@ const changePosition = async (next: number) => {
       <PortalNotice v-if="success" variant="success">{{ success }}</PortalNotice>
       <section v-if="review" class="confirmation" :aria-label="c('confirmTitle')">
         <PortalHeading id="review-heading" tag="h2">{{ c('confirmTitle') }}</PortalHeading>
-        <PortalText>{{ c('confirmHint') }}</PortalText>
+        <PortalText>{{ c(hasFinancialItems ? 'confirmHint' : 'confirmFormHint') }}</PortalText>
         <PortalNotice
           v-for="warning in review.warnings"
           :key="`${warning.kind}-${warning.budgetLineId}`"
@@ -280,8 +295,9 @@ const changePosition = async (next: number) => {
           <PortalBadge v-if="currentOutcome.gcsStatus" :colour="currentOutcome.gcsStatus.colour">{{
             currentOutcome.gcsStatus[locale]
           }}</PortalBadge>
-          <PortalText v-if="currentOutcome.remoteReference">{{ c('gcsReference') }}:
-            {{ currentOutcome.remoteReference }}</PortalText>
+          <PortalText v-if="currentOutcome.remoteReference"
+            >{{ c('gcsReference') }}: {{ currentOutcome.remoteReference }}</PortalText
+          >
         </div>
         <template v-if="current && published">
           <ResponseSurvey
@@ -289,7 +305,8 @@ const changePosition = async (next: number) => {
             :key="current.id"
             v-model="current.answers"
             :definition="published.survey"
-            :readonly="!editable"
+            :readonly="response.status !== 'draft' || !allowed('contributor')"
+            :disabled="!editable"
           />
           <FinancialResponse
             v-else-if="current.kind !== 'survey'"
@@ -332,7 +349,7 @@ const changePosition = async (next: number) => {
         >
       </div>
       <section
-        v-if="response.status !== 'draft'"
+        v-if="response.status !== 'draft' && (data?.details.length || canDocument)"
         class="content-section"
         :aria-label="c('documentation')"
       >
@@ -390,7 +407,7 @@ const changePosition = async (next: number) => {
           >
         </template>
       </section>
-      <PortalText v-if="dirty">{{ c('dirty') }}</PortalText>
+      <PortalText v-if="dirty">{{ c('dirtyHint') }}</PortalText>
       <div class="form-actions response-actions">
         <PortalButton
           v-if="

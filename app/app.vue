@@ -124,7 +124,7 @@ const logout = async () => {
       :portal-title="inAdmin ? g('adminTitle') : undefined"
       :signed-in="inAdmin ? !!administrator : !!user"
       :user-name="inAdmin ? administrator?.name : user?.name"
-      :current-path="route.path"
+      :current-path="route.fullPath"
       @locale="locale = $event"
       @signout="logout"
     >
