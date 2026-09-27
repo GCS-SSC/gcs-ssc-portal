@@ -10,6 +10,7 @@ import { seedDemo } from '../../server/db/seed-migrations'
 import { demoAccounts, demoPassword } from '../../server/db/seeds/001-demo'
 import { simpleCredentialsMigration } from '../../server/db/seeds/002-simple-credentials'
 import { demoAgreementStatusesMigration } from '../../server/db/seeds/008-demo-agreement-statuses'
+import { healthCanadaDemoToken } from '../../server/db/seeds/012-demo-health-canada'
 import { administratorSeed } from '../../server/db/seeds/003-administrator'
 import { startApplication } from '../../server/utils/applications'
 import { organizationSets } from '../../server/utils/submission-sets'
@@ -21,6 +22,8 @@ import {
 } from '../../server/utils/set-responses'
 import { getOrganization, listOrganizations } from '../../server/utils/portal'
 import { publicCode } from '../../shared/utils/response-code'
+import { secretHash } from '../../server/utils/government-access'
+import { listAgencyOrganizations } from '../../server/utils/organization-agency-identity'
 let db: Kysely<Database>
 beforeAll(async () => {
   const url = process.env.PORTAL_TEST_DATABASE_URL
@@ -87,6 +90,7 @@ it('rolls back a conflicting email without adopting or modifying existing accoun
 it('creates usable credentials and scoped sample data once, preserving edits on rerun', async () => {
   vi.stubEnv('NODE_ENV', 'production')
   vi.stubEnv('PORTAL_ENVIRONMENT', 'demo')
+  vi.stubEnv('PORTAL_DEMO_HEALTH_CANADA_TOKEN', healthCanadaDemoToken)
   try {
     expect(await seedDemo(db)).toBe(true)
   } finally {
@@ -151,9 +155,79 @@ it('creates usable credentials and scoped sample data once, preserving edits on 
   expect(ownerOrganizations.map((item) => item.name)).toEqual([
     'Demo Community Organization',
     'Demo Harbour Community Services',
-    'Demo Atlantic Skills Network'
+    'Demo Atlantic Skills Network',
+    'Shopify Inc.',
+    'Northern Community Health Initiative',
+    'Former Health Partnership'
   ])
-  expect(ownerOrganizations.map((item) => item.memberCount)).toEqual([4, 1, 1])
+  expect(ownerOrganizations.map((item) => item.memberCount)).toEqual([4, 1, 1, 2, 1, 1])
+  const healthCanada = await db
+    .selectFrom('agency')
+    .selectAll()
+    .where('nameEn', '=', 'Health Canada')
+    .executeTakeFirstOrThrow()
+  expect(publicCode(healthCanada.id, 'G')).toBe('G-NFAFV')
+  const integrationToken = await db
+    .selectFrom('integration_token')
+    .selectAll()
+    .where('agencyId', '=', healthCanada.id)
+    .executeTakeFirstOrThrow()
+  expect(integrationToken.tokenHash).toBe(secretHash(healthCanadaDemoToken))
+  expect(integrationToken.revoked).toBe(false)
+  const healthCanadaOrganizations = (
+    await listAgencyOrganizations(
+      db,
+      { kind: 'integration', tokenHash: secretHash(healthCanadaDemoToken) },
+      healthCanada.id
+    )
+  ).organizations
+  expect(
+    healthCanadaOrganizations.slice(-3).map((item) => ({
+      id: publicCode(item.id, 'N'),
+      name: item.name,
+      active: item.active,
+      memberCount: item.memberCount,
+      verified: item.verified
+    }))
+  ).toEqual([
+    { id: 'N-GHDXW', name: 'Shopify Inc.', active: true, memberCount: 2, verified: false },
+    {
+      id: 'N-YXWBF',
+      name: 'Northern Community Health Initiative',
+      active: true,
+      memberCount: 1,
+      verified: false
+    },
+    {
+      id: 'N-7G9CZ',
+      name: 'Former Health Partnership',
+      active: false,
+      memberCount: 1,
+      verified: false
+    }
+  ])
+  const healthCanadaOrganizationIds = healthCanadaOrganizations.slice(-3).map((item) => item.id)
+  expect(
+    healthCanadaOrganizations
+      .slice(-3)
+      .every((item) => item.foreignApplicantRecipientId === null && item.verifiedAt === null)
+  ).toBe(true)
+  expect(
+    await db
+      .selectFrom('organization_agency_identity')
+      .selectAll()
+      .where('organizationId', 'in', healthCanadaOrganizationIds)
+      .execute()
+  ).toEqual([])
+  expect(
+    (
+      await db
+        .selectFrom('organization')
+        .select(['id', 'verified'])
+        .where('id', 'in', healthCanadaOrganizationIds)
+        .execute()
+    ).every((item) => !item.verified)
+  ).toBe(true)
   expect(ownerOrganizations.every((item) => item.ownerId === publicCode(org.ownerId, 'U'))).toBe(
     true
   )
@@ -370,7 +444,7 @@ it('creates usable credentials and scoped sample data once, preserving edits on 
         .executeTakeFirstOrThrow()
     ).name
   ).toBe('Edited demo organization')
-  expect((await listOrganizations(db, org.ownerId)).organizations).toHaveLength(3)
+  expect((await listOrganizations(db, org.ownerId)).organizations).toHaveLength(6)
   expect(await db.selectFrom('account').selectAll().orderBy('id').execute()).toEqual(accounts)
   expect(await db.selectFrom('user').selectAll().execute()).toHaveLength(demoAccounts.length - 2)
 })
