@@ -46,7 +46,7 @@ export const integrationTokenInput = z
   .object({
     name: z.string().trim().min(1).max(120),
     agencyId: z.number().int().positive(),
-    expiresInDays: z.number().int().min(1).max(365).default(90)
+    expiresInDays: z.number().int().min(1).max(365).nullable().default(90)
   })
   .strict()
 export const bootstrapInput = z

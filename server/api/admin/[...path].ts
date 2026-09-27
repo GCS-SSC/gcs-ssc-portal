@@ -117,6 +117,8 @@ export default defineEventHandler(async (event) => {
     }
     if (path.length === 2 && path[0] === 'integration-tokens' && method === 'DELETE')
       return admin.revokeToken(db, actor, decodePublicId(path[1]!, 'token'))
+    if (path.length === 3 && path[0] === 'integration-tokens' && path[2] === 'replace' && method === 'POST')
+      return admin.replaceToken(db, actor, decodePublicId(path[1]!, 'token'))
     throw createError({ statusCode: 404, message: 'NOT_FOUND', data: { code: 'NOT_FOUND' } })
   } catch (error) {
     if (error instanceof ZodError)

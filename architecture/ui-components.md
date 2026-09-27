@@ -17,7 +17,7 @@ Shared form and shell props are defined in `shared/types/ui.ts`; the layout, nav
 | `PortalInput`  | String value, visible label, field requirements, hint/error metadata, and value updates.                                                                                                                               |
 | `PortalSelect` | String value and value/label options, including a placeholder; field requirements and accessible metadata.                                                                                                             |
 | `PortalFile`   | Optional file selector emitting `File` or `null`; callers own upload policy and network state.                                                                                                                         |
-| `PortalNotice` | Variant, title, content, and appropriate live announcement.                                                                                                                                                            |
+| `PortalNotice` | Variant, title, content, appropriate live announcement, and an optional native notice heading level for nested sections.                                                                                              |
 | `PortalBadge`  | Readable status text; supports fixed tones and validated agreement status colours using the bounded fallback documented in the GC architecture.                                                                        |
 | `PortalLink`   | Internal/external destination and normal link/keyboard semantics; button-style destinations use GCDS size and role options.                                                                                            |
 

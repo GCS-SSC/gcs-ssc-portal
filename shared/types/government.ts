@@ -41,6 +41,6 @@ export interface IntegrationToken {
   id: string
   name: string
   agencyId: string
-  expiresAt: string
+  expiresAt: string | null
   revoked: boolean
 }

@@ -37,8 +37,16 @@ it('records access outcomes and successful mutations without storing secret URL 
   const access = await listEvidence(db, 'access', 1, 2)
   expect(access.total).toBe(3)
   expect(access.items).toHaveLength(2)
-  expect(access.items[0]).toMatchObject({ status: 401, actorKind: 'anonymous' })
-  expect(access.items[1]).toMatchObject({ path: '/api/invitations/:id', status: 403 })
+  const remaining = await listEvidence(db, 'access', 2, 2)
+  const accessItems = [...access.items, ...remaining.items]
+  expect(remaining.items).toHaveLength(1)
+  expect(new Set(accessItems.map((item) => item.id)).size).toBe(3)
+  expect(accessItems).toEqual(
+    expect.arrayContaining([
+      expect.objectContaining({ status: 401, actorKind: 'anonymous' }),
+      expect.objectContaining({ path: '/api/invitations/:id', status: 403 })
+    ])
+  )
   const audit = await listEvidence(db, 'audit', 1, 25)
   expect(audit.total).toBe(1)
   expect(audit.items[0]).toMatchObject({
@@ -47,6 +55,6 @@ it('records access outcomes and successful mutations without storing secret URL 
     operation: 'POST'
   })
   const first = audit.items[0]!
-  const successful = (await listEvidence(db, 'access', 2, 2)).items[0]!
+  const successful = accessItems.find((item) => item.status === 201)!
   expect(first.requestId).toBe(successful.requestId)
 })

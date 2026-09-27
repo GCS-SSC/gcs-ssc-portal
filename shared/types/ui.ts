@@ -42,6 +42,7 @@ export interface PortalSelectProps {
 export interface PortalNoticeProps {
   variant?: 'info' | 'success' | 'error'
   title?: string
+  titleTag?: 'h2' | 'h3'
 }
 export interface PortalBadgeProps {
   tone?: 'neutral' | 'success' | 'warning'

@@ -35,7 +35,7 @@ export const requireGovernment = async (
       .where('tokenHash', '=', actor.tokenHash)
     if (options.lock) query = query.forUpdate()
     const token = await query.executeTakeFirst()
-    if (!token || token.revoked || new Date(token.expiresAt).getTime() <= Date.now())
+    if (!token || token.revoked || (token.expiresAt && new Date(token.expiresAt).getTime() <= Date.now()))
       return governmentFail(401, 'INVALID_INTEGRATION_TOKEN')
     if (options.agencyId && token.agencyId !== options.agencyId)
       return governmentFail(404, 'AGENCY_NOT_FOUND')

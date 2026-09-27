@@ -1,67 +1,58 @@
 <script setup lang="ts">
 import type { Agency } from '~~/shared/types/government'
+
 const { g, localized } = useGovernmentLocale()
 const { t } = useLocale()
 const api = usePortalApi()
 const message = useApiMessage()
-const { busy, error, perform } = useGovernmentAction()
-const {
-  data,
-  error: loadError,
-  refresh
-} = await useAsyncData('admin-agencies', () => api<{ agencies: Agency[] }>('/api/admin/agencies'))
-const nameEn = ref('')
-const nameFr = ref('')
-const create = () =>
-  perform(async () => {
-    await api('/api/admin/agencies', {
-      method: 'POST',
-      body: { nameEn: nameEn.value, nameFr: nameFr.value }
-    })
-    nameEn.value = ''
-    nameFr.value = ''
-    await refresh()
-  })
+const { data, status, error, refresh } = await useFetch<{ agencies: Agency[] }>(
+  '/api/admin/agencies',
+  { $fetch: api }
+)
 useHead(() => ({ title: g('agencies') }))
 </script>
+
 <template>
   <section>
-    <PortalHeading tag="h1">{{ g('agencies') }}</PortalHeading>
-    <PortalText>{{ g('adminAgencyIntro') }}</PortalText>
-    <PortalNotice v-if="loadError" variant="error"
-      >{{ message(loadError) }}
+    <div class="page-heading">
+      <div>
+        <PortalHeading tag="h1">{{ g('agencies') }}</PortalHeading>
+        <PortalText>{{ g('adminAgencyIntro') }}</PortalText>
+      </div>
+      <PortalLink variant="button" to="/admin/new"
+        >{{ g('newAgency') }} <span aria-hidden="true">+</span></PortalLink
+      >
+    </div>
+    <PortalText v-if="status === 'pending'" role="status">{{ t('loading') }}</PortalText>
+    <PortalNotice v-else-if="error" variant="error"
+      >{{ message(error) }}
       <PortalButton variant="secondary" @click="refresh()">{{
         t('retry')
       }}</PortalButton></PortalNotice
     >
-    <ul v-else-if="data?.agencies.length" class="service-list">
-      <li v-for="agency in data.agencies" :key="agency.id">
-        {{ localized(agency) }} <code>{{ agency.id }}</code>
-      </li>
+    <div v-else-if="!data?.agencies.length" class="empty-state">
+      <PortalHeading tag="h2">{{ g('noAgencies') }}</PortalHeading>
+      <PortalLink to="/admin/new">{{ g('newAgency') }}</PortalLink>
+    </div>
+    <ul v-else class="record-summary-list">
+      <RecordSummary v-for="agency in data.agencies" :key="agency.id" as="li" heading-tag="h2">
+        <template #title>{{ localized(agency) }}</template>
+        <template #details>
+          <PortalText size="small" text-role="secondary" margin-bottom="100">
+            {{ g('agencyId') }}: <span class="identifier">{{ agency.id }}</span>
+          </PortalText>
+        </template>
+        <template #cta>
+          <PortalLink
+            variant="button"
+            size="small"
+            button-role="secondary"
+            :to="`/admin/agencies/${agency.id}`"
+            :aria-label="`${g('openAgency')}: ${localized(agency)}`"
+            >{{ g('openAgency') }}</PortalLink
+          >
+        </template>
+      </RecordSummary>
     </ul>
-    <PortalText v-else>{{ g('noAgencies') }}</PortalText>
-    <section class="content-section">
-      <PortalHeading tag="h2">{{ g('newAgency') }}</PortalHeading>
-      <PortalNotice v-if="error" variant="error">{{ error }}</PortalNotice>
-      <form class="portal-form" @submit.prevent="create">
-        <PortalInput
-          id="agency-en"
-          v-model="nameEn"
-          :label="g('nameEn')"
-          :maxlength="200"
-          required
-        />
-        <PortalInput
-          id="agency-fr"
-          v-model="nameFr"
-          :label="g('nameFr')"
-          :maxlength="200"
-          required
-        />
-        <PortalButton type="submit" :disabled="busy" :loading="busy">{{
-          g('create')
-        }}</PortalButton>
-      </form>
-    </section>
   </section>
 </template>

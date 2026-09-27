@@ -11,6 +11,7 @@ import { agreementOrganizationsMigration } from './agreement-organizations-migra
 import { integrationDeliveryMigration } from './integration-delivery-migration'
 import { submissionItemOutcomesMigration } from './submission-item-outcomes-migration'
 import { organizationAgencyIdentityMigration } from './organization-agency-identity-migration'
+import { permanentIntegrationTokensMigration } from './permanent-integration-tokens-migration'
 import { Migrator, sql } from 'kysely'
 import type { Kysely, MigrationResult } from 'kysely'
 import type { Database } from './schema'
@@ -43,6 +44,7 @@ export const migrate = async (db: Kysely<Database>, target?: string) => {
         '012_integration_delivery': integrationDeliveryMigration,
         '013_submission_item_outcomes': submissionItemOutcomesMigration,
         '014_organization_agency_identity': organizationAgencyIdentityMigration,
+        '015_permanent_integration_tokens': permanentIntegrationTokensMigration,
         '001_initial': {
           up: async (connection: Kysely<unknown>) => {
             const statements = `CREATE TABLE "user" (id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY, name text NOT NULL, email text UNIQUE NOT NULL, "emailVerified" boolean NOT NULL DEFAULT false, image text, "createdAt" timestamptz NOT NULL, "updatedAt" timestamptz NOT NULL);

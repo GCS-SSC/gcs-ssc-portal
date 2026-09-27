@@ -23,6 +23,8 @@ API mappings expose ISO date strings, numeric member counts, and allowlisted fie
 
 Migration `002_government` introduced the agency hierarchy, calls, integration tokens, and legacy government staff tables. Migration `006_administrators` adds independent `administrator` and `administrator_session` tables, invalidates legacy government sessions and credentials, and preserves historical staff rows as organization-access deny markers. No current route reads staff grants or invitations. Administrator and integration-key writes lock current authority inside transactions. See [administrator access](government.md).
 
+Migration `015_permanent_integration_tokens` makes only `integration_token.expiresAt` nullable. Existing expiry dates are preserved; null means the key stays active until revoked. The integration-key API validates and exposes that distinction, while other session and invitation expiries remain required.
+
 ## PostgreSQL verification
 
 `bun scripts/test-postgres.ts` provisions a unique disposable PostgreSQL 17 container with loopback-only random port and tmpfs data. It runs the same portal lifecycle, migration rerun, tenant isolation, permission, ownership, expiration, and concurrent acceptance tests as the PGlite lane, then removes only its own container in `finally`. Docker must be available. The helper never uses the application's `DATABASE_URL`.

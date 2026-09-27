@@ -19,7 +19,7 @@ const noticeTitle = computed(
     :notice-role="variant === 'error' ? 'danger' : (variant ?? 'info')"
     :lang="locale"
     :notice-title="noticeTitle"
-    notice-title-tag="h2"
+    :notice-title-tag="titleTag ?? 'h2'"
     :role="variant === 'error' ? 'alert' : 'status'"
     ><div><slot /></div
   ></GcdsNotice>

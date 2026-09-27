@@ -61,7 +61,6 @@ const navigation = computed(() =>
     ? administrator.value
       ? [
           { to: '/admin', label: g('agencies') },
-          { to: '/admin/integrations', label: g('integrations') },
           { to: '/admin/evidence', label: g('evidence') }
         ]
       : []
@@ -74,7 +73,7 @@ const breadcrumbs = computed(() => {
   if (inAdmin.value)
     return route.path === '/admin' || route.path === '/admin/login'
       ? []
-      : [{ to: '/admin', label: g('adminTitle') }]
+      : [{ to: '/admin', label: g('agencies') }]
   const items = [{ to: '/', label: t('home') }]
   if (
     route.path.startsWith('/organizations/') ||

@@ -34,7 +34,8 @@ export const createToken = async (db: Kysely<Database>, actor: GovernmentActor, 
       name: data.name,
       agencyId: data.agencyId,
       tokenHash: secretHash(token),
-      expiresAt: new Date(Date.now() + data.expiresInDays * 86400000),
+      expiresAt:
+        data.expiresInDays === null ? null : new Date(Date.now() + data.expiresInDays * 86400000),
       revoked: false,
       createdAt: new Date()
     }
@@ -58,3 +59,25 @@ export const revokeToken = async (db: Kysely<Database>, actor: GovernmentActor, 
     if (!result) fail(404, 'TOKEN_NOT_FOUND')
     return { success: true }
   })
+
+export const replaceToken = async (db: Kysely<Database>, actor: GovernmentActor, id: number) => {
+  const token = `gcs_${randomBytes(32).toString('base64url')}`
+  return db.transaction().execute(async (tx) => {
+    await requireGovernment(tx, actor, { administrator: true, lock: true })
+    const current = await tx
+      .selectFrom('integration_token')
+      .select(['revoked', 'expiresAt'])
+      .where('id', '=', id)
+      .forUpdate()
+      .executeTakeFirst()
+    if (!current) return fail(404, 'TOKEN_NOT_FOUND')
+    if (current.revoked || (current.expiresAt && current.expiresAt.getTime() <= Date.now()))
+      return fail(409, 'TOKEN_NOT_ACTIVE')
+    await tx
+      .updateTable('integration_token')
+      .set({ tokenHash: secretHash(token) })
+      .where('id', '=', id)
+      .execute()
+    return { token }
+  })
+}

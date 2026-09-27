@@ -57,6 +57,9 @@ body {
 .member-permissions-section {
   border-top: 0;
 }
+.credential-workflow {
+  margin-block: var(--gcds-spacing-400);
+}
 .portal-form {
   display: flex;
   flex-direction: column;

@@ -285,7 +285,7 @@ export interface Database {
     name: string
     agencyId: number
     tokenHash: string
-    expiresAt: Timestamp
+    expiresAt: Timestamp | null
     revoked: boolean
     createdAt: Timestamp
   }

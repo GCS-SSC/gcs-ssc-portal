@@ -12,7 +12,7 @@ import {
   createProgram,
   agencyStructure
 } from '../../server/utils/government-structure'
-import { createToken, revokeToken } from '../../server/utils/government-admin'
+import { createToken, replaceToken, revokeToken } from '../../server/utils/government-admin'
 import {
   requireGovernment,
   secretHash,
@@ -73,8 +73,87 @@ it('registers agencies and issues isolated, revocable extension keys', async () 
   await expect(createAgency(db, machine, names('Forbidden'))).rejects.toMatchObject({
     statusCode: 403
   })
-  await revokeToken(db, actor, issued.id)
+  const replacement = await replaceToken(db, actor, issued.id)
+  expect(replacement.token).toMatch(/^gcs_/)
+  expect(replacement.token).not.toBe(issued.token)
   await expect(requireGovernment(db, machine)).rejects.toMatchObject({ statusCode: 401 })
+  const replacementActor = {
+    kind: 'integration' as const,
+    tokenHash: secretHash(replacement.token)
+  }
+  expect((await requireGovernment(db, replacementActor)).agencyIds).toEqual([agency.id])
+  await revokeToken(db, actor, issued.id)
+  await expect(requireGovernment(db, replacementActor)).rejects.toMatchObject({ statusCode: 401 })
+  await expect(replaceToken(db, actor, issued.id)).rejects.toMatchObject({ statusCode: 409 })
+})
+
+it('allows permanent keys and preserves their expiry when replaced', async () => {
+  const actor = { kind: 'administrator' as const, administratorId }
+  const agency = (await createAgency(db, actor, names('Permanent agency'))).agency
+  const issued = await createToken(db, actor, {
+    agencyId: agency.id,
+    name: 'Permanent connector',
+    expiresInDays: null
+  })
+  expect(issued.expiresAt).toBeNull()
+  expect(
+    (await requireGovernment(db, { kind: 'integration', tokenHash: secretHash(issued.token) }))
+      .agencyIds
+  ).toEqual([agency.id])
+  const replacement = await replaceToken(db, actor, issued.id)
+  expect(
+    (
+      await db
+        .selectFrom('integration_token')
+        .select('expiresAt')
+        .where('id', '=', issued.id)
+        .executeTakeFirst()
+    )?.expiresAt
+  ).toBeNull()
+  await expect(
+    requireGovernment(db, { kind: 'integration', tokenHash: secretHash(issued.token) })
+  ).rejects.toMatchObject({ statusCode: 401 })
+  expect(
+    (await requireGovernment(db, { kind: 'integration', tokenHash: secretHash(replacement.token) }))
+      .agencyIds
+  ).toEqual([agency.id])
+})
+
+it('keeps existing expiring keys through the nullable-expiry migration', async () => {
+  const old = new Kysely<Database>({ dialect: pgliteDialect('memory://') })
+  try {
+    await migrate(old, '014_organization_agency_identity')
+    const administrator = await createAdministrator(old, {
+      name: 'Migration administrator',
+      email: 'migration@example.test',
+      password: 'Admin-test-only-2026!'
+    })
+    const actor = { kind: 'administrator' as const, administratorId: administrator.id }
+    const agency = (await createAgency(old, actor, names('Migration agency'))).agency
+    const issued = await createToken(old, actor, {
+      agencyId: agency.id,
+      name: 'Existing connector',
+      expiresInDays: 30
+    })
+    await migrate(old)
+    const stored = await old
+      .selectFrom('integration_token')
+      .select('expiresAt')
+      .where('id', '=', issued.id)
+      .executeTakeFirstOrThrow()
+    expect(stored.expiresAt?.toISOString()).toBe(issued.expiresAt?.toISOString())
+    expect(
+      (
+        await createToken(old, actor, {
+          agencyId: agency.id,
+          name: 'Permanent',
+          expiresInDays: null
+        })
+      ).expiresAt
+    ).toBeNull()
+  } finally {
+    await old.destroy()
+  }
 })
 
 it('revokes legacy staff credentials while preserving agencies and access deny markers', async () => {
