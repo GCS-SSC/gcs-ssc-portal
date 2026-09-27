@@ -2,6 +2,7 @@ import { z } from 'zod'
 import type { Kysely } from 'kysely'
 import type { Database } from '../db/schema'
 import { governmentFail as fail, requireGovernment, type GovernmentActor } from './government-access'
+import { decodePublicId, encodePublicId } from './public-identifiers'
 
 const identityInput = z.object({
   foreignApplicantRecipientId: z.string().regex(/^[1-9]\d{0,18}$/)
@@ -10,21 +11,38 @@ const identityInput = z.object({
 export const listAgencyOrganizations = async (
   db: Kysely<Database>, actor: GovernmentActor, agencyId: number, query: unknown = {}
 ) => {
-  const { search } = z.object({ search: z.string().trim().min(2).max(120).optional() }).parse(query)
+  const { search, after } = z.object({
+    search: z.string().trim().min(2).max(120).optional(),
+    after: z.string().optional()
+  }).parse(query)
   await requireGovernment(db, actor, { agencyId })
+  const afterId = after ? decodePublicId(after, 'organization') : null
   const pattern = search ? `%${search.replaceAll('\\', '\\\\').replaceAll('%', '\\%').replaceAll('_', '\\_')}%` : null
   const rows = await db.selectFrom('organization as organization')
+    .innerJoin('user as owner', 'owner.id', 'organization.ownerId')
     .leftJoin('organization_agency_identity as identity', (join) => join
       .onRef('identity.organizationId', '=', 'organization.id')
       .on('identity.agencyId', '=', agencyId))
-    .select(['organization.id', 'organization.name', 'organization.active',
+    .select(['organization.id', 'organization.name', 'organization.description', 'organization.active',
+      'owner.name as ownerName', 'owner.email as ownerEmail',
       'identity.foreignApplicantRecipientId', 'identity.verifiedAt'])
+    .select(eb => [
+      eb.selectFrom('membership').select(eb => eb.fn.countAll<number>().as('memberCount'))
+        .whereRef('membership.organizationId', '=', 'organization.id').as('memberCount'),
+      eb.selectFrom('funding_agreement').select(eb => eb.fn.countAll<number>().as('agreementCount'))
+        .whereRef('funding_agreement.organizationId', '=', 'organization.id')
+        .where('funding_agreement.agencyId', '=', agencyId).as('agreementCount')
+    ])
     .$if(Boolean(pattern), (builder) => builder.where('organization.name', 'ilike', pattern!))
-    .orderBy('organization.name').limit(50).execute()
-  return { organizations: rows.map((row) => ({ ...row,
+    .$if(afterId !== null, builder => builder.where('organization.id', '>', afterId!))
+    .orderBy('organization.id').limit(101).execute()
+  const page = rows.slice(0, 100)
+  return { organizations: page.map((row) => ({ ...row,
+    memberCount: Number(row.memberCount),
+    agreementCount: Number(row.agreementCount),
     verified: row.verifiedAt !== null,
     verifiedAt: row.verifiedAt ? new Date(row.verifiedAt).toISOString() : null
-  })) }
+  })), nextAfter: rows.length > 100 ? encodePublicId(page[page.length - 1]!.id, 'organization') : null }
 }
 
 export const verifyAgencyOrganization = async (
