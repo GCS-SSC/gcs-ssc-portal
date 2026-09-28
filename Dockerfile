@@ -1,6 +1,7 @@
 FROM oven/bun:1.3.13 AS build
 WORKDIR /app
 ARG PORTAL_ENVIRONMENT=demo
+ARG AWS_RDS_CA_BUNDLE=false
 RUN case "$PORTAL_ENVIRONMENT" in demo|production) ;; *) exit 1 ;; esac
 RUN apt-get update && apt-get install --no-install-recommends -y ca-certificates git && rm -rf /var/lib/apt/lists/*
 COPY package.json bun.lock ./
@@ -12,7 +13,11 @@ RUN bun run postinstall && bun run build
 RUN bun build scripts/migrate.ts --target=node --packages=external --outfile=.output/server/migrate.mjs \
  && if [ "$PORTAL_ENVIRONMENT" = demo ]; then bun build scripts/seed-demo.ts --target=node --packages=external --outfile=.output/server/seed-demo.mjs; fi \
  && printf '%s' "$PORTAL_ENVIRONMENT" > .output/environment \
- && cp deployment/start.mjs .output/start.mjs
+ && cp deployment/start.mjs .output/start.mjs \
+ && cp deployment/aws-start.mjs .output/aws-start.mjs \
+ && if [ "$AWS_RDS_CA_BUNDLE" = "true" ]; then \
+      bun -e 'const r = await fetch("https://truststore.pki.rds.amazonaws.com/ca-central-1/ca-central-1-bundle.pem"); if (!r.ok) throw new Error("RDS CA download failed"); const pem = await r.text(); if (!pem.includes("-----BEGIN CERTIFICATE-----")) throw new Error("Invalid RDS CA bundle"); await Bun.write(".output/rds-ca.pem", pem)'; \
+    fi
 
 FROM node:24-bookworm-slim AS runtime
 WORKDIR /app

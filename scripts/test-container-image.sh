@@ -32,6 +32,8 @@ docker run -d --name "$app" --network "$network" -p 127.0.0.1::3000 \
   -e DATABASE_URL="postgresql://postgres:$password@postgres:5432/portal_test" \
   -e APP_URL=https://portal.example.test \
   -e BETTER_AUTH_SECRET="container-test-only-secret-$password" "$image" >/dev/null
+docker exec "$app" test -s /app/.output/rds-ca.pem
+docker exec "$app" test -s /app/.output/aws-start.mjs
 port=$(docker port "$app" 3000/tcp | head -1 | cut -d: -f2)
 ready() {
   for attempt in $(seq 1 120); do

@@ -31,6 +31,7 @@ jobs:
           tags: ${{ steps.image.outputs.tag }}
           build-args: |
             PORTAL_ENVIRONMENT=demo
+            AWS_RDS_CA_BUNDLE=true
           labels: |
             org.opencontainers.image.source=https://github.com/${{ github.repository }}
             org.opencontainers.image.revision=${{ github.sha }}
