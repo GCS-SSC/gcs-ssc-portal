@@ -17,7 +17,9 @@ RUN bun build scripts/migrate.ts --target=node --packages=external --outfile=.ou
 FROM node:24-bookworm-slim AS runtime
 WORKDIR /app
 COPY --from=build --chown=node:node /app/.output ./.output
-RUN mkdir -p /app/.data/pglite && chown -R node:node /app/.data
+RUN npm install --omit=dev --ignore-scripts --legacy-peer-deps --no-audit --no-fund --prefix /app/.output/server \
+ && chown -R node:node /app/.output \
+ && mkdir -p /app/.data/pglite && chown -R node:node /app/.data
 ENV NODE_ENV=production
 ENV HOST=0.0.0.0
 ENV PORT=3000
