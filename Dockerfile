@@ -17,9 +17,11 @@ RUN bun build scripts/migrate.ts --target=node --packages=external --outfile=.ou
 FROM node:24-bookworm-slim AS runtime
 WORKDIR /app
 COPY --from=build --chown=node:node /app/.output ./.output
-RUN npm install --omit=dev --ignore-scripts --legacy-peer-deps --no-audit --no-fund --prefix /app/.output/server \
+RUN node -e 'const fs = require("node:fs"); const path = "/app/.output/server/package.json"; const manifest = JSON.parse(fs.readFileSync(path, "utf8")); delete manifest.dependencies["@gcs-ssc/survey"]; fs.writeFileSync(path, JSON.stringify(manifest));' \
+ && npm install --omit=dev --ignore-scripts --legacy-peer-deps --no-audit --no-fund --prefix /app/.output/server \
  && chown -R node:node /app/.output \
  && mkdir -p /app/.data/pglite && chown -R node:node /app/.data
+COPY --from=build --chown=node:node /app/vendor/survey /app/.output/server/node_modules/@gcs-ssc/survey
 ENV NODE_ENV=production
 ENV HOST=0.0.0.0
 ENV PORT=3000
