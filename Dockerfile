@@ -13,16 +13,17 @@ RUN bun build scripts/migrate.ts --target=node --packages=external --outfile=.ou
  && if [ "$PORTAL_ENVIRONMENT" = demo ]; then bun build scripts/seed-demo.ts --target=node --packages=external --outfile=.output/server/seed-demo.mjs; fi \
  && printf '%s' "$PORTAL_ENVIRONMENT" > .output/environment \
  && cp deployment/start.mjs .output/start.mjs
-RUN mkdir -p /app/runtime-extra/h3 && cp -aL /app/node_modules/h3/. /app/runtime-extra/h3/
 
 FROM node:24-bookworm-slim AS runtime
 WORKDIR /app
 COPY --from=build --chown=node:node /app/.output ./.output
 COPY --from=build --chown=node:node /app/node_modules ./node_modules
-RUN node -e 'const fs = require("node:fs"); const path = require("node:path"); const walk = (dir) => { for (const entry of fs.readdirSync(dir, { withFileTypes: true })) if (entry.isDirectory()) walk(path.join(dir, entry.name)); if (fs.readdirSync(dir).join() === "package.json") fs.rmSync(dir, { recursive: true }); }; walk("/app/.output/server/node_modules");' \
+RUN cp -a /app/.output/server/node_modules/.nitro /app/node_modules/.nitro \
+ && rm -rf /app/.output/server/node_modules \
+ && ln -s /app/node_modules /app/.output/server/node_modules \
+ && rm -f /app/node_modules/@gcs-ssc/survey \
  && mkdir -p /app/.data/pglite && chown -R node:node /app/.data
-COPY --from=build --chown=node:node /app/runtime-extra/h3 /app/.output/server/node_modules/h3
-COPY --from=build --chown=node:node /app/vendor/survey /app/.output/server/node_modules/@gcs-ssc/survey
+COPY --from=build --chown=node:node /app/vendor/survey /app/node_modules/@gcs-ssc/survey
 ENV NODE_ENV=production
 ENV HOST=0.0.0.0
 ENV PORT=3000
