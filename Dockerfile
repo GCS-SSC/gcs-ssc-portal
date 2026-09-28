@@ -21,7 +21,7 @@ COPY --from=build --chown=node:node /app/node_modules ./node_modules
 RUN cp -a /app/.output/server/node_modules/.nitro /app/node_modules/.nitro \
  && rm -rf /app/.output/server/node_modules \
  && ln -s /app/node_modules /app/.output/server/node_modules \
- && rm -f /app/node_modules/@gcs-ssc/survey \
+ && rm -rf /app/node_modules/@gcs-ssc/survey \
  && mkdir -p /app/.data/pglite && chown -R node:node /app/.data
 COPY --from=build --chown=node:node /app/vendor/survey /app/node_modules/@gcs-ssc/survey
 ENV NODE_ENV=production
