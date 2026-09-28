@@ -18,13 +18,15 @@ Every `/api/government/*` request requires `Authorization: Bearer gcs_…`. Miss
 
 The agency hierarchy is `agency → program → stream → funding_call`. Calls start as drafts and are published explicitly. Published calls are visible to organization members with an explicit `application:viewer` or higher permission; ownership and `admin` alone do not grant it. See [surveys](surveys.md), [agreements](agreements.md), and [applications](applications.md) for the remaining machine contracts.
 
+`DELETE /calls/:id` removes only an unpublished call with no application drafts or submissions. It returns `{success:true}`. A published call must first be withdrawn; a withdrawn call with any application remains retained. The integration credential must still belong to the call's agency.
+
 | Method/path after `/api/government`                                   | Purpose                                      |
 | --------------------------------------------------------------------- | -------------------------------------------- |
 | GET /agencies, GET /agencies/:id                                      | List and read agencies within key scope      |
 | PATCH /agencies/:id                                                   | Update the key's agency                      |
 | POST /programs, PATCH /programs/:id                                   | Manage programs in the key's agency          |
 | POST /streams, PATCH /streams/:id                                     | Manage streams in the key's agency           |
-| POST /calls, PUT /calls/:id, PATCH /calls/:id/publication             | Manage and publish calls                     |
+| POST /calls, PUT /calls/:id, DELETE /calls/:id, PATCH /calls/:id/publication | Manage, remove unused drafts, and publish calls |
 | GET/POST/PUT surveys and call survey assignment                       | Manage pinned form definitions               |
 | GET/POST/PUT agreements and sets, agreement balances, set publication | Manage agreement configuration and form sets |
 | GET agency submissions and submission exports/attachments             | Retrieve submitted data                      |

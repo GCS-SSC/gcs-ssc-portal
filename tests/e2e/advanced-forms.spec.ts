@@ -59,6 +59,16 @@ test('published advanced form supports dependent choices, nested repeats and tab
         })
       ).json()
     ).stream
+    const disposable = await machine.request.post('/api/government/calls', {
+      data: { streamId: stream.id, nameEn: 'Unused intake', nameFr: 'Appel inutilisé',
+        startDate: '2027-01-01', endDate: '2027-12-31', sourceSystem: 'gcs-ssc-intake',
+        foreignSystemId: String(700000 + Number(suffix % 100000)) }
+    })
+    expect(disposable.ok()).toBe(true)
+    const disposableId = (await disposable.json()).id
+    expect((await machine.request.delete(`/api/government/calls/${disposableId}`)).ok()).toBe(true)
+    const afterDelete = await machine.request.get(`/api/government/agencies/${agency.id}`)
+    expect((await afterDelete.json()).calls.some((call: { id: string }) => call.id === disposableId)).toBe(false)
     const definition = {
       schemaVersion: 3,
       title: label('Community project plan', 'Plan de projet communautaire'),

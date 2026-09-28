@@ -182,6 +182,14 @@ const createCall = async (enabled = true) => {
 }
 const start = async (callId: string) =>
   (await startApplication(db, orgId, users.contributor, callId, { locale: 'en' })).response
+it('keeps a withdrawn call when an organization already has an application draft', async () => {
+  const callId = await createCall()
+  await start(callId)
+  await structure.publishCall(db, actor, callId, { published: false })
+  await expect(structure.deleteDraftCall(db, actor, callId)).rejects.toMatchObject({ statusCode: 409 })
+  expect(await db.selectFrom('funding_call').select('id').where('id', '=', callId).executeTakeFirst())
+    .toBeDefined()
+})
 const save = async (id: string, revision: number) =>
   (
     await mutateResponse(db, orgId, users.contributor, id, 'save', {

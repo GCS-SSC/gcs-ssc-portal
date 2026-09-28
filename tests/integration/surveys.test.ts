@@ -81,6 +81,19 @@ afterAll(async () => {
   await db?.destroy()
 })
 describe('survey persistence and access', () => {
+  it('deletes an unused draft call and rejects deletion while published', async () => {
+    const { program } = await structure.createProgram(db, actor, { agencyId, ...names })
+    const { stream } = await structure.createStream(db, actor, { programId: program.id, ...names })
+    const call = await structure.saveCall(db, actor, {
+      streamId: stream.id, ...names, startDate: '2027-01-01', endDate: '2027-12-31'
+    })
+    await structure.publishCall(db, actor, call.id, { published: true })
+    await expect(structure.deleteDraftCall(db, actor, call.id)).rejects.toMatchObject({ statusCode: 409 })
+    await structure.publishCall(db, actor, call.id, { published: false })
+    expect(await structure.deleteDraftCall(db, actor, call.id)).toEqual({ success: true })
+    expect(await db.selectFrom('funding_call').select('id').where('id', '=', call.id).executeTakeFirst())
+      .toBeUndefined()
+  })
   it('persists strict bilingual definitions, serializes concurrent revisions, and never rewrites old revisions', async () => {
     const { survey } = await surveys.createSurvey(db, actor, { agencyId, definition })
     expect(survey.definition).toEqual(definition)

@@ -293,6 +293,8 @@ const governmentHandler = defineEventHandler(async (event) => {
         )
         return { id: encodePublicId(result.id, 'call') }
       }
+      if (path[0] === 'calls' && method === 'DELETE')
+        return await structure.deleteDraftCall(db, actor, id)
     }
     if (
       id &&

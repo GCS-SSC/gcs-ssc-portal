@@ -241,6 +241,9 @@ export const publishCall = async (
     const call = await callQuery(tx).where('c.id', '=', id).executeTakeFirst()
     if (!call) return fail(404, 'CALL_NOT_FOUND')
     await requireGovernment(tx, actor, { agencyId: call.agencyId, lock: true })
+    const current = await tx.selectFrom('funding_call').select('id')
+      .where('id', '=', id).forUpdate().executeTakeFirst()
+    if (!current) return fail(404, 'CALL_NOT_FOUND')
     await tx
       .updateTable('funding_call')
       .set({ published: input.published })
@@ -249,6 +252,24 @@ export const publishCall = async (
     return { success: true }
   })
 }
+export const deleteDraftCall = async (
+  db: Kysely<Database>,
+  actor: GovernmentActor,
+  id: number
+) => db.transaction().execute(async (tx) => {
+  const call = await callQuery(tx).where('c.id', '=', id).executeTakeFirst()
+  if (!call) return fail(404, 'CALL_NOT_FOUND')
+  await requireGovernment(tx, actor, { agencyId: call.agencyId, lock: true })
+  const current = await tx.selectFrom('funding_call').select('published')
+    .where('id', '=', id).forUpdate().executeTakeFirst()
+  if (!current) return fail(404, 'CALL_NOT_FOUND')
+  if (current.published) return fail(409, 'UNPUBLISH_BEFORE_EDITING')
+  const applications = await tx.selectFrom('submission_set').select('id')
+    .where('callId', '=', id).executeTakeFirst()
+  if (applications) return fail(409, 'CALL_HAS_APPLICATIONS')
+  await tx.deleteFrom('funding_call').where('id', '=', id).execute()
+  return { success: true }
+})
 export const fundingCatalogue = async (
   db: GovernmentDb,
   organizationId: number,
