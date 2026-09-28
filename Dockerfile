@@ -18,7 +18,8 @@ FROM node:24-bookworm-slim AS runtime
 WORKDIR /app
 COPY --from=build --chown=node:node /app/.output ./.output
 COPY --from=build --chown=node:node /app/node_modules ./node_modules
-RUN mkdir -p /app/.data/pglite && chown -R node:node /app/.data
+RUN node -e 'const fs = require("node:fs"); const path = require("node:path"); const walk = (dir) => { for (const entry of fs.readdirSync(dir, { withFileTypes: true })) if (entry.isDirectory()) walk(path.join(dir, entry.name)); if (fs.readdirSync(dir).join() === "package.json") fs.rmSync(dir, { recursive: true }); }; walk("/app/.output/server/node_modules");' \
+ && mkdir -p /app/.data/pglite && chown -R node:node /app/.data
 COPY --from=build --chown=node:node /app/vendor/survey /app/.output/server/node_modules/@gcs-ssc/survey
 ENV NODE_ENV=production
 ENV HOST=0.0.0.0
