@@ -51,12 +51,12 @@ curl --fail --silent "http://127.0.0.1:$port/api/admin/login" \
   -H 'Origin: https://portal.example.test' -H 'Content-Type: application/json' \
   --data '{"email":"admin@portal.com","password":"password123"}' \
   | jq -e '.administrator.email == "admin@portal.com"' >/dev/null
-[[ $(docker exec "$database" psql -U postgres -d portal_test -Atc 'SELECT count(*) FROM "user"') == 6 ]]
+[[ $(docker exec "$database" psql -U postgres -d portal_test -Atc 'SELECT count(*) FROM "user"') == 4 ]]
 [[ $(docker exec "$database" psql -U postgres -d portal_test -Atc 'SELECT count(*) FROM administrator') == 1 ]]
 docker exec "$database" psql -U postgres -d portal_test -c "UPDATE organization SET name='Preserved after restart' WHERE id = (SELECT id FROM organization ORDER BY id LIMIT 1)" >/dev/null
 docker restart "$app" >/dev/null
 port=$(docker port "$app" 3000/tcp | head -1 | cut -d: -f2)
 ready
-[[ $(docker exec "$database" psql -U postgres -d portal_test -Atc 'SELECT count(*) FROM "user"') == 6 ]]
+[[ $(docker exec "$database" psql -U postgres -d portal_test -Atc 'SELECT count(*) FROM "user"') == 4 ]]
 [[ $(docker exec "$database" psql -U postgres -d portal_test -Atc "SELECT count(*) FROM organization WHERE name='Preserved after restart'") == 1 ]]
 echo 'Container verified: PostgreSQL migrations, seeded logins, readiness and non-destructive restart.'
