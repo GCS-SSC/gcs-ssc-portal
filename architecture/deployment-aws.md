@@ -4,6 +4,9 @@ The Portal is deployed beside GCS in the sibling repository's `GcsSscDemo`
 CDK stack. It has its own Fargate service, PostgreSQL database, authentication
 secret, internal load balancer, CloudFront VPC origin, and HTTPS hostname.
 The two applications do not share database credentials or sessions.
+Uploaded attachments use a separate private S3 bucket with task-role access to
+the `portal-attachments/` prefix. Active objects have no expiry; noncurrent
+versions expire after 30 days. The container filesystem does not store uploads.
 
 GitHub's manual `publish-demo-images.yml` workflow builds the demo image with
 the Canada Central RDS trust bundle. ECS overrides its normal command with
