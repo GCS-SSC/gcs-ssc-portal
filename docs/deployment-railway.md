@@ -1,10 +1,10 @@
 # GitHub images and Railway
 
-The private portal repository builds one private GHCR package:
+The private portal repository builds one GHCR package whose demo image is public:
 
 - `ghcr.io/gcs-ssc/gcs-ssc-portal-demo-gcdesign`
 
-The [publish workflow](../.github/workflows/publish-demo-images.yml) runs only when manually dispatched from GitHub Actions. Pushing to `main` does not build or publish an image. The workflow builds the selected commit once for `linux/amd64`, tests that exact image with isolated PostgreSQL, then pushes it and uploads an `image-gcdesign` artifact containing its digest and source commit. Its smoke test checks database migrations, owner/administrator sign-in and preservation of edited data after container restart. GitHub uses its scoped `GITHUB_TOKEN` (`packages:write`); no Railway token is needed and the workflow never deploys to Railway. Package visibility is not changed to public.
+The [publish workflow](../.github/workflows/publish-demo-images.yml) runs only when manually dispatched from GitHub Actions. Pushing to `main` does not build or publish an image. The workflow builds the selected commit once for `linux/amd64`, tests that exact image with isolated PostgreSQL, then pushes it and uploads an `image-gcdesign` artifact containing its digest and source commit. Its smoke test checks database migrations, owner/administrator sign-in and preservation of edited data after container restart. GitHub uses its scoped `GITHUB_TOKEN` (`packages:write`); no Railway token is needed and the workflow never deploys to Railway. Set the package visibility to Public in GitHub package settings before deployment.
 
 ## Promote a verified release
 
@@ -19,16 +19,16 @@ bun scripts/promote-images.ts .agent/image-release
 
 Use a fresh download directory for each release. The promotion script validates the source commit, exact GC Design System package name, and SHA-256 digest. Mutable tags and source-build fallback are rejected. A pin-only commit does not rebuild images. Committing a pin does not apply Railway configuration.
 
-## First Railway deployment — when authorized
+## Shared GCS Demo Railway deployment
 
-1. Create a **separate** project named `GCS Portal Demo` and an environment named `demo`. Do not reuse `GCS Demo`, which belongs to the sibling app. Install the Railway CLI and link this checkout to the new project/environment. Install repository dependencies with `bun install --frozen-lockfile`.
-2. In that environment, create a sealed shared variable `PORTAL_AUTH_SECRET` using a fresh random value of at least 32 characters (`openssl rand -base64 32`). IaC references this as the app's `BETTER_AUTH_SECRET`; it contains no auth secret in source.
-3. Ensure the GitHub principal used for pulls can read the private GHCR package. Create a GitHub token with `read:packages` (and authorize organization SSO where required). Supply `PORTAL_GHCR_USERNAME` and `PORTAL_GHCR_TOKEN` securely in the terminal used for planning/applying. The IaC graph sends these as Railway registry credentials, not application environment variables. Never commit them, print a values-expanded plan, or commit saved plan artifacts. Private-registry access must be available on the selected Railway plan.
-4. Run `railway config plan` from this checkout. Expect only the portal service and managed PostgreSQL in the new environment. Review the plan, then run `railway config apply` yourself when ready. This step provisions/deploys; it has **not** been run during preparation.
-5. Generate a public Railway domain for `gcs-ssc-portal` on port 3000. The image derives its canonical HTTPS `APP_URL` from `RAILWAY_PUBLIC_DOMAIN`; before the domain exists, startup correctly fails for lack of a canonical origin. Generate the domain and redeploy after this first bootstrap. For a custom domain, set the exact HTTPS `APP_URL` instead. Never use a wildcard trusted origin.
+1. Install the Railway CLI and link the sibling `gcs-ssc` checkout to the existing `GCS Demo` project and `demo` environment. Its `.railway/railway.ts` is the authoritative graph for all three groups: Metabase, GCS, and Portal, each with its own PostgreSQL service.
+2. In that environment, create a sealed shared variable `PORTAL_AUTH_SECRET` using a fresh random value of at least 32 characters (`openssl rand -base64 32`). The shared graph references this as the Portal's `BETTER_AUTH_SECRET`.
+3. Download the successful image artifact and pin its immutable digest in the sibling checkout's `deployment/portal-demo-image.json`. Make the GHCR package public in GitHub package settings and verify an anonymous pull.
+4. Run `railway config plan` from the sibling `gcs-ssc` checkout. Review the preservation of existing Metabase and GCS services, then run `railway config apply`.
+5. Generate a public Railway domain for `gcs-ssc-portal` on port 3000. The image derives its canonical HTTPS `APP_URL` from `RAILWAY_PUBLIC_DOMAIN`; before the domain exists, startup fails for lack of a canonical origin. Generate the domain and redeploy after first bootstrap. For a custom domain, set the exact HTTPS `APP_URL` instead. Never use a wildcard trusted origin.
 6. Check deployment health at `/api/session`, which becomes reachable only after startup migrations and seeding succeed. Sign in with the [README demo accounts](../README.md#demo-seed-data). System administrators use `/admin/login`; organization accounts use `/login`.
 
-The SDK version is pinned in `package.json`/`bun.lock`. The IaC graph is tested locally for project/environment scope, digest-only sources, PostgreSQL references and secret references. An actual remote plan additionally requires a linked Railway environment and registry credentials; local graph validation does not claim a remote plan or deployment succeeded.
+The sibling graph is tested for project/environment scope, digest-only sources, PostgreSQL references and secret references. This repository's previous standalone Portal graph is obsolete and must not be applied.
 
 ## Seed and persistence
 
@@ -52,5 +52,3 @@ bash scripts/test-container-image.sh portal-demo:gcdesign
 The smoke script owns a unique local Docker network, PostgreSQL container and app container and removes only those resources afterward. It never contacts Railway or the configured application database.
 
 The implementation follows Railway's [IaC reference](https://docs.railway.com/infrastructure-as-code/reference), using the same pinned-image approach as the sibling repository. Runtime secrets and generated domains remain outside authored source.
-
-Preparation validation: local container smoke checks exercise the actual Node runtime and database startup. `railway config plan` was attempted without applying; it reported no linked project. No project was linked or created to bypass that prerequisite.

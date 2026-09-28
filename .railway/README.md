@@ -1,9 +1,5 @@
-# Portal Railway IaC
+# Portal Railway deployment
 
-This is a **new, separate** `GCS Portal Demo` project and `demo` environment, not the sibling application's existing project. The authoring file rejects other project/environment names.
+The Portal runs in the existing `GCS Demo` Railway project and `demo` environment, alongside GCS and Metabase. The sibling `gcs-ssc` repository owns the shared `.railway/railway.ts` graph. It provisions the Portal service and a dedicated PostgreSQL service in the Portal canvas group. The old standalone Portal graph has been removed so it cannot accidentally create or reconcile a separate project.
 
-It declares PostgreSQL and one `gcs-ssc-portal` instance using the digest selected in `deployment/demo-images.json`. Image auto-updates are disabled. There is no source-build fallback, source deployment trigger, app PGlite volume, reset job or automatic Railway apply workflow.
-
-Follow [the deployment runbook](../docs/deployment-railway.md). The project/environment, shared auth secret, GHCR pull credentials and generated domain are operator setup steps when deployment is authorized. No Railway resources have been created by preparing these files.
-
-The pinned `railway` SDK is a development dependency. Install Railway CLI 5.54.1 or newer separately. Once the correct project/environment exists and is linked, supply registry credentials in your terminal environment and run `railway config plan`. Review its changes before running `railway config apply`. Plans can contain registry credentials: keep plan files private and outside version control. Do not apply this graph to an existing unrelated project; omitted resources can become deletion candidates.
+Build and verify a Portal demo image using `.github/workflows/publish-demo-images.yml`, then promote its immutable digest to `deployment/demo-images.json` here and `deployment/portal-demo-image.json` in the sibling repository. Make the GHCR package public in GitHub package settings before applying the shared graph. See [the runbook](../docs/deployment-railway.md).
