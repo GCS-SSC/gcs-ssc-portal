@@ -483,6 +483,30 @@ export declare const pushSurvey: (options: {
                     fr: string;
                 };
                 required: boolean;
+                type: "repeat";
+                maxItems: number;
+                hint?: {
+                    en: string;
+                    fr: string;
+                } | undefined;
+                visibleWhen?: {
+                    match: "any" | "all";
+                    conditions: ({
+                        questionId: string;
+                        operator: "equals" | "notEquals" | "contains" | "greaterThan" | "lessThan";
+                        value: string;
+                    } | {
+                        questionId: string;
+                        operator: "answered" | "notAnswered";
+                    })[];
+                } | undefined;
+            } | {
+                id: string;
+                label: {
+                    en: string;
+                    fr: string;
+                };
+                required: boolean;
                 type: "table";
                 maxRows: number;
                 columns: {

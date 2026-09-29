@@ -108,6 +108,8 @@ test('published advanced form supports dependent choices, nested repeats and tab
           maxItems: 5
         },
         { id: 'tasks', type: 'list', label: label('Tasks', 'Tâches'), required: true, maxItems: 5 },
+        { id: 'people', type: 'repeat', label: label('People', 'Personnes'), required: false, maxItems: 3 },
+        { id: 'personName', type: 'text', label: label('Person name', 'Nom de la personne'), required: true, maxLength: 100 },
         {
           id: 'costs',
           type: 'table',
@@ -132,7 +134,7 @@ test('published advanced form supports dependent choices, nested repeats and tab
         {
           id: 'main',
           title: label('Your project', 'Votre projet'),
-          questionIds: ['sector', 'discipline', 'projects'],
+          questionIds: ['sector', 'discipline', 'projects', 'people'],
           groups: [
             {
               id: 'project',
@@ -148,7 +150,9 @@ test('published advanced form supports dependent choices, nested repeats and tab
                   groups: []
                 }
               ]
-            }
+            },
+            { id: 'person', title: label('Person {{item}}', 'Personne {{item}}'), repeatFor: 'people',
+              questionIds: ['personName'], groups: [] }
           ],
           branches: [
             {
@@ -290,6 +294,11 @@ test('published advanced form supports dependent choices, nested repeats and tab
     await applicant.getByRole('button', { name: 'Add row' }).click()
     await applicant.getByRole('textbox', { name: 'Item' }).fill('Seeds')
     await applicant.getByRole('textbox', { name: 'Amount' }).fill('0')
+    const people = applicant.locator('.survey-repeat').filter({ hasText: 'People' })
+    await expect(people.getByRole('textbox')).toHaveCount(0)
+    await people.getByRole('button', { name: 'Add another' }).click()
+    await expect(applicant.getByRole('heading', { name: 'Person 1' })).toBeVisible()
+    await applicant.getByRole('textbox', { name: 'Person name' }).fill('Sam')
     await applicant.getByRole('button', { name: 'Next page' }).click()
     await expect(applicant.getByRole('heading', { name: /Community impact/ })).toBeVisible()
     await applicant.locator('gcds-lang-toggle').getByRole('link').click()

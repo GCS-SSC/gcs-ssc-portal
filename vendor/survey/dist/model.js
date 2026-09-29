@@ -229,6 +229,7 @@ export const advancedQuestionSchema = z.discriminatedUnion('type', [
     advancedBase.extend({ type: z.literal('select'), options: choiceOptions,
         dependsOn: z.object({ questionId: identifier, optionsByValue: z.record(identifier, choiceOptions) }).strict().optional() }),
     advancedBase.extend({ type: z.literal('list'), maxItems: z.number().int().min(1).max(50).default(10) }),
+    advancedBase.extend({ type: z.literal('repeat'), maxItems: z.number().int().min(1).max(50).default(10) }),
     advancedBase.extend({ type: z.literal('table'), maxRows: z.number().int().min(1).max(100).default(20),
         columns: z.array(tableColumn).min(1).max(20) }),
     advancedBase.extend({ type: z.literal('computed'), template: z.string().min(1).max(500),
@@ -323,8 +324,8 @@ export const surveyV3Schema = z.object({
             used.add(group.id);
             checkCondition(group.visibleWhen, ancestors);
             if (group.repeatFor && (!placed.has(group.repeatFor) || !accessible(group.repeatFor, ancestors)
-                || questions.get(group.repeatFor)?.type !== 'list'))
-                fail('Repeat source must be an earlier list question');
+                || !['list', 'repeat'].includes(questions.get(group.repeatFor)?.type ?? '')))
+                fail('Repeat source must be an earlier list or repeat question');
             if (group.repeatFor && ancestors.includes(group.repeatFor))
                 fail('Repeat source cannot be reused in its own ancestry');
             place(group.questionIds, group.repeatFor ? [...ancestors, group.repeatFor] : ancestors);

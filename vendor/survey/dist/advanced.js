@@ -42,6 +42,10 @@ export const sourceKey = (id, path, active) => {
     return undefined;
 };
 const valueFor = (question, key, answers) => {
+    if (question.type === 'repeat') {
+        const count = parseList(answers[key]).length;
+        return count ? String(count) : '';
+    }
     if (question.type === 'list')
         return parseList(answers[key]).map((item) => item.value).join(', ');
     return answers[key] ?? '';
@@ -97,8 +101,9 @@ export const resolveAdvancedSurvey = (definition, answers) => {
             return [];
         const entries = group.repeatFor ? (() => {
             const key = sourceKey(group.repeatFor, path, active);
-            return key ? parseList(answers[key], questions.get(group.repeatFor).maxItems)
-                .map((item) => ({ path: [...path, item.id], item })) : [];
+            const source = questions.get(group.repeatFor);
+            return key ? parseList(answers[key], source.maxItems)
+                .map((item, index) => ({ path: [...path, item.id], item: source.type === 'repeat' ? { ...item, value: String(index + 1) } : item })) : [];
         })() : [{ path, item: undefined }];
         return entries.map(({ path: currentPath, item }) => ({ ...group,
             title: item ? { en: group.title.en.replaceAll('{{item}}', item.value),

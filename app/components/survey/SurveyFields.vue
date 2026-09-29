@@ -27,7 +27,30 @@ const updateCell = (field: SurveyField, rowId: string, columnId: string, value: 
   <template v-for="id in ids" :key="id">
     <template v-for="field in fields.filter((item) => item.id === id)" :key="field.id">
       <PortalFieldset
-        v-if="field.question.type === 'list'" class="survey-repeat"
+        v-if="field.question.type === 'repeat'" class="survey-repeat"
+        :legend="`${field.label}${field.required ? ` (${s('required')})` : ''}`"
+        :legend-size="legendSize ?? 'h5'" :hint="field.hint">
+        <PortalNotice v-if="field.error" variant="error">{{ surveyError(field.error) }}</PortalNotice>
+        <div
+v-for="(row, index) in listRows(field)"
+          :key="row.id" class="survey-repeat-row">
+          <PortalText>{{ s('entry') }} {{ index + 1 }}</PortalText>
+          <PortalButton
+variant="secondary"
+            :disabled="field.disabled"
+            @click="updateList(field, listRows(field).filter((item) => item.id !== row.id))">
+            {{ s('removeRow') }} {{ index + 1 }}
+          </PortalButton>
+        </div>
+        <PortalButton
+variant="secondary"
+          :disabled="field.disabled || listRows(field).length >= field.question.maxItems"
+          @click="updateList(field, [...listRows(field), { id: newId(), value: '' }])">
+          {{ s('addInstance') }}
+        </PortalButton>
+      </PortalFieldset>
+      <PortalFieldset
+        v-else-if="field.question.type === 'list'" class="survey-repeat"
         :legend="`${field.label}${field.required ? ` (${s('required')})` : ''}`"
         :legend-size="legendSize ?? 'h5'" :hint="field.hint">
         <PortalNotice v-if="field.error" variant="error">{{

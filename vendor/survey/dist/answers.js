@@ -55,13 +55,13 @@ const validateAdvancedAnswers = (definition, answers, mode) => {
         if (question.type === 'computed')
             continue;
         const value = answers[key] ?? '';
-        if (question.type === 'list') {
+        if (question.type === 'list' || question.type === 'repeat') {
             const rows = parseList(value, question.maxItems);
             if (value && JSON.stringify(rows) !== value)
                 errors[key] = 'choice';
             else if (mode === 'submit' && question.required && !rows.length)
                 errors[key] = 'required';
-            else if (mode === 'submit' && rows.some((row) => !row.value.trim()))
+            else if (question.type === 'list' && mode === 'submit' && rows.some((row) => !row.value.trim()))
                 errors[key] = 'required';
             continue;
         }

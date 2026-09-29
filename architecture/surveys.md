@@ -26,6 +26,8 @@ Designer deletions refuse questions referenced by conditions. Empty containers c
 
 ## Portal workflow
 
+Version 3 repeating sets use a `repeat` source question with stable row IDs and no item-name input. The portal shows add and remove controls, then renders each child question within its numbered instance; sets can nest. Required repeat sources need at least one instance, and the shared validator checks nested child answers. Existing `list` questions retain their named-item controls and remain readable in pinned revisions. The new form designer offers repeating sets directly and no longer offers standalone lists. Both portal and extension ship the same compiled provider version.
+
 The future extension creates and updates bilingual forms through the agency-scoped API. Persisted forms require at least one valid question, and optimistic revision checks reject overwriting a newer form.
 
 Calls can attach up to ten ordered saved form revisions through the call API. Every survey must belong to the call's agency. Published calls must be unpublished before attaching, replacing or removing forms. Updating a survey creates a new immutable revision; it never changes a call's current attachment. Existing calls without forms remain valid.

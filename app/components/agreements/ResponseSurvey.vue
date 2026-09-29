@@ -21,8 +21,12 @@ const readQuestions = computed(() => {
   const route = resolveSurvey(props.definition, answers.value)
   const questions = new Map(props.definition.questions.map((question) => [question.id, question]))
   const listLabels = new Map<string, string>()
-  for (const value of Object.values(answers.value))
-    for (const item of parseList(value)) listLabels.set(item.id, item.value)
+  for (const [key, value] of Object.entries(answers.value)) {
+    const source = questions.get(baseQuestionId(key))
+    if (source?.type !== 'list' && source?.type !== 'repeat') continue
+    parseList(value).forEach((item, index) => listLabels.set(item.id,
+      source.type === 'repeat' ? String(index + 1) : item.value))
+  }
   return route.questionIds.flatMap((id) => {
     const question = questions.get(baseQuestionId(id))
     if (!question) return []
@@ -45,6 +49,8 @@ const readQuestions = computed(() => {
           ? parseList(raw)
               .map((item) => item.value)
               .join(', ')
+          : question.type === 'repeat'
+            ? String(parseList(raw).length)
           : question.type === 'table'
             ? parseTable(raw)
                 .map((row) =>

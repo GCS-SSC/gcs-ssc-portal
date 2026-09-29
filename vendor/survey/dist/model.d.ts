@@ -1584,6 +1584,42 @@ export declare const advancedQuestionSchema: z.ZodDiscriminatedUnion<[z.ZodObjec
             }>;
         }, z.core.$strict>], "operator">>;
     }, z.core.$strict>>;
+    type: z.ZodLiteral<"repeat">;
+    maxItems: z.ZodDefault<z.ZodNumber>;
+}, z.core.$strict>, z.ZodObject<{
+    id: z.ZodString;
+    label: z.ZodObject<{
+        en: z.ZodString;
+        fr: z.ZodString;
+    }, z.core.$strict>;
+    required: z.ZodBoolean;
+    hint: z.ZodOptional<z.ZodObject<{
+        en: z.ZodString;
+        fr: z.ZodString;
+    }, z.core.$strict>>;
+    visibleWhen: z.ZodOptional<z.ZodObject<{
+        match: z.ZodEnum<{
+            any: "any";
+            all: "all";
+        }>;
+        conditions: z.ZodArray<z.ZodDiscriminatedUnion<[z.ZodObject<{
+            questionId: z.ZodString;
+            operator: z.ZodEnum<{
+                equals: "equals";
+                notEquals: "notEquals";
+                contains: "contains";
+                greaterThan: "greaterThan";
+                lessThan: "lessThan";
+            }>;
+            value: z.ZodString;
+        }, z.core.$strict>, z.ZodObject<{
+            questionId: z.ZodString;
+            operator: z.ZodEnum<{
+                answered: "answered";
+                notAnswered: "notAnswered";
+            }>;
+        }, z.core.$strict>], "operator">>;
+    }, z.core.$strict>>;
     type: z.ZodLiteral<"table">;
     maxRows: z.ZodDefault<z.ZodNumber>;
     columns: z.ZodArray<z.ZodObject<{
@@ -1939,6 +1975,42 @@ export declare const surveyV3Schema: z.ZodObject<{
             }, z.core.$strict>], "operator">>;
         }, z.core.$strict>>;
         type: z.ZodLiteral<"list">;
+        maxItems: z.ZodDefault<z.ZodNumber>;
+    }, z.core.$strict>, z.ZodObject<{
+        id: z.ZodString;
+        label: z.ZodObject<{
+            en: z.ZodString;
+            fr: z.ZodString;
+        }, z.core.$strict>;
+        required: z.ZodBoolean;
+        hint: z.ZodOptional<z.ZodObject<{
+            en: z.ZodString;
+            fr: z.ZodString;
+        }, z.core.$strict>>;
+        visibleWhen: z.ZodOptional<z.ZodObject<{
+            match: z.ZodEnum<{
+                any: "any";
+                all: "all";
+            }>;
+            conditions: z.ZodArray<z.ZodDiscriminatedUnion<[z.ZodObject<{
+                questionId: z.ZodString;
+                operator: z.ZodEnum<{
+                    equals: "equals";
+                    notEquals: "notEquals";
+                    contains: "contains";
+                    greaterThan: "greaterThan";
+                    lessThan: "lessThan";
+                }>;
+                value: z.ZodString;
+            }, z.core.$strict>, z.ZodObject<{
+                questionId: z.ZodString;
+                operator: z.ZodEnum<{
+                    answered: "answered";
+                    notAnswered: "notAnswered";
+                }>;
+            }, z.core.$strict>], "operator">>;
+        }, z.core.$strict>>;
+        type: z.ZodLiteral<"repeat">;
         maxItems: z.ZodDefault<z.ZodNumber>;
     }, z.core.$strict>, z.ZodObject<{
         id: z.ZodString;
@@ -2714,6 +2786,42 @@ export declare const surveySchema: z.ZodUnion<readonly [z.ZodObject<{
             }, z.core.$strict>], "operator">>;
         }, z.core.$strict>>;
         type: z.ZodLiteral<"list">;
+        maxItems: z.ZodDefault<z.ZodNumber>;
+    }, z.core.$strict>, z.ZodObject<{
+        id: z.ZodString;
+        label: z.ZodObject<{
+            en: z.ZodString;
+            fr: z.ZodString;
+        }, z.core.$strict>;
+        required: z.ZodBoolean;
+        hint: z.ZodOptional<z.ZodObject<{
+            en: z.ZodString;
+            fr: z.ZodString;
+        }, z.core.$strict>>;
+        visibleWhen: z.ZodOptional<z.ZodObject<{
+            match: z.ZodEnum<{
+                any: "any";
+                all: "all";
+            }>;
+            conditions: z.ZodArray<z.ZodDiscriminatedUnion<[z.ZodObject<{
+                questionId: z.ZodString;
+                operator: z.ZodEnum<{
+                    equals: "equals";
+                    notEquals: "notEquals";
+                    contains: "contains";
+                    greaterThan: "greaterThan";
+                    lessThan: "lessThan";
+                }>;
+                value: z.ZodString;
+            }, z.core.$strict>, z.ZodObject<{
+                questionId: z.ZodString;
+                operator: z.ZodEnum<{
+                    answered: "answered";
+                    notAnswered: "notAnswered";
+                }>;
+            }, z.core.$strict>], "operator">>;
+        }, z.core.$strict>>;
+        type: z.ZodLiteral<"repeat">;
         maxItems: z.ZodDefault<z.ZodNumber>;
     }, z.core.$strict>, z.ZodObject<{
         id: z.ZodString;
