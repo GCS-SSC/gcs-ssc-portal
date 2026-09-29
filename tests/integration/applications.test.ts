@@ -182,6 +182,30 @@ const createCall = async (enabled = true) => {
 }
 const start = async (callId: string) =>
   (await startApplication(db, orgId, users.contributor, callId, { locale: 'en' })).response
+it('starts one application containing every ordered, pinned opportunity form', async () => {
+  const first = (await surveys.createSurvey(db, actor, { agencyId, definition })).survey
+  const secondDefinition: SurveyDefinition = { ...definition,
+    title: { en: 'Budget', fr: 'Budget' },
+    questions: [{ id: 'amount', type: 'number', label: { en: 'Amount', fr: 'Montant' }, required: true }] }
+  const second = (await surveys.createSurvey(db, actor, { agencyId, definition: secondDefinition })).survey
+  const call = await structure.saveCall(db, actor, { streamId, ...names,
+    startDate: '2020-01-01', endDate: '2099-12-31' })
+  await surveys.attachCallForms(db, actor, call.id, { forms: [
+    { surveyId: first.id, revision: 1 }, { surveyId: second.id, revision: 1 }
+  ] })
+  await structure.publishCall(db, actor, call.id, { published: true })
+  const preview = await surveys.applicantSurvey(db, orgId, users.viewer, call.id)
+  expect(preview.forms.map(form => form.definition.title.en)).toEqual(['Project', 'Budget'])
+  const draft = await start(call.id)
+  expect(draft.snapshot.items.map(entry => entry.item.id)).toEqual(['application', 'application-2'])
+  expect(draft.snapshot.items.map(entry => entry.survey?.title.en)).toEqual(['Project', 'Budget'])
+  await surveys.updateSurvey(db, actor, second.id, { expectedRevision: 1,
+    definition: { ...secondDefinition, title: { en: 'Changed', fr: 'Modifié' } } })
+  expect((await start(call.id)).snapshot.items[1]?.survey?.title.en).toBe('Budget')
+  await expect(surveys.attachCallForms(db, actor, call.id, { forms: [
+    { surveyId: second.id, revision: 2 }
+  ] })).rejects.toMatchObject({ statusCode: 409 })
+})
 it('keeps a withdrawn call when an organization already has an application draft', async () => {
   const callId = await createCall()
   await start(callId)

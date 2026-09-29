@@ -122,12 +122,20 @@ export const agencyStructure = async (db: GovernmentDb, actor: GovernmentActor, 
     .orderBy('stream.createdAt')
     .execute()
   const calls = await callQuery(db).where('a.id', '=', id).orderBy('c.createdAt', 'desc').execute()
+  const callForms = calls.length ? await db.selectFrom('funding_call_form')
+    .select(['callId', 'position', 'surveyId', 'surveyRevision'])
+    .where('callId', 'in', calls.map(call => call.id)).orderBy('position').execute() : []
   return {
     agency: { ...agency, createdAt: iso(agency.createdAt) },
     programs: programs.map((row) => ({ ...row, createdAt: iso(row.createdAt) })),
     streams: streams.map((row) => ({ ...row, createdAt: iso(row.createdAt) })),
     calls: calls.map((row) => ({
       ...row,
+      forms: callForms.some(form => form.callId === row.id)
+        ? callForms.filter(form => form.callId === row.id).map(form => ({
+          surveyId: form.surveyId, revision: form.surveyRevision
+        }))
+        : row.surveyId && row.surveyRevision ? [{ surveyId: row.surveyId, revision: row.surveyRevision }] : [],
       startDate: dateText(row.startDate),
       endDate: dateText(row.endDate),
       createdAt: iso(row.createdAt)
@@ -288,9 +296,17 @@ export const fundingCatalogue = async (
     .where('c.published', '=', true)
     .orderBy('c.startDate', 'desc')
     .execute()
+  const callForms = calls.length ? await db.selectFrom('funding_call_form')
+    .select(['callId', 'position', 'surveyId', 'surveyRevision'])
+    .where('callId', 'in', calls.map(call => call.id)).orderBy('position').execute() : []
   return {
     calls: calls.map((row) => ({
       ...row,
+      forms: callForms.some(form => form.callId === row.id)
+        ? callForms.filter(form => form.callId === row.id).map(form => ({
+          surveyId: form.surveyId, revision: form.surveyRevision
+        }))
+        : row.surveyId && row.surveyRevision ? [{ surveyId: row.surveyId, revision: row.surveyRevision }] : [],
       startDate: dateText(row.startDate),
       endDate: dateText(row.endDate),
       createdAt: iso(row.createdAt)

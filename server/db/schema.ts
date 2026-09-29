@@ -148,6 +148,12 @@ export interface Database {
     surveyRevision: Generated<number | null>
     createdAt: Timestamp
   }
+  funding_call_form: {
+    callId: number
+    position: number
+    surveyId: number
+    surveyRevision: number
+  }
   survey: { id: Generated<number>; agencyId: number; revision: number; updatedAt: Timestamp }
   survey_revision: {
     surveyId: number

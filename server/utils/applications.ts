@@ -24,9 +24,15 @@ export const startApplication = async (
       .where('id', '=', callId)
       .forUpdate()
       .executeTakeFirst()
-    if (!call || !call.published || !call.surveyId || !call.surveyRevision)
+    if (!call || !call.published)
       return fail(404, 'SURVEY_NOT_FOUND')
     requireOpenCall(call)
+    let forms = await tx.selectFrom('funding_call_form')
+      .select(['position', 'surveyId', 'surveyRevision'])
+      .where('callId', '=', callId).orderBy('position').execute()
+    if (!forms.length && call.surveyId && call.surveyRevision)
+      forms = [{ position: 0, surveyId: call.surveyId, surveyRevision: call.surveyRevision }]
+    if (!forms.length) return fail(404, 'SURVEY_NOT_FOUND')
     let set = await tx
       .selectFrom('submission_set')
       .selectAll()
@@ -49,18 +55,14 @@ export const startApplication = async (
         .selectAll()
         .where('id', '=', call.streamId)
         .executeTakeFirstOrThrow()
-      const survey = await tx
-        .selectFrom('survey_revision')
-        .select('definition')
-        .where('surveyId', '=', call.surveyId)
-        .where('revision', '=', call.surveyRevision)
-        .executeTakeFirstOrThrow()
-      const item = {
-        id: 'application',
-        kind: 'survey' as const,
-        surveyId: call.surveyId,
-        surveyRevision: call.surveyRevision
-      }
+      const publishedItems = await Promise.all(forms.map(async (form) => {
+        const survey = await tx.selectFrom('survey_revision').select('definition')
+          .where('surveyId', '=', form.surveyId).where('revision', '=', form.surveyRevision)
+          .executeTakeFirstOrThrow()
+        return { item: { id: form.position === 0 ? 'application' : `application-${form.position + 1}`,
+          kind: 'survey' as const, surveyId: form.surveyId, surveyRevision: form.surveyRevision },
+        survey: survey.definition }
+      }))
       const snapshot: SetSnapshot = {
         schemaVersion: 1,
         publicationId: publicCompoundCode([organizationId, callId, (set?.revision ?? 0) + 1], 'B'),
@@ -70,7 +72,7 @@ export const startApplication = async (
         foreignSystemId: call.foreignSystemId,
         agreement: null,
         agreementReference: null,
-        items: [{ item, survey: survey.definition }],
+        items: publishedItems,
         application: {
           callId,
           callRevision: call.revision,
@@ -90,7 +92,7 @@ export const startApplication = async (
       const values = {
         nameEn: call.nameEn,
         nameFr: call.nameFr,
-        items: sql<SetItem[]>`${JSON.stringify([item])}::jsonb`,
+        items: sql<SetItem[]>`${JSON.stringify(publishedItems.map(entry => entry.item))}::jsonb`,
         snapshot: sql<SetSnapshot>`${JSON.stringify(snapshot)}::jsonb`,
         published: true
       }

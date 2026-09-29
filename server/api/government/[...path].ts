@@ -306,6 +306,8 @@ const governmentHandler = defineEventHandler(async (event) => {
       return await surveys.listSurveys(db, actor, id)
     if (id && path.length === 3 && path[0] === 'calls' && path[2] === 'survey' && method === 'PUT')
       return await surveys.attachSurvey(db, actor, id, resolvePublicInput(parseJsonBody(body)))
+    if (id && path.length === 3 && path[0] === 'calls' && path[2] === 'forms' && method === 'PUT')
+      return await surveys.attachCallForms(db, actor, id, resolvePublicInput(parseJsonBody(body)))
     if (id && path.length === 3 && method === 'PATCH') {
       if (path[0] === 'calls' && path[2] === 'publication')
         return await structure.publishCall(db, actor, id, resolvePublicInput(parseJsonBody(body)))

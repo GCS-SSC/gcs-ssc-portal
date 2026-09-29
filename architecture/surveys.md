@@ -28,13 +28,13 @@ Designer deletions refuse questions referenced by conditions. Empty containers c
 
 The future extension creates and updates bilingual forms through the agency-scoped API. Persisted forms require at least one valid question, and optimistic revision checks reject overwriting a newer form.
 
-Calls can attach a saved form revision through the call workspace. The survey must belong to the call's agency. Published calls must be unpublished before attaching, replacing or removing a form. Updating a survey creates a new immutable revision; it never changes a call's current attachment. The assignment UI explicitly shows the attached revision and offers the latest saved revision for a deliberate update. Existing calls without forms remain valid.
+Calls can attach up to ten ordered saved form revisions through the call API. Every survey must belong to the call's agency. Published calls must be unpublished before attaching, replacing or removing forms. Updating a survey creates a new immutable revision; it never changes a call's current attachment. Existing calls without forms remain valid.
 
 Organization members with application viewer access can open a published call’s form preview and read saved applications. Contributors start and edit shared drafts; managers submit or delete them. The server returns only its pinned revision, and rechecks membership, permission and publication. Draft calls and other survey revisions are not exposed. Organization users never gain government survey editing authority.
 
 ## Persistence and API
 
-Migration `003_surveys` adds `survey` (agency, current revision and update timestamp), immutable `survey_revision` (JSON definition and creation time), and nullable `surveyId`/`surveyRevision` on `funding_call`. A composite foreign key and pair check enforce a valid attachment. Updates lock the integration credential then the survey row, compare `expectedRevision`, insert a revision and advance the head in one transaction. Attachment locks the actor then call; parent agency links are immutable. Survey IDs are database-assigned integers internally and V-prefixed Sqids in the API.
+Migration `003_surveys` adds `survey` (agency, current revision and update timestamp), immutable `survey_revision` (JSON definition and creation time), and nullable `surveyId`/`surveyRevision` on `funding_call`. Migration `016_call_forms` adds the ordered relation and backfills existing attachments. The legacy pair reflects the first form for existing callers. Foreign keys enforce valid revisions. Updates lock the integration credential then the survey row, compare `expectedRevision`, insert a revision and advance the head in one transaction. Attachment locks the actor then call; parent agency links are immutable. Survey IDs are database-assigned integers internally and V-prefixed Sqids in the API.
 
 All government routes require an active agency-scoped integration credential. Survey mutation requests have a bounded 256 KiB envelope; the shared definition schema permits at most 240 KiB UTF-8. Other endpoints retain the 16 KiB request limit.
 
@@ -46,6 +46,7 @@ All government routes require an active agency-scoped integration credential. Su
 | PUT /api/government/surveys/:id                         | `{expectedRevision,definition}` | New `{survey}`; 409 on revision conflict                                                                      |
 | PUT /api/government/calls/:id/survey                    | `{surveyId,revision}`           | `{success:true}`; draft call, same agency                                                                     |
 | PUT /api/government/calls/:id/survey                    | `{surveyId:null,revision:null}` | Detach; draft call only                                                                                       |
+| PUT /api/government/calls/:id/forms                     | `{forms:[{surveyId,revision}]}` | Replace ordered forms; draft call, same agency, maximum ten                                                   |
 | GET /api/organizations/:id/funding-calls/:callId/survey | —                               | `{survey:{callId,nameEn,nameFr,surveyId,revision,definition}}`; published, member with application permission |
 
 The optional package import helper validates definitions and response envelopes, refuses redirects, and never retries writes automatically. It creates surveys using POST or updates known survey IDs using PUT plus an expected revision. An extension must persist returned IDs/revisions and reconcile ambiguous failures. Creating a survey and attaching it to a call are explicit separate operations; import never publishes a call automatically. Credentials belong in the extension's server environment, never browser bundles.

@@ -10,7 +10,7 @@ const { s } = useSurveyLocale(),
 const { data, error, refresh } = await useAsyncData(
   `application-form-${route.params.organizationId}-${route.params.callId}`,
   () =>
-    api<{ survey: { nameEn: string; nameFr: string; definition: SurveyDefinition } }>(
+    api<{ survey: { nameEn: string; nameFr: string; definition: SurveyDefinition }; forms: Array<{ surveyId: string; revision: number; definition: SurveyDefinition }> }>(
       `/api/organizations/${route.params.organizationId}/funding-calls/${route.params.callId}/survey`
     )
 )
@@ -32,8 +32,7 @@ useHead(() => ({ title: s('view') }))
         data.survey[locale === 'en' ? 'nameEn' : 'nameFr']
       }}</PortalHeading>
       <SurveyPreview
-        :definition="data.survey.definition"
-        :show-title="data.survey.definition.title[locale] !== data.survey[locale === 'en' ? 'nameEn' : 'nameFr']"
-    /></template>
+        v-for="form in data.forms" :key="`${form.surveyId}-${form.revision}`"
+        :definition="form.definition" :show-title="true" /></template>
   </section>
 </template>

@@ -187,7 +187,7 @@ test('published advanced form supports dependent choices, nested repeats and tab
               id: 'progress',
               type: 'text',
               label: label('Progress', 'Progrès'),
-              required: true,
+              required: false,
               maxLength: 500
             }
           ],
@@ -221,8 +221,10 @@ test('published advanced form supports dependent choices, nested repeats and tab
       const callId = (await callResponse.json()).id
       expect(
         (
-          await machine.request.put(`/api/government/calls/${callId}/survey`, {
-            data: { surveyId: form.id, revision: form.revision }
+          await machine.request.put(`/api/government/calls/${callId}/forms`, {
+            data: { forms: (index === 0 ? [survey, second] : [form]).map(item => ({
+              surveyId: item.id, revision: item.revision
+            })) }
           })
         ).ok()
       ).toBe(true)
@@ -318,6 +320,9 @@ test('published advanced form supports dependent choices, nested repeats and tab
       discipline: 'painting',
       impact: 'Un jardin partagé'
     })
+    expect(draft.items).toHaveLength(2)
+    expect(draft.snapshot.items.map((entry: { survey?: { title: { en: string } } }) => entry.survey?.title.en))
+      .toEqual(['Community project plan', 'Follow-up report'])
     await applicant.reload()
     await expect(applicant.getByRole('combobox', { name: 'Sector' })).toHaveValue('arts')
     await applicant.getByRole('button', { name: 'Next page' }).click()

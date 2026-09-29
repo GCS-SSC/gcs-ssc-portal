@@ -23,6 +23,9 @@ const attachInput = z
   })
   .strict()
   .refine((value) => (value.surveyId === null) === (value.revision === null))
+const attachFormsInput = z.object({ forms: z.array(z.object({
+  surveyId: z.number().int().positive(), revision: z.number().int().positive()
+}).strict()).max(10).refine(forms => new Set(forms.map(form => form.surveyId)).size === forms.length) }).strict()
 const selectSurvey = (db: GovernmentDb) =>
   db
     .selectFrom('survey as s')
@@ -125,6 +128,15 @@ export const attachSurvey = async (
   body: unknown
 ) => {
   const input = attachInput.parse(body)
+  return attachCallForms(db, actor, callId, { forms: input.surveyId === null ? [] : [
+    { surveyId: input.surveyId, revision: input.revision! }
+  ] })
+}
+
+export const attachCallForms = async (
+  db: Kysely<Database>, actor: GovernmentActor, callId: number, body: unknown
+) => {
+  const input = attachFormsInput.parse(body)
   return db.transaction().execute(async (tx) => {
     const parent = await tx
       .selectFrom('funding_call as c')
@@ -142,21 +154,25 @@ export const attachSurvey = async (
       .forUpdate()
       .executeTakeFirstOrThrow()
     if (call.published) return fail(409, 'UNPUBLISH_BEFORE_EDITING')
-    if (input.surveyId) {
+    for (const form of input.forms) {
       const revision = await tx
         .selectFrom('survey_revision as r')
         .innerJoin('survey as s', 's.id', 'r.surveyId')
         .select('s.agencyId')
-        .where('s.id', '=', input.surveyId)
-        .where('r.revision', '=', input.revision!)
+        .where('s.id', '=', form.surveyId)
+        .where('r.revision', '=', form.revision)
         .executeTakeFirst()
       if (!revision || revision.agencyId !== parent.agencyId) return fail(404, 'SURVEY_NOT_FOUND')
     }
+    await tx.deleteFrom('funding_call_form').where('callId', '=', callId).execute()
+    if (input.forms.length) await tx.insertInto('funding_call_form').values(input.forms.map((form, position) => ({
+      callId, position, surveyId: form.surveyId, surveyRevision: form.revision
+    }))).execute()
     await tx
       .updateTable('funding_call')
       .set({
-        surveyId: input.surveyId,
-        surveyRevision: input.revision,
+        surveyId: input.forms[0]?.surveyId ?? null,
+        surveyRevision: input.forms[0]?.revision ?? null,
         revision: call.revision + 1
       })
       .where('id', '=', callId)
@@ -180,15 +196,21 @@ export const applicantSurvey = async (
   if (!member) return fail(404, 'ORGANIZATION_NOT_FOUND')
   if (!hasAccess(await getPermissions(db, organizationId, userId), 'application'))
     return fail(403, 'APPLICATION_PERMISSION_REQUIRED')
-  const row = await db
-    .selectFrom('funding_call as c')
-    .innerJoin('survey_revision as r', (join) =>
-      join.onRef('c.surveyId', '=', 'r.surveyId').onRef('c.surveyRevision', '=', 'r.revision')
-    )
-    .select(['c.id as callId', 'c.nameEn', 'c.nameFr', 'r.surveyId', 'r.revision', 'r.definition'])
-    .where('c.id', '=', callId)
-    .where('c.published', '=', true)
-    .executeTakeFirst()
-  if (!row) return fail(404, 'SURVEY_NOT_FOUND')
-  return { survey: row }
+  const call = await db.selectFrom('funding_call').select(['id', 'nameEn', 'nameFr', 'surveyId', 'surveyRevision'])
+    .where('id', '=', callId).where('published', '=', true).executeTakeFirst()
+  if (!call) return fail(404, 'SURVEY_NOT_FOUND')
+  let forms = await db.selectFrom('funding_call_form as form')
+    .innerJoin('survey_revision as revision', join => join
+      .onRef('form.surveyId', '=', 'revision.surveyId')
+      .onRef('form.surveyRevision', '=', 'revision.revision'))
+    .select(['revision.surveyId', 'revision.revision', 'revision.definition'])
+    .where('form.callId', '=', callId).orderBy('form.position').execute()
+  if (!forms.length && call.surveyId && call.surveyRevision) {
+    const legacy = await db.selectFrom('survey_revision').select(['surveyId', 'revision', 'definition'])
+      .where('surveyId', '=', call.surveyId).where('revision', '=', call.surveyRevision).executeTakeFirst()
+    if (legacy) forms = [legacy]
+  }
+  if (!forms.length) return fail(404, 'SURVEY_NOT_FOUND')
+  return { survey: { callId, nameEn: call.nameEn, nameFr: call.nameFr, ...forms[0] },
+    forms: forms.map(form => ({ callId, nameEn: call.nameEn, nameFr: call.nameFr, ...form })) }
 }

@@ -34,6 +34,7 @@ export interface FundingCall extends BilingualName {
   endTime: string
   surveyId: string | null
   surveyRevision: number | null
+  forms: Array<{ surveyId: string; revision: number }>
   published: boolean
   createdAt: string
 }
