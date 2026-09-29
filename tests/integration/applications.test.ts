@@ -214,6 +214,42 @@ it('keeps a withdrawn call when an organization already has an application draft
   expect(await db.selectFrom('funding_call').select('id').where('id', '=', callId).executeTakeFirst())
     .toBeDefined()
 })
+it('rejects stale call metadata and keeps attached forms fixed after a submission', async () => {
+  const callId = await createCall()
+  const original = (await structure.agencyStructure(db, actor, agencyId)).calls.find(call => call.id === callId)!
+  const values = { streamId, ...names, startDate: '2020-01-01', endDate: '2099-12-31' }
+  await expect(structure.saveCall(db, actor, values, callId)).rejects.toThrow()
+  await structure.publishCall(db, actor, callId, { published: false })
+  await structure.saveCall(db, actor, { ...values, nameEn: 'Revised intake', expectedRevision: original.revision }, callId)
+  await expect(structure.saveCall(db, actor, { ...values, nameFr: 'Révisé', expectedRevision: original.revision }, callId))
+    .rejects.toMatchObject({ statusCode: 409 })
+  const updated = (await structure.agencyStructure(db, actor, agencyId)).calls.find(call => call.id === callId)!
+  expect(updated).toMatchObject({ nameEn: 'Revised intake', nameFr: names.nameFr,
+    revision: original.revision + 1 })
+  await structure.publishCall(db, actor, callId, { published: true })
+  const draft = await start(callId)
+  expect(draft.snapshot.items[0]?.item).toMatchObject({ kind: 'survey', surveyRevision: 1 })
+  const surveyId = (await db.selectFrom('funding_call').select('surveyId').where('id', '=', callId)
+    .executeTakeFirstOrThrow()).surveyId!
+  await surveys.updateSurvey(db, actor, surveyId, { expectedRevision: 1,
+    definition: { ...definition, questions: [...definition.questions,
+      { id: 'extra', type: 'text', label: { en: 'Extra', fr: 'Supplément' }, required: true }] } })
+  await expect(mutateResponse(db, orgId, users.manager, draft.id, 'submit', {
+    expectedRevision: draft.revision, balanceRevision: null, warningsAcknowledged: true
+  })).rejects.toMatchObject({ statusCode: 400, message: 'RESPONSE_INVALID' })
+  const saved = await save(draft.id, draft.revision)
+  const checked = await checkResponse(db, orgId, users.manager, draft.id, { expectedRevision: saved.revision })
+  const submitted = await mutateResponse(db, orgId, users.manager, draft.id, 'submit', {
+    expectedRevision: saved.revision, balanceRevision: checked.balanceRevision, warningsAcknowledged: true
+  })
+  const pinned = submitted.response.snapshot.items[0]?.survey
+  expect(submitted.response.snapshot.items[0]?.item).toMatchObject({ surveyRevision: 1 })
+  await structure.publishCall(db, actor, callId, { published: false })
+  await expect(surveys.attachCallForms(db, actor, callId, { forms: [{ surveyId, revision: 2 }] }))
+    .rejects.toMatchObject({ statusCode: 409 })
+  expect((await getResponse(db, orgId, users.viewer, draft.id)).response.snapshot.items[0]?.survey).toEqual(pinned)
+  expect((await structure.agencyStructure(db, actor, agencyId)).calls.find(call => call.id === callId)?.surveyRevision).toBe(1)
+})
 const save = async (id: string, revision: number) =>
   (
     await mutateResponse(db, orgId, users.contributor, id, 'save', {
@@ -470,12 +506,14 @@ it('retains failed upload reservations for cleanup and never finalizes after a c
 it('blocks changed/closed calls, keeps superseded drafts readable and permits manager deletion', async () => {
   const callId = await createCall(),
     draft = await start(callId)
+  const revision = (await db.selectFrom('funding_call').select('revision').where('id', '=', callId)
+    .executeTakeFirstOrThrow()).revision
   await structure.publishCall(db, actor, callId, { published: false })
   await expect(save(draft.id, 1)).rejects.toMatchObject({ statusCode: 409 })
   await structure.saveCall(
     db,
     actor,
-    { streamId, ...names, startDate: '2020-01-01', endDate: '2021-12-31' },
+    { streamId, ...names, startDate: '2020-01-01', endDate: '2021-12-31', expectedRevision: revision },
     callId
   )
   await structure.publishCall(db, actor, callId, { published: true })

@@ -66,6 +66,24 @@ test('published advanced form supports dependent choices, nested repeats and tab
     })
     expect(disposable.ok()).toBe(true)
     const disposableId = (await disposable.json()).id
+    const draftDetails = { streamId: stream.id, nameEn: 'Updated intake', nameFr: 'Appel modifié',
+      startDate: '2027-01-01', endDate: '2027-12-31', sourceSystem: 'gcs-ssc-intake',
+      foreignSystemId: String(700000 + Number(suffix % 100000)) }
+    const missingRevision = await machine.request.put(`/api/government/calls/${disposableId}`, {
+      data: draftDetails
+    })
+    expect(missingRevision.status()).toBe(400)
+    const updated = await machine.request.put(`/api/government/calls/${disposableId}`, {
+      data: { ...draftDetails, expectedRevision: 1 }
+    })
+    expect(updated.ok()).toBe(true)
+    const stale = await machine.request.put(`/api/government/calls/${disposableId}`, {
+      data: { ...draftDetails, nameFr: 'Autre appel', expectedRevision: 1 }
+    })
+    expect(stale.status()).toBe(409)
+    const afterStale = await machine.request.get(`/api/government/agencies/${agency.id}`)
+    expect((await afterStale.json()).calls.find((call: { id: string }) => call.id === disposableId))
+      .toMatchObject({ nameEn: 'Updated intake', nameFr: 'Appel modifié', revision: 2 })
     expect((await machine.request.delete(`/api/government/calls/${disposableId}`)).ok()).toBe(true)
     const afterDelete = await machine.request.get(`/api/government/agencies/${agency.id}`)
     expect((await afterDelete.json()).calls.some((call: { id: string }) => call.id === disposableId)).toBe(false)

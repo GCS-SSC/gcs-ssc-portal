@@ -41,6 +41,7 @@ export const callInput = structureInput
       message: 'End date and time must follow start date and time'
     }
   )
+export const callUpdateInput = callInput.safeExtend({ expectedRevision: z.number().int().positive() })
 export const publishInput = z.object({ published: z.boolean() }).strict()
 export const integrationTokenInput = z
   .object({

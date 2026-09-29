@@ -6,6 +6,7 @@ import {
   programInput,
   streamInput,
   callInput,
+  callUpdateInput,
   publishInput
 } from '../../shared/schemas/government'
 import {
@@ -37,6 +38,7 @@ const callQuery = (db: GovernmentDb) =>
     .innerJoin('agency as a', 'a.id', 'p.agencyId')
     .select([
       'c.id',
+      'c.revision',
       'c.sourceSystem',
       'c.foreignSystemId',
       'c.nameEn',
@@ -200,7 +202,8 @@ export const saveCall = async (
   body: unknown,
   id?: number
 ) => {
-  const input = callInput.parse(body)
+  const update = id ? callUpdateInput.parse(body) : null
+  const { expectedRevision, ...input } = update ?? { ...callInput.parse(body), expectedRevision: undefined }
   return db.transaction().execute(async (tx) => {
     const stream = await streamOwner(tx, input.streamId)
     await requireGovernment(tx, actor, { agencyId: stream.agencyId, lock: true })
@@ -217,6 +220,7 @@ export const saveCall = async (
       // Parent links are immutable: API callers cannot move a call between agency hierarchies.
       if (previous.streamId !== input.streamId) return fail(409, 'CALL_STREAM_IMMUTABLE')
       if (previous.published) return fail(409, 'UNPUBLISH_BEFORE_EDITING')
+      if (previous.revision !== expectedRevision) return fail(409, 'REVISION_CONFLICT')
       await tx
         .updateTable('funding_call')
         .set({ ...input, revision: previous.revision + 1 })

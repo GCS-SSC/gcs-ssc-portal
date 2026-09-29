@@ -18,6 +18,8 @@ Every `/api/government/*` request requires `Authorization: Bearer gcs_…`. Miss
 
 The agency hierarchy is `agency → program → stream → funding_call`. Calls start as drafts and are published explicitly. Published calls are visible to organization members with an explicit `application:viewer` or higher permission; ownership and `admin` alone do not grant it. See [surveys](surveys.md), [agreements](agreements.md), and [applications](applications.md) for the remaining machine contracts.
 
+`GET /agencies/:id` includes each call's positive `revision`. `PUT /calls/:id` requires the complete call details plus `expectedRevision`; it rejects a stale revision with 409 `REVISION_CONFLICT` after locking the call and leaves all details intact. Successful metadata edits advance the revision. `POST /calls` remains unchanged and does not use an expected revision.
+
 `DELETE /calls/:id` removes only an unpublished call with no application drafts or submissions. It returns `{success:true}`. A published call must first be withdrawn; a withdrawn call with any application remains retained. The integration credential must still belong to the call's agency.
 
 | Method/path after `/api/government`                                   | Purpose                                      |

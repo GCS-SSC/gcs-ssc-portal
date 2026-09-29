@@ -30,7 +30,7 @@ Version 3 repeating sets use a `repeat` source question with stable row IDs and 
 
 The future extension creates and updates bilingual forms through the agency-scoped API. Persisted forms require at least one valid question, and optimistic revision checks reject overwriting a newer form.
 
-Calls can attach up to ten ordered saved form revisions through the call API. Every survey must belong to the call's agency. Published calls must be unpublished before attaching, replacing or removing forms. Updating a survey creates a new immutable revision; it never changes a call's current attachment. Existing calls without forms remain valid.
+Calls can attach up to ten ordered saved form revisions through the call API. Every survey must belong to the call's agency. Published calls must be unpublished before attaching, replacing or removing forms. Once any application has been submitted, the call's attachments cannot change even after withdrawal; both the single-survey and ordered-forms routes return 409 `CALL_HAS_SUBMISSIONS`. Updating a survey creates a new immutable revision; it never changes a call's current attachment. Existing calls without forms remain valid.
 
 Organization members with application viewer access can open a published call’s form preview and read saved applications. Contributors start and edit shared drafts; managers submit or delete them. The server returns only its pinned revision, and rechecks membership, permission and publication. Draft calls and other survey revisions are not exposed. Organization users never gain government survey editing authority.
 

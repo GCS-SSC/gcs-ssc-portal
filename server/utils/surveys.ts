@@ -154,6 +154,13 @@ export const attachCallForms = async (
       .forUpdate()
       .executeTakeFirstOrThrow()
     if (call.published) return fail(409, 'UNPUBLISH_BEFORE_EDITING')
+    const submitted = await tx.selectFrom('submission_set as set')
+      .innerJoin('set_response as response', 'response.setId', 'set.id')
+      .select('response.id')
+      .where('set.callId', '=', callId)
+      .where('response.status', 'in', ['submitted', 'awaiting_documentation', 'withdrawn'])
+      .executeTakeFirst()
+    if (submitted) return fail(409, 'CALL_HAS_SUBMISSIONS')
     for (const form of input.forms) {
       const revision = await tx
         .selectFrom('survey_revision as r')
