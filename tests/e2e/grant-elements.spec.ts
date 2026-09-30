@@ -1,3 +1,4 @@
+import { signUpApplicant } from '../fixtures/signup'
 import { expect, test } from '@playwright/test'
 import { grantForm } from '../fixtures/grant-form'
 
@@ -18,12 +19,12 @@ test('budget and activities are calculated, validated, saved and readable after 
     expect((await machine.request.put(`/api/government/calls/${callId}/forms`, { data: { forms: [{ surveyId: survey.id, revision: survey.revision }] } })).ok()).toBe(true)
     expect((await machine.request.patch(`/api/government/calls/${callId}/publication`, { data: { published: true } })).ok()).toBe(true)
     const applicant = await applicantContext.newPage()
-    expect((await applicant.request.post('/api/auth/sign-up/email', { data: { name: 'Grant applicant', email: `grant-${Date.now()}@example.test`, password: 'Applicant-test-only-2026!' } })).ok()).toBe(true)
+    expect((await signUpApplicant(applicant.request, { data: { name: 'Grant applicant', email: `grant-${Date.now()}@example.test`, password: 'Applicant-test-only-2026!' } })).ok()).toBe(true)
     const userId = (await (await applicant.request.get('/api/session')).json()).user.id
     const organization = (await (await applicant.request.post('/api/organizations', { data: { name: 'Grant organization' } })).json()).organization
     expect((await applicant.request.patch(`/api/organizations/${organization.id}/members/${userId}`, { data: { permissions: ['user', 'admin', 'application:manager', 'form:manager'] } })).ok()).toBe(true)
     await applicant.goto(`/organizations/${organization.id}?section=funding`)
-    await applicant.getByRole('button', { name: 'Start application' }).click()
+    await applicant.locator('.record-summary').filter({ has: applicant.getByRole('heading', { name: 'Grant plan', exact: true }) }).getByRole('button', { name: 'Start application' }).click()
     await applicant.getByRole('button', { name: 'Add a cost', exact: true }).click()
     await applicant.getByRole('combobox', { name: 'Cost category / line item' }).selectOption('salary')
     await applicant.getByRole('textbox', { name: 'Cost subsection' }).fill('Delivery')
@@ -58,6 +59,7 @@ test('budget and activities are calculated, validated, saved and readable after 
     await applicant.getByRole('checkbox', { name: 'South', exact: true }).focus(); await applicant.keyboard.press('Space')
     await applicant.getByRole('combobox', { name: 'Delivery method' }).selectOption('online')
     await applicant.getByRole('button', { name: 'Add row', exact: true }).click()
+    await expect(applicant.getByRole('textbox', { name: 'Year one' })).toHaveAttribute('inputmode', 'decimal')
     await applicant.getByRole('textbox', { name: 'Year one' }).fill('0.1')
     await applicant.getByRole('textbox', { name: 'Year two' }).fill('0.2')
     await expect(applicant.locator('output').filter({ hasText: '0.3' })).toHaveCount(1)

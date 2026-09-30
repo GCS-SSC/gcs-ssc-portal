@@ -1,3 +1,4 @@
+import { signUpApplicant } from '../fixtures/signup'
 import { expect, test } from '@playwright/test'
 
 const publicId = (prefix: string) => new RegExp(`^${prefix}-[A-HJKMNP-Z2-9]{5,}$`)
@@ -98,7 +99,7 @@ test('extension key publishes a pinned form for an authorized organization', asy
       ).ok()
     ).toBe(true)
     const applicant = await organization.newPage()
-    const signup = await applicant.request.post('/api/auth/sign-up/email', {
+    const signup = await signUpApplicant(applicant.request, {
       data: {
         name: 'Extension Applicant',
         email: `extension-applicant-${suffix}@example.test`,
@@ -495,7 +496,7 @@ test('extension key publishes a pinned form for an authorized organization', asy
     expect(changedBalances.ok()).toBe(true)
     await expect(applicant.getByRole('button', { name: 'Save draft' })).toBeVisible()
     await expect(applicant.getByRole('button', { name: 'Submit', exact: true })).toBeVisible()
-    await expect(applicant.getByRole('button', { name: 'Delete draft' })).toHaveCount(0)
+    await expect(applicant.getByRole('button', { name: 'Delete draft' })).toBeEnabled()
     const claimTable = applicant.getByRole('table', { name: 'Claim items' })
     await expect(claimTable.getByRole('columnheader')).toHaveText([
       'Cost category',

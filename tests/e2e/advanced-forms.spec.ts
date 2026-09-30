@@ -1,3 +1,4 @@
+import { signUpApplicant } from '../fixtures/signup'
 import { expect, test } from '@playwright/test'
 
 const label = (en: string, fr: string) => ({ en, fr })
@@ -261,7 +262,7 @@ test('published advanced form supports dependent choices, nested repeats and tab
     const applicant = await applicantContext.newPage()
     expect(
       (
-        await applicant.request.post('/api/auth/sign-up/email', {
+        await signUpApplicant(applicant.request, {
           data: {
             name: 'Advanced applicant',
             email: `advanced-${suffix}@example.test`,

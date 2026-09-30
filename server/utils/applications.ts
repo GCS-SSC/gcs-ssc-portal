@@ -1,4 +1,5 @@
 import { sql, type Kysely } from 'kysely'
+import { applicationStreamReference } from '../../shared/utils/application-source'
 import { publicCompoundCode } from '../../shared/utils/response-code'
 import type { Database } from '../db/schema'
 import { startResponseInput, type SetItem, type SetSnapshot } from '../../shared/schemas/agreements'
@@ -85,8 +86,7 @@ export const startApplication = async (
           endTime: call.endTime,
           sourceSystem: call.sourceSystem,
           foreignSystemId: call.foreignSystemId,
-          externalStreamId:
-            stream.sourceSystem === call.sourceSystem ? stream.foreignSystemId : null
+          externalStreamId: applicationStreamReference(call.sourceSystem, stream)
         }
       }
       const values = {

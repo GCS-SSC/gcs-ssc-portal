@@ -131,6 +131,7 @@ variant="secondary"
               :disabled="field.disabled"
               :maxlength="500"
               :type="'text'"
+              :inputmode="column.type === 'number' ? 'decimal' : undefined"
               :hint="column.type === 'number' ? s('numberHint') : column.type === 'date' ? s('dateHint') : undefined"
               @update:model-value="updateCell(field, row.id, column.id, $event)"
             />
@@ -191,6 +192,7 @@ v-else-if="field.question.type === 'textarea'"
         :model-value="field.value"
         :label="field.label"
         :type="field.question.type === 'email' ? 'email' : 'text'"
+        :inputmode="field.question.type === 'number' ? 'decimal' : undefined"
         :hint="
           [
             field.hint,

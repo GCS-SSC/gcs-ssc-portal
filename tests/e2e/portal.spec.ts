@@ -1,3 +1,4 @@
+import { signUpApplicant } from '../fixtures/signup'
 import { mkdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { expect, test } from '@playwright/test'
@@ -355,7 +356,7 @@ test('expired sessions and wrong-account sign-out preserve the intended destinat
   page
 }) => {
   const email = `session-${Date.now()}@example.test`
-  const signup = await page.request.post('/api/auth/sign-up/email', {
+  const signup = await signUpApplicant(page.request, {
     data: { name: 'Session Owner', email, password }
   })
   expect(signup.ok()).toBeTruthy()

@@ -206,6 +206,17 @@ const withdraw = () => {
     data.value!.details = result.details
   }, 'withdrawalComplete')
 }
+const deleteDraft = () => {
+  if (!manager.value || uploading.value || busy.value || !window.confirm(c('deleteConfirm'))) return
+  void perform(async () => {
+    await api(endpoint, {
+      method: 'DELETE',
+      body: { expectedRevision: response.value!.revision }
+    })
+    saved.value = JSON.stringify(response.value!.items)
+    await navigateTo(back.value)
+  }, null)
+}
 const reopen = () =>
   perform(async () => {
     const result = await api<ResponseResult>(`${endpoint}/reopen`, {
@@ -409,6 +420,13 @@ const changePosition = async (next: number) => {
       </section>
       <PortalText v-if="dirty">{{ c('dirtyHint') }}</PortalText>
       <div class="form-actions response-actions">
+        <PortalButton
+          v-if="manager && !review"
+          variant="danger"
+          :disabled="uploading || busy"
+          @click="deleteDraft"
+          >{{ c('deleteDraft') }}</PortalButton
+        >
         <PortalButton
           v-if="
             response.status !== 'draft' &&

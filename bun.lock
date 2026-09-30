@@ -8,7 +8,7 @@
         "@aws-sdk/client-s3": "^3.1136.0",
         "@better-auth/kysely-adapter": "^1.7.5",
         "@electric-sql/pglite": "^0.5.8",
-        "@gcds-core/components": "^1.6.0",
+        "@gcds-core/components": "1.6.0",
         "@gcds-core/components-vue": "^1.6.0",
         "@gcs-ssc/survey": "file:vendor/survey",
         "better-auth": "^1.7.5",
@@ -36,6 +36,9 @@
         "vue-tsc": "^3.3.11",
       },
     },
+  },
+  "patchedDependencies": {
+    "@gcds-core/components@1.6.0": "patches/@gcds-core%2Fcomponents@1.6.0.patch",
   },
   "overrides": {
     "esbuild": "0.28.1",
