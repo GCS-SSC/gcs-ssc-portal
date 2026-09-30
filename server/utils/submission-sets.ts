@@ -1,3 +1,4 @@
+import { grantDefinitionReady } from '../../shared/utils/grant-readiness'
 import { sql, type Kysely, type Selectable } from 'kysely'
 import { publicCode } from '../../shared/utils/response-code'
 import {
@@ -189,6 +190,7 @@ export const publishSet = async (
             .where('r.revision', '=', item.surveyRevision)
             .executeTakeFirst()
           if (!form) return fail(404, 'SURVEY_NOT_FOUND')
+          if (!grantDefinitionReady(form.definition)) return fail(400, 'SURVEY_INCOMPLETE')
           snapshot.items.push({ item, survey: form.definition })
         } else {
           const config = snapshot.agreement?.config

@@ -1,3 +1,4 @@
+import { grantForm } from '../fixtures/grant-form'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import type { Kysely } from 'kysely'
 import pg from 'pg'
@@ -292,5 +293,26 @@ describe('survey persistence and access', () => {
         'cost@r_a@r_b'
       ]
     ).toBe('number')
+  })
+})
+
+describe('structured form publication', () => {
+  it('saves unfinished v4 drafts but blocks publication until catalogs are configured', async () => {
+    const draft = grantForm()
+    const budget = draft.questions.find(question => question.type === 'budget')!
+    if (budget.type !== 'budget') throw new Error('Budget fixture missing')
+    budget.config.costItems = []
+    const { survey } = await surveys.createSurvey(db, actor, { agencyId, definition: draft })
+    const { program } = await structure.createProgram(db, actor, { agencyId, ...names })
+    const { stream } = await structure.createStream(db, actor, { programId: program.id, ...names })
+    const call = await structure.saveCall(db, actor, { streamId: stream.id, ...names, startDate: '2020-01-01', endDate: '2099-12-31' })
+    await surveys.attachSurvey(db, actor, call.id, { surveyId: survey.id, revision: 1 })
+    await expect(structure.publishCall(db, actor, call.id, { published: true })).rejects.toMatchObject({ statusCode: 400 })
+    expect((await db.selectFrom('funding_call').select('published').where('id', '=', call.id).executeTakeFirstOrThrow()).published).toBe(false)
+    await surveys.updateSurvey(db, actor, survey.id, { expectedRevision: 1, definition: grantForm() })
+    await surveys.attachSurvey(db, actor, call.id, { surveyId: survey.id, revision: 2 })
+    await expect(structure.publishCall(db, actor, call.id, { published: true })).resolves.toEqual({ success: true })
+    const old = await db.selectFrom('survey_revision').select('definition').where('surveyId', '=', survey.id).where('revision', '=', 1).executeTakeFirstOrThrow()
+    expect(old.definition).toEqual(draft)
   })
 })

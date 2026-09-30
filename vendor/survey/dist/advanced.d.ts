@@ -23,6 +23,25 @@ export declare const instanceKey: (id: string, path: string[]) => string;
 export declare const baseQuestionId: (key: string) => string;
 export declare const parseList: (raw: string | undefined, max?: number) => ListItem[];
 export declare const parseTable: (raw: string | undefined, max?: number) => TableRow[];
+/** Multiple choices retain stable option IDs, never display labels. */
+export declare const parseChoices: (raw: string | undefined) => string[];
+export declare const tableTotalsMode: (question: {
+    type: string;
+    totals?: "none" | "rows" | "columns" | "both";
+}) => "rows" | "columns" | "none" | "both";
+export declare const tableTotals: (question: {
+    columns: {
+        id: string;
+        type: string;
+    }[];
+}, rows: TableRow[]) => {
+    rows: {
+        [k: string]: string | null;
+    };
+    columns: {
+        [k: string]: string | null;
+    };
+};
 export declare const sourceKey: (id: string, path: string[], active: ReadonlySet<string>) => string | undefined;
 export declare const computedValue: (question: Extract<AdvancedQuestion, {
     type: "computed";

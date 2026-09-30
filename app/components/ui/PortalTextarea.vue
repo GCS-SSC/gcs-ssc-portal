@@ -13,7 +13,11 @@ const updateValue = (event: Event) => {
 
 <template>
   <GcdsTextarea
+    :key="disabled ? 'disabled' : 'enabled'"
     :lang="locale"
+    :required="required && !disabled"
+    :disabled="disabled"
+    :error-message="error"
     :textarea-id="id"
     :name="id"
     :value="modelValue"

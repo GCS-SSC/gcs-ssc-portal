@@ -36,7 +36,7 @@ export const useSurveyFlow = (options) => {
             return;
         const definition = toValue(options.definition);
         const next = { ...toValue(options.answers), [id]: value };
-        if (definition.schemaVersion === 3) {
+        if ((definition.schemaVersion === 3 || definition.schemaVersion === 4)) {
             const active = new Set(resolveSurvey(definition, next).questionIds);
             for (const question of definition.questions) {
                 if (question.type !== 'select' || !question.dependsOn)

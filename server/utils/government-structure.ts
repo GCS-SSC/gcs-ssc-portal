@@ -1,3 +1,4 @@
+import { grantDefinitionReady } from '../../shared/utils/grant-readiness'
 import { hasAccess } from '../../shared/utils/permissions'
 import { sql, type Kysely } from 'kysely'
 import type { Database } from '../db/schema'
@@ -253,9 +254,22 @@ export const publishCall = async (
     const call = await callQuery(tx).where('c.id', '=', id).executeTakeFirst()
     if (!call) return fail(404, 'CALL_NOT_FOUND')
     await requireGovernment(tx, actor, { agencyId: call.agencyId, lock: true })
-    const current = await tx.selectFrom('funding_call').select('id')
+    const current = await tx.selectFrom('funding_call').select(['id', 'surveyId', 'surveyRevision'])
       .where('id', '=', id).forUpdate().executeTakeFirst()
     if (!current) return fail(404, 'CALL_NOT_FOUND')
+    if (input.published) {
+      const configured = await tx.selectFrom('funding_call_form').select(['surveyId', 'surveyRevision'])
+        .where('callId', '=', id).execute()
+      const forms = configured.length ? configured : current.surveyId && current.surveyRevision
+        ? [{ surveyId: current.surveyId, surveyRevision: current.surveyRevision }] : []
+      for (const form of forms) {
+        const revision = await tx.selectFrom('survey_revision as r').innerJoin('survey as s', 's.id', 'r.surveyId')
+          .select('r.definition').where('s.agencyId', '=', call.agencyId).where('r.surveyId', '=', form.surveyId)
+          .where('r.revision', '=', form.surveyRevision).executeTakeFirst()
+        if (!revision) return fail(404, 'SURVEY_NOT_FOUND')
+        if (!grantDefinitionReady(revision.definition)) return fail(400, 'SURVEY_INCOMPLETE')
+      }
+    }
     await tx
       .updateTable('funding_call')
       .set({ published: input.published })

@@ -33,7 +33,7 @@ export const matchesCondition = (condition, answers, activeIds) => {
 };
 /** Deterministic, forward-only route. Hosts must validate definitions before using the runtime. */
 export const resolveSurvey = (definition, answers) => {
-    if (definition.schemaVersion === 3)
+    if ((definition.schemaVersion === 3 || definition.schemaVersion === 4))
         return resolveAdvancedSurvey(definition, answers);
     const structured = definition.schemaVersion === 2 ? definition : upgradeSurvey(definition);
     const questions = new Map(structured.questions.map((question) => [question.id, question]));

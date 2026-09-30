@@ -34,7 +34,7 @@ export const HeadlessSurvey = defineComponent({
             hint: question.hint?.[props.locale] ?? '',
             required: question.required,
             disabled: props.disabled || question.type === 'computed',
-            value: question.type === 'computed' && props.definition.schemaVersion === 3
+            value: question.type === 'computed' && (props.definition.schemaVersion === 3 || props.definition.schemaVersion === 4)
                 ? computedValue(question, id.split('@').slice(1), props.modelValue, new Set(flow.route.value.questionIds), new Map(props.definition.questions.map((item) => [item.id, item])))
                 : Object.hasOwn(props.modelValue, id) ? props.modelValue[id] : '',
             error: Object.hasOwn(props.errors, id)
@@ -42,8 +42,8 @@ export const HeadlessSurvey = defineComponent({
                 : Object.hasOwn(flow.errors.value, id)
                     ? flow.errors.value[id]
                     : undefined,
-            options: question.type === 'select'
-                ? (props.definition.schemaVersion === 3 && 'dependsOn' in question && question.dependsOn
+            options: (question.type === 'select' || question.type === 'checkboxes' || question.type === 'multiselect')
+                ? ((props.definition.schemaVersion === 3 || props.definition.schemaVersion === 4) && 'dependsOn' in question && question.dependsOn
                     ? question.options.filter((option) => question.dependsOn.optionsByValue[props.modelValue[sourceKey(question.dependsOn.questionId, id.split('@').slice(1), new Set(flow.route.value.questionIds)) ?? ''] ?? '']?.some((choice) => choice.value === option.value))
                     : question.options).map((option) => ({
                     value: option.value,

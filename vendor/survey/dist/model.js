@@ -1,3 +1,4 @@
+import { budgetConfigSchema, activityConfigSchema } from './grants.js';
 import { z } from 'zod';
 export const questionTypes = ['text', 'email', 'number', 'date', 'select'];
 export const identifier = z
@@ -235,6 +236,13 @@ export const advancedQuestionSchema = z.discriminatedUnion('type', [
     advancedBase.extend({ type: z.literal('computed'), template: z.string().min(1).max(500),
         sourceIds: z.array(identifier).min(1).max(20) })
 ]);
+export const grantQuestionSchema = z.discriminatedUnion('type', [
+    advancedBase.extend({ type: z.literal('budget'), config: budgetConfigSchema }),
+    advancedBase.extend({ type: z.literal('activities'), config: activityConfigSchema })
+]);
+export const tableTotalsModes = ['none', 'rows', 'columns', 'both'];
+const tableV4Schema = advancedQuestionSchema.options[7].extend({ totals: z.enum(tableTotalsModes).optional() });
+export const questionV4Schema = z.union([advancedQuestionSchema, tableV4Schema, advancedBase.extend({ type: z.literal('checkboxes'), options: choiceOptions }), advancedBase.extend({ type: z.literal('multiselect'), options: choiceOptions }), grantQuestionSchema, advancedBase.extend({ type: z.literal('textarea'), maxLength: z.number().int().min(1).max(5000).default(2000) })]);
 export const advancedGroupSchema = z.lazy(() => z.object({
     id: identifier, title: bilingualText, description: bilingualDescription.optional(),
     visibleWhen: conditionSchema.optional(), repeatFor: identifier.optional(),
@@ -246,12 +254,13 @@ export const advancedPageSchema = z.object({
     branches: z.array(z.object({ when: conditionSchema, destination: destinationSchema }).strict()).max(20),
     next: destinationSchema.optional()
 }).strict();
-export const surveyV3Schema = z.object({
+const advancedSurveyBase = z.object({
     schemaVersion: z.literal(3), attachments: attachmentPolicySchema.optional(),
     title: bilingualText, description: bilingualDescription.optional(),
     questions: z.array(advancedQuestionSchema).min(1).max(200),
     pages: z.array(advancedPageSchema).min(1).max(30)
-}).strict().superRefine((value, context) => {
+}).strict();
+const validateAdvancedDefinition = (value, context) => {
     const fail = (message) => context.addIssue({ code: 'custom', message });
     if (new TextEncoder().encode(JSON.stringify(value)).byteLength > 240 * 1024)
         fail('Survey exceeds 240 KiB');
@@ -272,12 +281,20 @@ export const surveyV3Schema = z.object({
                 continue;
             }
             const question = questions.get(predicate.questionId);
+            if ((question.type === 'budget' || question.type === 'activities') && !['answered', 'notAnswered'].includes(predicate.operator))
+                fail('Structured elements only support answered or unanswered conditions');
             if (predicate.operator === 'greaterThan' || predicate.operator === 'lessThan')
                 if (question.type !== 'number' || !/^-?(?:\d+(?:\.\d+)?|\.\d+)$/.test(predicate.value)
                     || !Number.isFinite(Number(predicate.value)))
                     fail('Numeric comparisons require a number question and decimal value');
-            if (predicate.operator === 'contains' && !['text', 'list'].includes(question.type))
+            if (predicate.operator === 'contains' && !['text', 'textarea', 'list', 'checkboxes', 'multiselect'].includes(question.type))
                 fail('Contains requires a text or list question');
+            if (question.type === 'checkboxes' || question.type === 'multiselect') {
+                if (!['contains', 'answered', 'notAnswered'].includes(predicate.operator))
+                    fail('Multiple choices support contains or answered conditions');
+                if (predicate.operator === 'contains' && !question.options.some(option => option.value === predicate.value))
+                    fail('Condition references an unknown choice');
+            }
             if ((predicate.operator === 'equals' || predicate.operator === 'notEquals')
                 && question.type === 'select' && !question.options.some((option) => option.value === predicate.value))
                 fail('Condition references an unknown choice');
@@ -306,7 +323,7 @@ export const surveyV3Schema = z.object({
                 }
                 if (question.type === 'computed')
                     for (const sourceId of question.sourceIds)
-                        if (!placed.has(sourceId) || !accessible(sourceId, scope))
+                        if (!placed.has(sourceId) || !accessible(sourceId, scope) || ['budget', 'activities'].includes(questions.get(sourceId)?.type ?? ''))
                             fail('Computed fields need earlier accessible source questions');
             }
             placed.add(id);
@@ -351,8 +368,12 @@ export const surveyV3Schema = z.object({
         if (question.type === 'table' &&
             new Set(question.columns.map((column) => column.id)).size !== question.columns.length)
             fail('Table column IDs must be unique');
-});
-export const surveySchema = z.union([surveyV1Schema, surveyV2Schema, surveyV3Schema]);
+};
+const surveyV4Base = advancedSurveyBase.extend({ schemaVersion: z.literal(4), questions: z.array(questionV4Schema).min(1).max(200) });
+export const surveyV3Schema = advancedSurveyBase.superRefine(validateAdvancedDefinition);
+export const surveyV4Schema = surveyV4Base.superRefine(validateAdvancedDefinition);
+export const designerSurveySchema = z.union([surveyV3Schema, surveyV4Schema]);
+export const surveySchema = z.union([surveyV1Schema, surveyV2Schema, surveyV3Schema, surveyV4Schema]);
 /** Explicit editing upgrade; never mutates the archived source definition. */
 export const upgradeSurvey = (definition) => {
     const copy = JSON.parse(JSON.stringify(definition));
@@ -381,7 +402,7 @@ export const upgradeSurvey = (definition) => {
 };
 /** Authoring upgrade to v3. Archived revisions remain unchanged. */
 export const upgradeToAdvancedSurvey = (definition) => {
-    if (definition.schemaVersion === 3)
+    if (definition.schemaVersion === 3 || definition.schemaVersion === 4)
         return JSON.parse(JSON.stringify(definition));
     const current = upgradeSurvey(definition);
     return {

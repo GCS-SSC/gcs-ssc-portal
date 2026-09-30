@@ -22,6 +22,9 @@ export interface PortalInputProps {
   inputmode?: 'decimal'
 }
 export interface PortalTextareaProps {
+  required?: boolean
+  disabled?: boolean
+  error?: string
   id: string
   modelValue: string
   label: string

@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import type { SurveyField } from '@gcs-ssc/survey/vue'
-import { parseList, parseTable, type ListItem, type TableRow } from '@gcs-ssc/survey'
+import GrantElement from './GrantElement.vue'
+import { parseChoices, tableTotals, tableTotalsMode, parseList, parseTable, type ListItem, type TableRow } from '@gcs-ssc/survey'
+const rowTotalSlot = '$row-total'
 defineProps<{ fields: SurveyField[]; ids: string[]; prefix: string; legendSize?: 'h3' | 'h4' | 'h5' | 'h6' }>()
 const { s, surveyError } = useSurveyLocale()
 const { locale } = useLocale()
@@ -8,6 +10,9 @@ const change = (field: SurveyField, value: string) => field.setValue(value)
 const newId = () => `r_${crypto.randomUUID().replaceAll('-', '_')}`
 const listRows = (field: SurveyField) => parseList(field.value)
 const tableRows = (field: SurveyField) => parseTable(field.value)
+const totals = (field: SurveyField) => field.question.type === 'table' ? tableTotals(field.question, tableRows(field)) : { rows: {}, columns: {} }
+const totalsMode = (field: SurveyField) => tableTotalsMode(field.question)
+const toggleChoice = (field: SurveyField, value: string, selected: boolean) => change(field, JSON.stringify(selected ? [...parseChoices(field.value), value] : parseChoices(field.value).filter(item => item !== value)))
 const updateList = (field: SurveyField, rows: ListItem[]) => change(field, JSON.stringify(rows))
 const updateTable = (field: SurveyField, rows: TableRow[]) => change(field, JSON.stringify(rows))
 const updateListValue = (field: SurveyField, id: string, value: string) =>
@@ -26,8 +31,13 @@ const updateCell = (field: SurveyField, rowId: string, columnId: string, value: 
 <template>
   <template v-for="id in ids" :key="id">
     <template v-for="field in fields.filter((item) => item.id === id)" :key="field.id">
+      <GrantElement v-if="field.question.type === 'budget' || field.question.type === 'activities'" :field="field" :prefix="prefix" :legend-size="legendSize" />
+      <PortalCheckboxGroup v-else-if="field.question.type === 'checkboxes'" :id="`${prefix}-${field.id}`" :model-value="parseChoices(field.value)" :label="field.label" :hint="[field.hint, field.required ? s('selectAtLeastOne') : ''].filter(Boolean).join(' ')" :required="field.required" :disabled="field.disabled" :options="field.options" :error="surveyError(field.error)" @toggle="(value, selected) => toggleChoice(field, value, selected)" />
+      <PortalDetails v-else-if="field.question.type === 'multiselect'" :open="Boolean(field.error)" :title="`${field.label}${field.required ? ` (${s('required')})` : ''} — ${parseChoices(field.value).length}`">
+        <PortalCheckboxGroup :id="`${prefix}-${field.id}`" :model-value="parseChoices(field.value)" :label="field.label" :hint="[field.hint, field.required ? s('selectAtLeastOne') : ''].filter(Boolean).join(' ')" :required="field.required" :disabled="field.disabled" :options="field.options" :error="surveyError(field.error)" @toggle="(value, selected) => toggleChoice(field, value, selected)" />
+      </PortalDetails>
       <PortalFieldset
-        v-if="field.question.type === 'repeat'" class="survey-repeat"
+        v-else-if="field.question.type === 'repeat'" class="survey-repeat"
         :legend="`${field.label}${field.required ? ` (${s('required')})` : ''}`"
         :legend-size="legendSize ?? 'h5'" :hint="field.hint">
         <PortalNotice v-if="field.error" variant="error">{{ surveyError(field.error) }}</PortalNotice>
@@ -104,6 +114,7 @@ variant="secondary"
               field: column.id,
               header: column.label[locale]
             })),
+            ...(['rows', 'both'].includes(totalsMode(field)) ? [{ field: '$row-total', header: s('rowTotal') }] : []),
             { field: 'actions', header: s('actions') }
           ]"
         >
@@ -119,9 +130,12 @@ variant="secondary"
               :required="column.required"
               :disabled="field.disabled"
               :maxlength="500"
+              :type="'text'"
+              :hint="column.type === 'number' ? s('numberHint') : column.type === 'date' ? s('dateHint') : undefined"
               @update:model-value="updateCell(field, row.id, column.id, $event)"
             />
           </template>
+          <template #[rowTotalSlot]="{ row }"><output>{{ totals(field).rows[row.id] ?? '—' }}</output></template>
           <template #actions="{ row }">
             <PortalButton
               variant="secondary"
@@ -137,6 +151,9 @@ variant="secondary"
             </PortalButton>
           </template>
         </PortalTable>
+        <dl v-if="['columns', 'both'].includes(totalsMode(field))">
+          <template v-for="column in field.question.columns.filter(item => item.type === 'number')" :key="column.id"><dt>{{ column.label[locale] }} — {{ s('columnTotal') }}</dt><dd><output>{{ totals(field).columns[column.id] ?? '—' }}</output></dd></template>
+        </dl>
         <PortalButton
           variant="secondary"
           :disabled="field.disabled || tableRows(field).length >= field.question.maxRows"
@@ -151,6 +168,11 @@ variant="secondary"
           >: {{ field.value || '—' }}</PortalText
         >
       </div>
+      <PortalTextarea
+v-else-if="field.question.type === 'textarea'"
+        :id="`${prefix}-${field.id}`" :model-value="field.value" :label="field.label" :rows="5"
+        :required="field.required" :disabled="field.disabled" :maxlength="field.question.maxLength"
+        :hint="field.hint" :error="surveyError(field.error)" @update:model-value="change(field, $event)" />
       <PortalSelect
         v-else-if="field.question.type === 'select'"
         :id="`${prefix}-${field.id}`"

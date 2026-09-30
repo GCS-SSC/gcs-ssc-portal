@@ -3,6 +3,7 @@ import { HeadlessSurvey } from '@gcs-ssc/survey/vue'
 import {
   baseQuestionId,
   computedValue,
+  parseChoices,
   parseList,
   parseTable,
   resolveSurvey,
@@ -10,6 +11,9 @@ import {
   type SurveyDefinition
 } from '@gcs-ssc/survey'
 import SurveyFields from '../survey/SurveyFields.vue'
+import GrantElement from '../survey/GrantElement.vue'
+import ReadonlyTable from '../survey/ReadonlyTable.vue'
+import type { SurveyField } from '@gcs-ssc/survey/vue'
 import SurveyGroups from '../survey/SurveyGroups.vue'
 const props = defineProps<{
   definition: SurveyDefinition
@@ -33,7 +37,7 @@ const readQuestions = computed(() => {
     const path = id.split('@').slice(1)
     const context = path.map((key) => listLabels.get(key) ?? key).join(' / ')
     const raw =
-      question.type === 'computed' && props.definition.schemaVersion === 3
+      question.type === 'computed' && (props.definition.schemaVersion === 3 || props.definition.schemaVersion === 4)
         ? computedValue(
             question,
             path,
@@ -43,7 +47,9 @@ const readQuestions = computed(() => {
           )
         : (answers.value[id] ?? '')
     const value =
-      question.type === 'select'
+      question.type === 'checkboxes' || question.type === 'multiselect'
+        ? parseChoices(raw).map(value => question.options.find(option => option.value === value)?.label[locale.value] ?? value).join(', ')
+        : question.type === 'select'
         ? (question.options.find((option) => option.value === raw)?.label[locale.value] ?? raw)
         : question.type === 'list'
           ? parseList(raw)
@@ -65,6 +71,7 @@ const readQuestions = computed(() => {
     return [
       {
         id,
+        question,
         label: `${question.label[locale.value]}${context ? ` — ${context}` : ''}`,
         hint: question.hint?.[locale.value],
         value
@@ -75,6 +82,10 @@ const readQuestions = computed(() => {
 const { locale } = useLocale(),
   { s } = useSurveyLocale()
 const prefix = useId()
+const readonlyGrantField = (entry: (typeof readQuestions.value)[number]): SurveyField => ({
+  question: entry.question, id: entry.id, label: entry.label, hint: entry.hint ?? '',
+  required: false, disabled: true, value: entry.value, error: undefined, options: [], setValue: () => {}
+})
 const navigate = async (action: (() => boolean) | (() => void)) => {
   if (props.disabled) return
   const result = action()
@@ -89,17 +100,19 @@ const navigate = async (action: (() => boolean) | (() => void)) => {
       <PortalText v-if="'description' in definition && definition.description">{{
         definition.description[locale]
       }}</PortalText>
-      <dl>
-        <template v-for="question in readQuestions" :key="question.id"
-          ><dt>{{ question.label }}</dt>
-          <dd>
-            <PortalText v-if="question.hint" size="small" text-role="secondary">{{
-              question.hint
-            }}</PortalText>
+      <template v-for="question in readQuestions" :key="question.id">
+        <GrantElement
+v-if="question.question.type === 'budget' || question.question.type === 'activities'"
+          :field="readonlyGrantField(question)" :prefix="prefix" readonly />
+        <ReadonlyTable v-else-if="question.question.type === 'table'" :question="question.question" :value="answers[question.id] ?? ''" :label="question.label" />
+        <dl v-else>
+          <dt>{{ question.label }}</dt>
+          <dd :style="question.question.type === 'textarea' ? { whiteSpace: 'pre-wrap' } : undefined">
+            <PortalText v-if="question.hint" size="small" text-role="secondary">{{ question.hint }}</PortalText>
             {{ question.value || '—' }}
-          </dd></template
-        >
-      </dl>
+          </dd>
+        </dl>
+      </template>
     </template>
     <HeadlessSurvey
       v-else

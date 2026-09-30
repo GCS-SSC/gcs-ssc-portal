@@ -1,4 +1,7 @@
 export const surveyEn = {
+  selectAtLeastOne: 'Select at least one option.',
+  rowTotal: 'Row total',
+  columnTotal: 'Column total',
   referencedQuestion:
     'This question is used by a condition. Change or remove its dependent conditions before removing it.',
   descriptionEn: 'Description in English',
@@ -141,6 +144,9 @@ export const surveyEn = {
   tableRows: 'Rows to complete'
 } as const
 export const surveyFr: Record<keyof typeof surveyEn, string> = {
+  selectAtLeastOne: 'Sélectionnez au moins une option.',
+  rowTotal: 'Total de la ligne',
+  columnTotal: 'Total de la colonne',
   referencedQuestion:
     'Cette question est utilisée par une condition. Modifiez ou retirez les conditions qui en dépendent avant de la retirer.',
   descriptionEn: 'Description en anglais',

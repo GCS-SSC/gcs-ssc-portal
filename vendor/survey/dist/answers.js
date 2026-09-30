@@ -1,6 +1,7 @@
+import { grantIssues, normalizeBudgetAnswer, readBudgetAnswer } from './grants.js';
 import { z } from 'zod';
 import { resolveSurvey } from './flow.js';
-import { baseQuestionId, parseList, parseTable, sourceKey } from './advanced.js';
+import { baseQuestionId, parseChoices, parseList, parseTable, sourceKey } from './advanced.js';
 export const answersSchema = z.record(z.string().regex(/^[a-zA-Z][a-zA-Z0-9_-]{0,63}(?:@r_[a-zA-Z0-9_-]{1,40})*$/).max(2048), z.string().max(240 * 1024)).refine((value) => new TextEncoder().encode(JSON.stringify(value)).byteLength <= 1024 * 1024, 'Answers exceed 1 MiB');
 export const isCalendarDate = (value) => {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(value) || value.startsWith('0000-'))
@@ -10,7 +11,7 @@ export const isCalendarDate = (value) => {
 };
 /** Same validator runs in any host renderer and at the API boundary. No coercion of blanks to zero. */
 export const validateAnswers = (definition, answers, mode = 'submit') => {
-    if (definition.schemaVersion === 3)
+    if ((definition.schemaVersion === 3 || definition.schemaVersion === 4))
         return validateAdvancedAnswers(definition, answers, mode);
     const errors = Object.create(null);
     const ids = new Set(definition.questions.map((question) => question.id));
@@ -55,6 +56,20 @@ const validateAdvancedAnswers = (definition, answers, mode) => {
         if (question.type === 'computed')
             continue;
         const value = answers[key] ?? '';
+        if (question.type === 'budget' || question.type === 'activities') {
+            const issues = grantIssues(question, value, mode);
+            if (issues.length)
+                errors[key] = issues[0].code === 'required' ? 'required' : 'choice';
+            continue;
+        }
+        if (question.type === 'checkboxes' || question.type === 'multiselect') {
+            const selected = parseChoices(value);
+            if (value && (JSON.stringify(selected) !== value || selected.some(id => !question.options.some(option => option.value === id))))
+                errors[key] = 'choice';
+            else if (mode === 'submit' && question.required && !selected.length)
+                errors[key] = 'required';
+            continue;
+        }
         if (question.type === 'list' || question.type === 'repeat') {
             const rows = parseList(value, question.maxItems);
             if (value && JSON.stringify(rows) !== value)
@@ -92,7 +107,7 @@ const validateAdvancedAnswers = (definition, answers, mode) => {
                 errors[key] = 'required';
             continue;
         }
-        if (question.type === 'text' && value.length > question.maxLength)
+        if ((question.type === 'text' || question.type === 'textarea') && value.length > question.maxLength)
             errors[key] = 'length';
         if (question.type === 'email' && !z.email().safeParse(value).success)
             errors[key] = 'email';
@@ -114,7 +129,16 @@ const validateAdvancedAnswers = (definition, answers, mode) => {
     return errors;
 };
 /** Use this result at persistence boundaries: answers excludes all hidden/skipped/unknown keys. */
-export const validateSurveyAnswers = (definition, answers, mode = 'submit') => ({
-    answers: resolveSurvey(definition, answers).answers,
-    errors: validateAnswers(definition, answers, mode)
-});
+export const validateSurveyAnswers = (definition, answers, mode = 'submit') => {
+    const retained = resolveSurvey(definition, answers).answers;
+    const errors = validateAnswers(definition, answers, mode);
+    for (const [id, raw] of Object.entries(retained)) {
+        const question = definition.questions.find(item => item.id === baseQuestionId(id));
+        if (question?.type !== 'budget' || errors[id])
+            continue;
+        const answer = readBudgetAnswer(raw);
+        if (answer)
+            retained[id] = JSON.stringify(normalizeBudgetAnswer(question.config, answer));
+    }
+    return { answers: retained, errors };
+};

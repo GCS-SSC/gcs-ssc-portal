@@ -33,6 +33,40 @@ export const parseTable = (raw, max = 100) => {
         return [];
     }
 };
+/** Multiple choices retain stable option IDs, never display labels. */
+export const parseChoices = (raw) => {
+    try {
+        const value = JSON.parse(raw || '[]');
+        return Array.isArray(value) && value.length <= 50 && value.every(item => typeof item === 'string')
+            && new Set(value).size === value.length ? value : [];
+    }
+    catch {
+        return [];
+    }
+};
+export const tableTotalsMode = (question) => question.totals ?? 'none';
+/** Decimal addition avoids floating-point rounding; invalid cells make the affected total unavailable. */
+const sumCells = (cells) => {
+    const values = cells.filter(value => value.trim());
+    if (values.some(value => !/^-?(?:\d+(?:\.\d+)?|\.\d+)$/.test(value) || !Number.isFinite(Number(value))))
+        return null;
+    const scale = Math.max(0, ...values.map(value => (value.split('.')[1] ?? '').length));
+    const total = values.reduce((sum, value) => {
+        const negative = value.startsWith('-');
+        const [whole, fraction = ''] = value.replace(/^-/, '').split('.');
+        const scaled = BigInt(`${whole || '0'}${fraction.padEnd(scale, '0')}`);
+        return sum + (negative ? -scaled : scaled);
+    }, BigInt(0));
+    const negative = total < BigInt(0);
+    const digits = (negative ? -total : total).toString().padStart(scale + 1, '0');
+    const result = scale ? `${digits.slice(0, -scale)}.${digits.slice(-scale)}`.replace(/0+$/, '').replace(/\.$/, '') : digits;
+    return `${negative ? '-' : ''}${result}`;
+};
+export const tableTotals = (question, rows) => {
+    const columns = question.columns.filter(column => column.type === 'number');
+    return { rows: Object.fromEntries(rows.map(row => [row.id, sumCells(columns.map(column => row.cells[column.id] ?? ''))])),
+        columns: Object.fromEntries(columns.map(column => [column.id, sumCells(rows.map(row => row.cells[column.id] ?? ''))])) };
+};
 export const sourceKey = (id, path, active) => {
     for (let length = path.length; length >= 0; length--) {
         const key = instanceKey(id, path.slice(0, length));
@@ -42,12 +76,22 @@ export const sourceKey = (id, path, active) => {
     return undefined;
 };
 const valueFor = (question, key, answers) => {
+    if (question.type === 'checkboxes' || question.type === 'multiselect')
+        return parseChoices(answers[key]).join(', ');
     if (question.type === 'repeat') {
         const count = parseList(answers[key]).length;
         return count ? String(count) : '';
     }
     if (question.type === 'list')
         return parseList(answers[key]).map((item) => item.value).join(', ');
+    if (question.type === 'budget' || question.type === 'activities') {
+        try {
+            return JSON.parse(answers[key] ?? '{}').rows?.length ? 'answered' : '';
+        }
+        catch {
+            return '';
+        }
+    }
     return answers[key] ?? '';
 };
 export const computedValue = (question, path, answers, active, questions) => question.template.replace(/\{\{([a-zA-Z][a-zA-Z0-9_-]{0,63})\}\}/g, (_, id) => {
@@ -76,7 +120,7 @@ export const matchesAdvancedCondition = (condition, path, answers, active, quest
         switch (predicate.operator) {
             case 'equals': return value === predicate.value;
             case 'notEquals': return value !== predicate.value;
-            case 'contains': return value.includes(predicate.value);
+            case 'contains': return question?.type === 'checkboxes' || question?.type === 'multiselect' ? parseChoices(answers[key]).includes(predicate.value) : value.includes(predicate.value);
             case 'greaterThan': return Number.isFinite(Number(value)) && Number(value) > Number(predicate.value);
             case 'lessThan': return Number.isFinite(Number(value)) && Number(value) < Number(predicate.value);
         }
