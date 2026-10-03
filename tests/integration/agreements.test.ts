@@ -378,6 +378,8 @@ describe('agreement submissions and reconciliation', () => {
     expect((await listResponses(db, organizationId, viewer)).responses.some((row) => row.id === response.id)).toBe(false)
     const updates = await listIntegrationUpdates(db, root, agencyId, {})
     const exported = await exportSubmission(db, root, response.id)
+    expect(exported.submission.items[0]).toMatchObject({ mappingComplete: true, claim: { applicantRecipientId: '83' } })
+    expect(agreement.config.externalApplicantRecipientId).toBe('82')
     const event = updates.updates.find((row) => row.submissionId === exported.submission.submissionId)
     expect(event).toMatchObject({ kind: 'submission_item' })
     const before = JSON.stringify(exported.submission)
@@ -637,6 +639,7 @@ describe('agreement submissions and reconciliation', () => {
           mappingComplete: true,
           claim: {
             agreementId: fundingAgreement.config.foreignSystemId,
+            applicantRecipientId: '82',
             streamId: '9223372036854775806',
             fiscalYearId: '91',
             periodStart: 0,

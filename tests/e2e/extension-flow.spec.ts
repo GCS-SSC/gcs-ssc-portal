@@ -8,7 +8,7 @@ test('extension key publishes a pinned form for an authorized organization', asy
   page,
   browser,
   baseURL
-}) => {
+}, testInfo) => {
   test.setTimeout(120000)
   const adminLogin = await page.request.post('/api/admin/login', {
     data: { email: 'root@example.test', password: 'Root-test-only-2026!' }
@@ -140,6 +140,16 @@ test('extension key publishes a pinned form for an authorized organization', asy
         })
       ).ok()
     ).toBe(true)
+    expect(
+      (
+        await extension.request.post(
+          `/api/government/agencies/${agency.id}/organizations/${organizationCode}/verify`,
+          {
+            data: { foreignApplicantRecipientId: '401' }
+          }
+        )
+      ).ok()
+    ).toBe(true)
     const agreementResponse = await extension.request.post('/api/government/agreements', {
       data: {
         organizationId: organizationCode,
@@ -150,6 +160,9 @@ test('extension key publishes a pinned form for an authorized organization', asy
         active: false,
         status: { en: 'On hold', fr: 'En suspens', colour: '#245A80' },
         config: {
+          foreignSystemId: '100',
+          externalStreamId: '301',
+          externalApplicantRecipientId: '401',
           claimInstruction: {
             en: 'List each trip and keep the matching receipt.',
             fr: 'Indiquez chaque déplacement et conservez le reçu correspondant.'
@@ -325,11 +338,15 @@ test('extension key publishes a pinned form for an authorized organization', asy
     await expect(applicant.getByRole('heading', { level: 2, name: 'Agreements' })).toBeVisible()
     await menu.getByRole('link', { name: 'Forms', exact: true }).click()
     const standaloneForms = applicant.getByRole('region', { name: 'Forms' }).last()
-    const organizationResponseLink = standaloneForms.getByRole('link', {
-      name: 'Organization profile form'
-    }).last()
+    const organizationResponseLink = standaloneForms
+      .getByRole('link', {
+        name: 'Organization profile form'
+      })
+      .last()
     await expect(organizationResponseLink).toHaveAttribute(
-      'href', `/organizations/${organizationCode}/responses/${organizationDraft.id}`)
+      'href',
+      `/organizations/${organizationCode}/responses/${organizationDraft.id}`
+    )
     const organizationSaved = await applicant.request.put(
       `/api/organizations/${organizationCode}/responses/${organizationDraft.id}`,
       {
@@ -365,7 +382,9 @@ test('extension key publishes a pinned form for an authorized organization', asy
     ).toBe(true)
     await applicant.reload()
     await expect(organizationResponseLink).toHaveAttribute(
-      'href', `/organizations/${organizationCode}/responses/${organizationDraft.id}`)
+      'href',
+      `/organizations/${organizationCode}/responses/${organizationDraft.id}`
+    )
     await expect(standaloneForms).toContainText('Submitted')
     await organizationResponseLink.click()
     await expect(applicant.getByRole('region', { name: 'Additional documentation' })).toHaveCount(0)
@@ -376,7 +395,8 @@ test('extension key publishes a pinned form for an authorized organization', asy
     await expect(menu.getByRole('link', { name: 'Formulaires', exact: true })).toBeVisible()
     await expect(
       applicant
-        .getByRole('region', { name: 'Formulaires' }).last()
+        .getByRole('region', { name: 'Formulaires' })
+        .last()
         .getByRole('heading', { name: 'Formulaires', exact: true })
     ).toBeVisible()
     await applicant.locator('gcds-lang-toggle').getByRole('link').click()
@@ -566,6 +586,31 @@ test('extension key publishes a pinned form for an authorized organization', asy
     await claimLink.click()
     await expect(applicant).toHaveURL(claimResponsePath)
     await expect(applicant.getByRole('heading', { level: 1, name: 'Travel claim' })).toBeVisible()
+    await applicant.screenshot({
+      path: testInfo.outputPath('claim-submitting-proponent-draft.png'),
+      fullPage: true
+    })
+    await applicant.getByRole('button', { name: 'Submit', exact: true }).click()
+    await applicant.getByRole('button', { name: 'Confirm submission', exact: true }).click()
+    await expect(applicant.getByText('Form submitted.', { exact: true })).toBeVisible()
+    const claimResponseId = claimResponsePath.split('/').at(-1)!
+    const claimExport = await extension.request.get(
+      `/api/government/submissions/${claimResponseId}`
+    )
+    expect(claimExport.ok()).toBe(true)
+    expect((await claimExport.json()).submission).toMatchObject({
+      agreementReference: { externalApplicantRecipientId: '401' },
+      items: [
+        {
+          mappingComplete: true,
+          claim: { agreementId: '100', applicantRecipientId: '401', streamId: '301' }
+        }
+      ]
+    })
+    await applicant.screenshot({
+      path: testInfo.outputPath('claim-submitting-proponent-submitted.png'),
+      fullPage: true
+    })
     await applicant.getByRole('link', { name: 'Back' }).click()
     await expect(applicant).toHaveURL(
       `/organizations/${organizationCode}/agreements/${createdAgreement.id}?section=claims`

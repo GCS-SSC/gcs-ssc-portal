@@ -53,7 +53,9 @@ export const buildSubmissionExport = (options: {
     })
     const mappingComplete = Boolean(
       config.foreignSystemId &&
-      (item.kind === 'forecast' || config.externalStreamId) &&
+      (item.kind === 'forecast' ||
+        (config.externalStreamId &&
+          options.snapshot.agreementReference?.externalApplicantRecipientId)) &&
       fiscalYear.foreignSystemId &&
       lines.every((line) => line.foreignSystemId)
     )
@@ -66,6 +68,8 @@ export const buildSubmissionExport = (options: {
         mappingComplete,
         claim: {
           agreementId: config.foreignSystemId,
+          applicantRecipientId:
+            options.snapshot.agreementReference?.externalApplicantRecipientId ?? null,
           streamId: config.externalStreamId,
           fiscalYearId: fiscalYear.foreignSystemId,
           isFinalForYear: item.isFinalForYear,
