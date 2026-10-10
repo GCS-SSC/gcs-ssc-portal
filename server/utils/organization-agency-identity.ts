@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import type { Kysely } from 'kysely'
 import type { Database } from '../db/schema'
-import { governmentFail as fail, requireGovernment, type GovernmentActor } from './government-access'
+import { governmentFail as fail, requireGovernment, withGovernmentTransaction, type GovernmentActor } from './government-access'
 import { decodePublicId, encodePublicId } from './public-identifiers'
 
 const identityInput = z.object({
@@ -50,7 +50,7 @@ export const verifyAgencyOrganization = async (
   organizationId: number, body: unknown
 ) => {
   const input = identityInput.parse(body)
-  return db.transaction().execute(async (tx) => {
+  return withGovernmentTransaction(db, async (tx) => {
     await requireGovernment(tx, actor, { agencyId, lock: true })
     const organization = await tx.selectFrom('organization').select(['id', 'active'])
       .where('id', '=', organizationId).forUpdate().executeTakeFirst()

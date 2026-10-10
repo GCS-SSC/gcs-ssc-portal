@@ -11,6 +11,7 @@ import {
 import {
   governmentFail as fail,
   requireGovernment,
+  withGovernmentTransaction,
   type GovernmentActor,
   type GovernmentDb
 } from './government-access'
@@ -452,7 +453,7 @@ export const removeGovernmentAttachment = async (
   body: unknown
 ) => {
   const input = versionInput.parse(body)
-  return db.transaction().execute(async (tx) => {
+  return withGovernmentTransaction(db, async (tx) => {
     const initial = await governmentTarget(tx, actor, responseId, input.expectedRevision)
     await requireGovernment(tx, actor, { agencyId: initial.agencyId, lock: true })
     await lockOrganization(tx, initial.organizationId)

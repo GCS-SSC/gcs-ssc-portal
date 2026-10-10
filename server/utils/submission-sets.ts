@@ -12,6 +12,7 @@ import type { Database } from '../db/schema'
 import {
   governmentFail as fail,
   requireGovernment,
+  withGovernmentTransaction,
   type GovernmentActor,
   type GovernmentDb
 } from './government-access'
@@ -52,7 +53,7 @@ export const saveSet = async (
 ) => {
   const update = id ? setUpdateInput.parse(body) : null
   const input = update?.value ?? setInput.parse(body)
-  return db.transaction().execute(async (tx) => {
+  return withGovernmentTransaction(db, async (tx) => {
     await requireGovernment(tx, actor, { agencyId: input.agencyId, lock: true })
     await lockOrganization(tx, input.organizationId)
     if (input.agreementId) {
@@ -133,7 +134,7 @@ export const publishSet = async (
   const input = versionInput.parse(body),
     parent = await setRow(db, id)
   if (parent.callId) return fail(404, 'SET_NOT_FOUND')
-  return db.transaction().execute(async (tx) => {
+  return withGovernmentTransaction(db, async (tx) => {
     await requireGovernment(tx, actor, { agencyId: parent.agencyId, lock: true })
     await lockOrganization(tx, parent.organizationId)
     const row = await tx

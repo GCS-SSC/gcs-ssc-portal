@@ -34,11 +34,14 @@ The agency hierarchy is `agency → program → stream → funding_call`. Calls 
 | GET agency submissions and submission exports/attachments             | Retrieve submitted data                      |
 | PUT submission status; POST submission details and attachments        | Request documentation and send replies       |
 
-The connector keeps each returned portal ID and reconciles before retrying an ambiguous create request; creation is not idempotent. A request example:
+The connector keeps each returned portal ID. JSON mutations accept an optional `Idempotency-Key` header matching `^[A-Za-z0-9][A-Za-z0-9._:-]{0,199}$` (1–200 characters). Keys belong to the credential's agency and survive credential replacement. The portal rechecks current credential authority under lock before any replay. A successful mutation and its original public JSON response commit in the same transaction; concurrent requests with the same key execute the mutation once. Retrying that key returns the original response, including creation IDs and revisioned-update results, even if the resource has since advanced. A reused key with a different method, decoded route/query, or exact body bytes returns 409 `IDEMPOTENCY_KEY_CONFLICT`. Failed requests roll back their replay entry and may be corrected and retried. Invalid keys return 400 `INVALID_IDEMPOTENCY_KEY`.
+
+Persist one fresh key per command and preserve its method, path and serialized body across every attempt. Each request in a multi-step delivery needs its own stable key. Do not generate a new key after an ambiguous remote success or derive command identity solely from its body. Calls without the header retain their existing behavior, including non-idempotent creates and revision conflicts. Binary attachment uploads do not support this contract and reject a supplied key with 400 `IDEMPOTENCY_UNSUPPORTED`. Replay records remain durable without an automatic retention cutoff. A request example:
 
 ```sh
 curl --fail-with-body "$PORTAL_URL/api/government/programs" \
   -H "Authorization: Bearer $PORTAL_API_TOKEN" \
+  -H 'Idempotency-Key: <persistent-command-UUID>' \
   -H 'Content-Type: application/json' \
   --data '{"agencyId":"<agency G-code>","nameEn":"Community innovation","nameFr":"Innovation communautaire"}'
 ```

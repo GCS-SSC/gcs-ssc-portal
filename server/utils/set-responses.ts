@@ -22,6 +22,7 @@ import type { Database } from '../db/schema'
 import {
   governmentFail as fail,
   requireGovernment,
+  withGovernmentTransaction,
   type GovernmentActor,
   type GovernmentDb
 } from './government-access'
@@ -588,7 +589,7 @@ export const updateSubmissionItemOutcome = async (
     .select(['response.organizationId', 'submissionSet.agencyId'])
     .where('response.id', '=', responseId).executeTakeFirst()
   if (!parent) return fail(404, 'RESPONSE_NOT_FOUND')
-  return db.transaction().execute(async (transaction) => {
+  return withGovernmentTransaction(db, async (transaction) => {
     await requireGovernment(transaction, actor, { agencyId: parent.agencyId, lock: true })
     await lockOrganization(transaction, parent.organizationId)
     const response = await transaction.selectFrom('set_response').selectAll()
@@ -636,7 +637,7 @@ export const updateSubmissionStatus = async (
     .where('r.id', '=', submissionId)
     .executeTakeFirst()
   if (!parent) return fail(404, 'RESPONSE_NOT_FOUND')
-  return db.transaction().execute(async (tx) => {
+  return withGovernmentTransaction(db, async (tx) => {
     await requireGovernment(tx, actor, { agencyId: parent.agencyId, lock: true })
     await lockOrganization(tx, parent.organizationId)
     const row = await tx
@@ -807,7 +808,7 @@ export const addGovernmentDetail = async (
     .where('r.id', '=', responseId)
     .executeTakeFirst()
   if (!parent) return fail(404, 'RESPONSE_NOT_FOUND')
-  return db.transaction().execute(async (tx) => {
+  return withGovernmentTransaction(db, async (tx) => {
     await requireGovernment(tx, actor, { agencyId: parent.agencyId, lock: true })
     await lockOrganization(tx, parent.organizationId)
     const row = await tx

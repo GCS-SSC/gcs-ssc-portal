@@ -51,7 +51,7 @@ All government routes require an active agency-scoped integration credential. Su
 | PUT /api/government/calls/:id/forms                     | `{forms:[{surveyId,revision}]}` | Replace ordered forms; draft call, same agency, maximum ten                                                   |
 | GET /api/organizations/:id/funding-calls/:callId/survey | —                               | `{survey:{callId,nameEn,nameFr,surveyId,revision,definition}}`; published, member with application permission |
 
-The optional package import helper validates definitions and response envelopes, refuses redirects, and never retries writes automatically. It creates surveys using POST or updates known survey IDs using PUT plus an expected revision. An extension must persist returned IDs/revisions and reconcile ambiguous failures. Creating a survey and attaching it to a call are explicit separate operations; import never publishes a call automatically. Credentials belong in the extension's server environment, never browser bundles.
+The optional package import helper validates definitions and response envelopes, refuses redirects, and never retries writes automatically. It creates surveys using POST or updates known survey IDs using PUT plus an expected revision. An extension must persist returned IDs/revisions. Its durable delivery transport can use the [agency-scoped idempotency contract](government.md) to replay ambiguous creates or updates; unkeyed writes still require reconciliation. Creating a survey and attaching it to a call are explicit separate operations; import never publishes a call automatically. Credentials belong in the extension's server environment, never browser bundles.
 
 ## Verification
 

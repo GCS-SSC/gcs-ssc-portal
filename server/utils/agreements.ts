@@ -5,6 +5,7 @@ import type { Database } from '../db/schema'
 import {
   governmentFail as fail,
   requireGovernment,
+  withGovernmentTransaction,
   type GovernmentActor,
   type GovernmentDb
 } from './government-access'
@@ -74,7 +75,7 @@ export const saveAgreement = async (
       return fail(400, 'EXTERNAL_STREAM_MISMATCH')
     input.config.externalStreamId = parent.foreignSystemId
   }
-  return db.transaction().execute(async (tx) => {
+  return withGovernmentTransaction(db, async (tx) => {
     await requireGovernment(tx, actor, { agencyId: parent.agencyId, lock: true })
     await lockOrganization(tx, input.organizationId)
     const identity = await tx.selectFrom('organization_agency_identity')
@@ -209,7 +210,7 @@ export const linkAgreementOrganization = async (
 ) => {
   const input = agreementOrganizationInput.parse(body)
   const parent = await agreementRow(db, agreementId)
-  return db.transaction().execute(async (tx) => {
+  return withGovernmentTransaction(db, async (tx) => {
     await requireGovernment(tx, actor, { agencyId: parent.agencyId, lock: true })
     await lockOrganization(tx, input.organizationId)
     const identity = await tx.selectFrom('organization_agency_identity')
@@ -277,7 +278,7 @@ export const updateBalances = async (
   const { balancesInput } = await import('../../shared/schemas/agreements')
   const input = balancesInput.parse(body),
     parent = await agreementRow(db, id)
-  return db.transaction().execute(async (tx) => {
+  return withGovernmentTransaction(db, async (tx) => {
     await requireGovernment(tx, actor, { agencyId: parent.agencyId, lock: true })
     await lockOrganization(tx, parent.organizationId)
     const current = await tx

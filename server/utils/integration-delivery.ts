@@ -6,6 +6,7 @@ import { primaryResponseCode, publicCode } from '../../shared/utils/response-cod
 import {
   governmentFail as fail,
   requireGovernment,
+  withGovernmentTransaction,
   type GovernmentActor
 } from './government-access'
 
@@ -60,7 +61,7 @@ export const consumeIntegrationUpdate = async (
 ) => {
   const parsedId = externalId.parse(eventId)
   const input = consumptionInput.parse(body)
-  return db.transaction().execute(async (transaction) => {
+  return withGovernmentTransaction(db, async (transaction) => {
     await requireGovernment(transaction, actor, { agencyId, lock: true })
     const event = await transaction.selectFrom('integration_delivery').select('id')
       .where('id', '=', parsedId).where('agencyId', '=', agencyId).forUpdate().executeTakeFirst()

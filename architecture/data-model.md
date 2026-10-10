@@ -25,6 +25,8 @@ Migration `002_government` introduced the agency hierarchy, calls, integration t
 
 Migration `015_permanent_integration_tokens` makes only `integration_token.expiresAt` nullable. Existing expiry dates are preserved; null means the key stays active until revoked. The integration-key API validates and exposes that distinction, while other session and invitation expiries remain required.
 
+Migration `017_integration_idempotency` adds `integration_request`, keyed by agency and integration command key. It retains a SHA-256 request fingerprint and the original successful public JSON response. The request claims its key with `INSERT ... ON CONFLICT` inside the business transaction; conflicts serialize concurrent attempts across credentials in the same agency. Government mutation helpers reuse that outer transaction, so a failure cannot commit either the business changes or a replay entry. Existing rows and migration history are preserved. See [the integration retry contract](government.md).
+
 ## PostgreSQL verification
 
 `bun scripts/test-postgres.ts` provisions a unique disposable PostgreSQL 17 container with loopback-only random port and tmpfs data. It runs the same portal lifecycle, migration rerun, tenant isolation, permission, ownership, expiration, and concurrent acceptance tests as the PGlite lane, then removes only its own container in `finally`. Docker must be available. The helper never uses the application's `DATABASE_URL`.

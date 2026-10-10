@@ -3,6 +3,12 @@ import { createError } from 'h3'
 import type { Kysely, Transaction } from 'kysely'
 import type { Database } from '../db/schema'
 export type GovernmentDb = Kysely<Database> | Transaction<Database>
+/** Reuse the request transaction so the mutation and replay response commit together. */
+export const withGovernmentTransaction = <T>(
+  db: GovernmentDb, operation: (transaction: Transaction<Database>) => Promise<T>
+): Promise<T> => db.isTransaction
+  ? operation(db as Transaction<Database>)
+  : db.transaction().execute(operation)
 export type GovernmentActor =
   { kind: 'administrator'; administratorId: number } | { kind: 'integration'; tokenHash: string }
 export const governmentFail = (statusCode: number, code: string): never => {

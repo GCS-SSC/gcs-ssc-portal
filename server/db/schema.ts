@@ -203,6 +203,13 @@ export interface Database {
     remoteReference: string | null
     consumedAt: Timestamp
   }
+  integration_request: {
+    agencyId: number
+    key: string
+    requestHash: string
+    response: Record<string, unknown> | null
+    createdAt: Generated<Date>
+  }
   submission_item_outcome: {
     responseId: number
     itemSubmissionId: string

@@ -111,7 +111,7 @@ Government endpoints require agency-scoped bearer credentials. Foreign browser O
 
 Balance pushes update only specified foreign line IDs. Missing/duplicate IDs fail, and asOf must be newer than each touched timestamp. Omitted optional claimed/forecast values mean unknown (null), so send all authoritative values to retain. Use full agreement updates to add/remove fiscal years and lines.
 
-Creation is not upsert: persist portal IDs and reconcile foreign identities from scoped lists before retrying ambiguous creation. Submission polling is an offset-based full scan, not a change cursor; deduplicate by immutable submission/item IDs. There is no remote delivery acknowledgement.
+Creation is not upsert: persist portal IDs and use the [agency-scoped idempotency contract](government.md) to replay an ambiguous JSON mutation under the same command key and exact request bytes. Unkeyed creates still require foreign-identity reconciliation. The incremental agency updates feed identifies immutable submission/item events and accepts consumption receipts after the destination commit. Offset-based submission listing remains available for full scans; consumers deduplicate by immutable submission/item IDs.
 
 Organization paths start /api/organizations/:organizationId:
 

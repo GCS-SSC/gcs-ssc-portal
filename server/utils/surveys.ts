@@ -6,6 +6,7 @@ import type { Database } from '../db/schema'
 import {
   governmentFail as fail,
   requireGovernment,
+  withGovernmentTransaction,
   type GovernmentActor,
   type GovernmentDb
 } from './government-access'
@@ -57,7 +58,7 @@ export const getSurvey = async (db: GovernmentDb, actor: GovernmentActor, id: nu
 }
 export const createSurvey = async (db: Kysely<Database>, actor: GovernmentActor, body: unknown) => {
   const input = createInput.parse(body)
-  return db.transaction().execute(async (tx) => {
+  return withGovernmentTransaction(db, async (tx) => {
     await requireGovernment(tx, actor, { agencyId: input.agencyId, lock: true })
     if (
       !(await tx
@@ -91,7 +92,7 @@ export const updateSurvey = async (
   body: unknown
 ) => {
   const input = updateInput.parse(body)
-  return db.transaction().execute(async (tx) => {
+  return withGovernmentTransaction(db, async (tx) => {
     const original = await tx
       .selectFrom('survey')
       .selectAll()
@@ -137,7 +138,7 @@ export const attachCallForms = async (
   db: Kysely<Database>, actor: GovernmentActor, callId: number, body: unknown
 ) => {
   const input = attachFormsInput.parse(body)
-  return db.transaction().execute(async (tx) => {
+  return withGovernmentTransaction(db, async (tx) => {
     const parent = await tx
       .selectFrom('funding_call as c')
       .innerJoin('stream as s', 's.id', 'c.streamId')

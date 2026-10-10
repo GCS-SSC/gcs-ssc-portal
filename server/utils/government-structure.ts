@@ -13,6 +13,7 @@ import {
 import {
   governmentFail as fail,
   requireGovernment,
+  withGovernmentTransaction,
   type GovernmentActor,
   type GovernmentDb
 } from './government-access'
@@ -75,7 +76,7 @@ export const listAgencies = async (db: GovernmentDb, actor: GovernmentActor) => 
 }
 export const createAgency = async (db: Kysely<Database>, actor: GovernmentActor, body: unknown) => {
   const input = structureInput.parse(body)
-  return db.transaction().execute(async (tx) => {
+  return withGovernmentTransaction(db, async (tx) => {
     const access = await requireGovernment(tx, actor, { lock: true })
     if (actor.kind !== 'administrator' || access.role === 'integration')
       return fail(403, 'ADMINISTRATOR_REQUIRED')
@@ -94,7 +95,7 @@ export const updateAgency = async (
   body: unknown
 ) => {
   const input = structureInput.parse(body)
-  return db.transaction().execute(async (tx) => {
+  return withGovernmentTransaction(db, async (tx) => {
     await requireGovernment(tx, actor, { agencyId: id, lock: true })
     const row = await tx
       .updateTable('agency')
@@ -151,7 +152,7 @@ export const createProgram = async (
   body: unknown
 ) => {
   const input = programInput.parse(body)
-  return db.transaction().execute(async (tx) => {
+  return withGovernmentTransaction(db, async (tx) => {
     await requireGovernment(tx, actor, { agencyId: input.agencyId, lock: true })
     if (
       !(await tx
@@ -171,7 +172,7 @@ export const createProgram = async (
 }
 export const createStream = async (db: Kysely<Database>, actor: GovernmentActor, body: unknown) => {
   const input = streamInput.parse(body)
-  return db.transaction().execute(async (tx) => {
+  return withGovernmentTransaction(db, async (tx) => {
     const program = await programOwner(tx, input.programId)
     await requireGovernment(tx, actor, { agencyId: program.agencyId, lock: true })
     const row = await tx
@@ -190,7 +191,7 @@ export const updateStructureName = async (
   body: unknown
 ) => {
   const input = structureInput.parse(body)
-  return db.transaction().execute(async (tx) => {
+  return withGovernmentTransaction(db, async (tx) => {
     const parent = kind === 'program' ? await programOwner(tx, id) : await streamOwner(tx, id)
     await requireGovernment(tx, actor, { agencyId: parent.agencyId, lock: true })
     await tx.updateTable(kind).set(input).where('id', '=', id).execute()
@@ -205,7 +206,7 @@ export const saveCall = async (
 ) => {
   const update = id ? callUpdateInput.parse(body) : null
   const { expectedRevision, ...input } = update ?? { ...callInput.parse(body), expectedRevision: undefined }
-  return db.transaction().execute(async (tx) => {
+  return withGovernmentTransaction(db, async (tx) => {
     const stream = await streamOwner(tx, input.streamId)
     await requireGovernment(tx, actor, { agencyId: stream.agencyId, lock: true })
     if (id) {
@@ -250,7 +251,7 @@ export const publishCall = async (
   body: unknown
 ) => {
   const input = publishInput.parse(body)
-  return db.transaction().execute(async (tx) => {
+  return withGovernmentTransaction(db, async (tx) => {
     const call = await callQuery(tx).where('c.id', '=', id).executeTakeFirst()
     if (!call) return fail(404, 'CALL_NOT_FOUND')
     await requireGovernment(tx, actor, { agencyId: call.agencyId, lock: true })
@@ -282,7 +283,7 @@ export const deleteDraftCall = async (
   db: Kysely<Database>,
   actor: GovernmentActor,
   id: number
-) => db.transaction().execute(async (tx) => {
+) => withGovernmentTransaction(db, async (tx) => {
   const call = await callQuery(tx).where('c.id', '=', id).executeTakeFirst()
   if (!call) return fail(404, 'CALL_NOT_FOUND')
   await requireGovernment(tx, actor, { agencyId: call.agencyId, lock: true })
