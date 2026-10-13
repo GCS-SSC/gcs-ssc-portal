@@ -37,7 +37,7 @@ const readQuestions = computed(() => {
     const path = id.split('@').slice(1)
     const context = path.map((key) => listLabels.get(key) ?? key).join(' / ')
     const raw =
-      question.type === 'computed' && (props.definition.schemaVersion === 3 || props.definition.schemaVersion === 4)
+      question.type === 'computed' && (props.definition.schemaVersion === 3 || props.definition.schemaVersion === 4 || props.definition.schemaVersion === 5)
         ? computedValue(
             question,
             path,

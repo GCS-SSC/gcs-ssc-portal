@@ -10,7 +10,8 @@ export const useSurveyLocale = () => {
     date: 'errorDate',
     choice: 'errorChoice',
     length: 'errorLength',
-    unknown: 'errorUnknown'
+    unknown: 'errorUnknown',
+    rule: 'errorRule'
   } as const
   return { s, surveyError: (code?: SurveyError) => (code ? s(keys[code]) : '') }
 }

@@ -29,6 +29,7 @@ import {
   cleanupAttachments
 } from '../../server/utils/attachments'
 import { sha256, type AttachmentStorage } from '../../server/utils/attachment-storage'
+import { fieldRuleForm, fullRuleForm, validRuleAnswers } from '../fixtures/field-rule-form'
 import { attachmentsAllowed } from '../../shared/schemas/agreements'
 import { callInput } from '../../shared/schemas/government'
 let db: Kysely<Database>, actor: GovernmentActor, agencyId: number, streamId: number, orgId: number
@@ -572,4 +573,145 @@ it('enforces per-form and whole-response capacity and protects other organizatio
     if (originalTotal === undefined) delete process.env.ATTACHMENT_MAX_RESPONSE_BYTES
     else process.env.ATTACHMENT_MAX_RESPONSE_BYTES = originalTotal
   }
+})
+
+it('enforces captured field rules on application drafts, review and submit without changing older revisions', async () => {
+  const survey = (await surveys.createSurvey(db, actor, { agencyId, definition: fieldRuleForm() }))
+    .survey
+  const call = await structure.saveCall(db, actor, {
+    streamId,
+    ...names,
+    startDate: '2020-01-01',
+    endDate: '2099-12-31'
+  })
+  await surveys.attachSurvey(db, actor, call.id, { surveyId: survey.id, revision: 1 })
+  await structure.publishCall(db, actor, call.id, { published: true })
+  const draft = await start(call.id)
+  const saveAnswers = (answers: Record<string, string>, expectedRevision: number) =>
+    mutateResponse(db, orgId, users.contributor, draft.id, 'save', {
+      expectedRevision,
+      items: [{ id: 'application', kind: 'survey', answers }]
+    })
+  const partial = await saveAnswers({ start: validRuleAnswers.start }, draft.revision)
+  await expect(
+    checkResponse(db, orgId, users.manager, draft.id, {
+      expectedRevision: partial.response.revision
+    })
+  ).rejects.toMatchObject({ statusCode: 400 })
+  await expect(
+    mutateResponse(db, orgId, users.manager, draft.id, 'submit', {
+      expectedRevision: partial.response.revision,
+      balanceRevision: null,
+      warningsAcknowledged: true
+    })
+  ).rejects.toMatchObject({ statusCode: 400 })
+  for (const answers of [
+    { ...validRuleAnswers, end: validRuleAnswers.start },
+    { ...validRuleAnswers, amount: '100.01' },
+    { ...validRuleAnswers, amount: '50.251' },
+    { ...validRuleAnswers, details: 'A response exceeding twenty characters' }
+  ])
+    await expect(saveAnswers(answers, partial.response.revision)).rejects.toMatchObject({
+      statusCode: 400
+    })
+  const conditionalDraft = await saveAnswers(
+    { ...validRuleAnswers, details: '' },
+    partial.response.revision
+  )
+  await expect(
+    checkResponse(db, orgId, users.manager, draft.id, {
+      expectedRevision: conditionalDraft.response.revision
+    })
+  ).rejects.toMatchObject({ statusCode: 400 })
+  const unfinished = await saveAnswers({ ...validRuleAnswers, details: 'ab' }, conditionalDraft.response.revision)
+  await expect(checkResponse(db, orgId, users.manager, draft.id, {
+    expectedRevision: unfinished.response.revision
+  })).rejects.toMatchObject({ statusCode: 400 })
+  const complete = await saveAnswers(validRuleAnswers, unfinished.response.revision)
+  const changed = fieldRuleForm()
+  changed.questions[1]!.label.en = 'Updated end date'
+  await surveys.updateSurvey(db, actor, survey.id, { expectedRevision: 1, definition: changed })
+  expect(
+    (await getResponse(db, orgId, users.viewer, draft.id)).response.snapshot.items[0]!.survey
+  ).toEqual(fieldRuleForm())
+  await checkResponse(db, orgId, users.manager, draft.id, {
+    expectedRevision: complete.response.revision
+  })
+  const submitted = await mutateResponse(db, orgId, users.manager, draft.id, 'submit', {
+    expectedRevision: complete.response.revision,
+    balanceRevision: null,
+    warningsAcknowledged: true
+  })
+  expect(submitted.response.status).toBe('submitted')
+  expect(submitted.response.items[0]).toMatchObject({ answers: validRuleAnswers })
+})
+
+it('rejects invalid formats and duplicate or invalid table rows at the application API boundary', async () => {
+  const survey = (await surveys.createSurvey(db, actor, { agencyId, definition: fullRuleForm() })).survey
+  const call = await structure.saveCall(db, actor, { streamId, ...names,
+    startDate: '2020-01-01', endDate: '2099-12-31' })
+  await surveys.attachSurvey(db, actor, call.id, { surveyId: survey.id, revision: 1 })
+  await structure.publishCall(db, actor, call.id, { published: true })
+  const draft = await start(call.id)
+  const table = (name: string, cost: string) => JSON.stringify([
+    { id: 'r_first', cells: { name: 'First project', cost: '10' } },
+    { id: 'r_second', cells: { name, cost } }
+  ])
+  for (const answers of [
+    { ...validRuleAnswers, website: 'not a URL' },
+    { ...validRuleAnswers, records: table('First project', '20') },
+    { ...validRuleAnswers, records: table('Second project', '-1') }
+  ]) await expect(mutateResponse(db, orgId, users.contributor, draft.id, 'save', {
+    expectedRevision: draft.revision, items: [{ id: 'application', kind: 'survey', answers }]
+  })).rejects.toMatchObject({ statusCode: 400 })
+  const saved = await mutateResponse(db, orgId, users.contributor, draft.id, 'save', {
+    expectedRevision: draft.revision, items: [{ id: 'application', kind: 'survey',
+      answers: { ...validRuleAnswers, website: 'https://example.test', records: table('Second project', '20') } }]
+  })
+  await checkResponse(db, orgId, users.manager, draft.id, { expectedRevision: saved.response.revision })
+})
+
+it('enforces conditional requirements above the safe integer range without rounding the source answer', async () => {
+  const preciseDefinition: SurveyDefinition = {
+    schemaVersion: 5,
+    title: { en: 'Exact quantity', fr: 'Quantité exacte' },
+    questions: [
+      { id: 'amount', type: 'number', label: { en: 'Quantity', fr: 'Quantité' }, required: true },
+      { id: 'details', type: 'text', label: { en: 'Details', fr: 'Détails' }, required: false, maxLength: 500,
+        rules: [{ kind: 'required', when: { match: 'all', conditions: [
+          { questionId: 'amount', operator: 'greaterThan', value: '9007199254740992' }
+        ] } }] }
+    ],
+    pages: [{ id: 'quantity', title: { en: 'Your quantity', fr: 'Votre quantité' },
+      questionIds: ['amount', 'details'], groups: [], branches: [] }]
+  }
+  const survey = (await surveys.createSurvey(db, actor, { agencyId, definition: preciseDefinition })).survey
+  const call = await structure.saveCall(db, actor, { streamId, ...names,
+    startDate: '2020-01-01', endDate: '2099-12-31' })
+  await surveys.attachSurvey(db, actor, call.id, { surveyId: survey.id, revision: 1 })
+  await structure.publishCall(db, actor, call.id, { published: true })
+  const draft = await start(call.id)
+  const saveAnswers = (answers: Record<string, string>, expectedRevision: number) =>
+    mutateResponse(db, orgId, users.contributor, draft.id, 'save', {
+      expectedRevision, items: [{ id: 'application', kind: 'survey', answers }]
+    })
+  const boundary = await saveAnswers({ amount: '9007199254740992' }, draft.revision)
+  await checkResponse(db, orgId, users.manager, draft.id, { expectedRevision: boundary.response.revision })
+  const above = await saveAnswers({ amount: '9007199254740993' }, boundary.response.revision)
+  expect(above.response.items[0]).toMatchObject({ answers: { amount: '9007199254740993' } })
+  await expect(checkResponse(db, orgId, users.manager, draft.id, {
+    expectedRevision: above.response.revision
+  })).rejects.toMatchObject({ statusCode: 400 })
+  await expect(mutateResponse(db, orgId, users.manager, draft.id, 'submit', {
+    expectedRevision: above.response.revision, balanceRevision: null, warningsAcknowledged: true
+  })).rejects.toMatchObject({ statusCode: 400 })
+  const completed = await saveAnswers({ amount: '9007199254740993', details: 'Large quantity' }, above.response.revision)
+  await checkResponse(db, orgId, users.manager, draft.id, { expectedRevision: completed.response.revision })
+  const submitted = await mutateResponse(db, orgId, users.manager, draft.id, 'submit', {
+    expectedRevision: completed.response.revision, balanceRevision: null, warningsAcknowledged: true
+  })
+  expect(submitted.response.status).toBe('submitted')
+  expect(submitted.response.items[0]).toMatchObject({
+    answers: { amount: '9007199254740993', details: 'Large quantity' }
+  })
 })

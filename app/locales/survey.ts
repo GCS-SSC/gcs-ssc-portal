@@ -120,6 +120,7 @@ export const surveyEn = {
   errorChoice: 'Select one of the listed choices.',
   errorLength: 'Shorten your response to the allowed length.',
   errorUnknown: 'Remove the response to an unknown question.',
+  errorRule: 'Check the requirements for this response.',
   dateHint: 'Use YYYY-MM-DD, for example 2027-01-31.',
   numberHint: 'Use digits and a decimal point, for example 1250.50.',
   conflict:
@@ -266,6 +267,7 @@ export const surveyFr: Record<keyof typeof surveyEn, string> = {
   errorChoice: 'Sélectionnez un des choix proposés.',
   errorLength: 'Raccourcissez votre réponse à la longueur permise.',
   errorUnknown: 'Retirez la réponse à une question inconnue.',
+  errorRule: 'Vérifiez les exigences de cette réponse.',
   dateHint: 'Utilisez AAAA-MM-JJ, par exemple 2027-01-31.',
   numberHint: 'Utilisez des chiffres et un point décimal, par exemple 1250.50.',
   conflict:

@@ -1,4 +1,5 @@
 import { computed, defineComponent } from 'vue';
+import { fieldRuleErrors, isFieldRequired } from './index.js';
 import { useSurveyFlow } from './navigation.js';
 import { baseQuestionId, computedValue, sourceKey } from './advanced.js';
 /** No elements or styles: the host provides every rendered control through the default slot. */
@@ -13,7 +14,8 @@ export const HeadlessSurvey = defineComponent({
             type: Object,
             default: () => ({})
         },
-        disabled: { type: Boolean, default: false }
+        disabled: { type: Boolean, default: false },
+        today: { type: String, default: undefined }
     },
     emits: {
         'update:modelValue': (value) => typeof value === 'object'
@@ -23,8 +25,10 @@ export const HeadlessSurvey = defineComponent({
         const flow = useSurveyFlow({
             definition: () => props.definition,
             answers: () => props.modelValue,
+            today: () => props.today,
             onChange: (value) => emit('update:modelValue', value)
         });
+        const ruleMessages = computed(() => fieldRuleErrors(props.definition, props.modelValue, 'submit', props.locale, { today: props.today }));
         const fields = computed(() => (flow.page.value?.activeQuestionIds ?? [])
             .map((id) => ({ id, question: props.definition.questions.find((question) => question.id === baseQuestionId(id)) }))
             .map(({ id, question }) => ({
@@ -32,9 +36,9 @@ export const HeadlessSurvey = defineComponent({
             id,
             label: question.label[props.locale],
             hint: question.hint?.[props.locale] ?? '',
-            required: question.required,
+            required: props.definition.schemaVersion === 5 ? isFieldRequired(question, id, props.modelValue, new Set(flow.route.value.questionIds), new Map(props.definition.questions.map(item => [item.id, item]))) : question.required,
             disabled: props.disabled || question.type === 'computed',
-            value: question.type === 'computed' && (props.definition.schemaVersion === 3 || props.definition.schemaVersion === 4)
+            value: question.type === 'computed' && (props.definition.schemaVersion === 3 || props.definition.schemaVersion === 4 || props.definition.schemaVersion === 5)
                 ? computedValue(question, id.split('@').slice(1), props.modelValue, new Set(flow.route.value.questionIds), new Map(props.definition.questions.map((item) => [item.id, item])))
                 : Object.hasOwn(props.modelValue, id) ? props.modelValue[id] : '',
             error: Object.hasOwn(props.errors, id)
@@ -42,8 +46,9 @@ export const HeadlessSurvey = defineComponent({
                 : Object.hasOwn(flow.errors.value, id)
                     ? flow.errors.value[id]
                     : undefined,
+            errorMessage: (props.errors[id] ?? flow.errors.value[id]) === 'rule' ? ruleMessages.value[id] : undefined,
             options: (question.type === 'select' || question.type === 'checkboxes' || question.type === 'multiselect')
-                ? ((props.definition.schemaVersion === 3 || props.definition.schemaVersion === 4) && 'dependsOn' in question && question.dependsOn
+                ? ((props.definition.schemaVersion === 3 || props.definition.schemaVersion === 4 || props.definition.schemaVersion === 5) && 'dependsOn' in question && question.dependsOn
                     ? question.options.filter((option) => question.dependsOn.optionsByValue[props.modelValue[sourceKey(question.dependsOn.questionId, id.split('@').slice(1), new Set(flow.route.value.questionIds)) ?? ''] ?? '']?.some((choice) => choice.value === option.value))
                     : question.options).map((option) => ({
                     value: option.value,

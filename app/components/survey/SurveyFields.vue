@@ -32,15 +32,15 @@ const updateCell = (field: SurveyField, rowId: string, columnId: string, value: 
   <template v-for="id in ids" :key="id">
     <template v-for="field in fields.filter((item) => item.id === id)" :key="field.id">
       <GrantElement v-if="field.question.type === 'budget' || field.question.type === 'activities'" :field="field" :prefix="prefix" :legend-size="legendSize" />
-      <PortalCheckboxGroup v-else-if="field.question.type === 'checkboxes'" :id="`${prefix}-${field.id}`" :model-value="parseChoices(field.value)" :label="field.label" :hint="[field.hint, field.required ? s('selectAtLeastOne') : ''].filter(Boolean).join(' ')" :required="field.required" :disabled="field.disabled" :options="field.options" :error="surveyError(field.error)" @toggle="(value, selected) => toggleChoice(field, value, selected)" />
+      <PortalCheckboxGroup v-else-if="field.question.type === 'checkboxes'" :id="`${prefix}-${field.id}`" :model-value="parseChoices(field.value)" :label="field.label" :hint="[field.hint, field.required ? s('selectAtLeastOne') : ''].filter(Boolean).join(' ')" :required="field.required" :disabled="field.disabled" :options="field.options" :error="field.errorMessage ?? surveyError(field.error)" @toggle="(value, selected) => toggleChoice(field, value, selected)" />
       <PortalDetails v-else-if="field.question.type === 'multiselect'" :open="Boolean(field.error)" :title="`${field.label}${field.required ? ` (${s('required')})` : ''} — ${parseChoices(field.value).length}`">
-        <PortalCheckboxGroup :id="`${prefix}-${field.id}`" :model-value="parseChoices(field.value)" :label="field.label" :hint="[field.hint, field.required ? s('selectAtLeastOne') : ''].filter(Boolean).join(' ')" :required="field.required" :disabled="field.disabled" :options="field.options" :error="surveyError(field.error)" @toggle="(value, selected) => toggleChoice(field, value, selected)" />
+        <PortalCheckboxGroup :id="`${prefix}-${field.id}`" :model-value="parseChoices(field.value)" :label="field.label" :hint="[field.hint, field.required ? s('selectAtLeastOne') : ''].filter(Boolean).join(' ')" :required="field.required" :disabled="field.disabled" :options="field.options" :error="field.errorMessage ?? surveyError(field.error)" @toggle="(value, selected) => toggleChoice(field, value, selected)" />
       </PortalDetails>
       <PortalFieldset
         v-else-if="field.question.type === 'repeat'" class="survey-repeat"
         :legend="`${field.label}${field.required ? ` (${s('required')})` : ''}`"
         :legend-size="legendSize ?? 'h5'" :hint="field.hint">
-        <PortalNotice v-if="field.error" variant="error">{{ surveyError(field.error) }}</PortalNotice>
+        <PortalNotice v-if="field.error" variant="error">{{ field.errorMessage ?? surveyError(field.error) }}</PortalNotice>
         <div
 v-for="(row, index) in listRows(field)"
           :key="row.id" class="survey-repeat-row">
@@ -64,7 +64,7 @@ variant="secondary"
         :legend="`${field.label}${field.required ? ` (${s('required')})` : ''}`"
         :legend-size="legendSize ?? 'h5'" :hint="field.hint">
         <PortalNotice v-if="field.error" variant="error">{{
-          surveyError(field.error)
+          field.errorMessage ?? surveyError(field.error)
         }}</PortalNotice>
         <div v-for="(row, index) in listRows(field)" :key="row.id" class="survey-repeat-row">
           <PortalInput
@@ -101,8 +101,8 @@ variant="secondary"
         v-else-if="field.question.type === 'table'" class="survey-table"
         :legend="`${field.label}${field.required ? ` (${s('required')})` : ''}`"
         :legend-size="legendSize ?? 'h5'" :hint="field.hint">
-        <PortalNotice v-if="field.error" variant="error">{{
-          surveyError(field.error)
+        <PortalNotice v-if="field.error" :id="`${prefix}-${field.id}-error`" variant="error">{{
+          field.errorMessage ?? surveyError(field.error)
         }}</PortalNotice>
         <PortalText v-if="!tableRows(field).length">{{ s('noRows') }}</PortalText>
         <PortalTable
@@ -127,6 +127,7 @@ variant="secondary"
               :id="`${prefix}-${field.id}-${row.id}-${column.id}`"
               :model-value="row.cells[column.id] ?? ''"
               :label="column.label[locale]"
+              :aria-description="field.error ? field.errorMessage ?? surveyError(field.error) : undefined"
               :required="column.required"
               :disabled="field.disabled"
               :maxlength="500"
@@ -173,7 +174,7 @@ variant="secondary"
 v-else-if="field.question.type === 'textarea'"
         :id="`${prefix}-${field.id}`" :model-value="field.value" :label="field.label" :rows="5"
         :required="field.required" :disabled="field.disabled" :maxlength="field.question.maxLength"
-        :hint="field.hint" :error="surveyError(field.error)" @update:model-value="change(field, $event)" />
+        :hint="field.hint" :error="field.errorMessage ?? surveyError(field.error)" @update:model-value="change(field, $event)" />
       <PortalSelect
         v-else-if="field.question.type === 'select'"
         :id="`${prefix}-${field.id}`"
@@ -183,7 +184,7 @@ v-else-if="field.question.type === 'textarea'"
         :required="field.required"
         :disabled="field.disabled"
         :options="[{ value: '', label: s('choose') }, ...field.options]"
-        :error="surveyError(field.error)"
+        :error="field.errorMessage ?? surveyError(field.error)"
         @update:model-value="change(field, $event)"
       />
       <PortalInput
@@ -208,7 +209,7 @@ v-else-if="field.question.type === 'textarea'"
         :required="field.required"
         :disabled="field.disabled"
         :maxlength="field.question.type === 'text' ? field.question.maxLength : 5000"
-        :error="surveyError(field.error)"
+        :error="field.errorMessage ?? surveyError(field.error)"
         @update:model-value="change(field, $event)"
       />
     </template>

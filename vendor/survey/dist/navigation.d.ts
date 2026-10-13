@@ -5,6 +5,7 @@ import type { SurveyDefinition } from './model.js';
 export declare const useSurveyFlow: (options: {
     definition: MaybeRefOrGetter<SurveyDefinition>;
     answers: MaybeRefOrGetter<SurveyAnswers>;
+    today?: MaybeRefOrGetter<string | undefined>;
     onChange: (answers: SurveyAnswers) => void;
 }) => {
     route: import("vue").ComputedRef<{

@@ -36,7 +36,7 @@ export const useSurveyFlow = (options) => {
             return;
         const definition = toValue(options.definition);
         const next = { ...toValue(options.answers), [id]: value };
-        if ((definition.schemaVersion === 3 || definition.schemaVersion === 4)) {
+        if ((definition.schemaVersion === 3 || definition.schemaVersion === 4 || definition.schemaVersion === 5)) {
             const active = new Set(resolveSurvey(definition, next).questionIds);
             for (const question of definition.questions) {
                 if (question.type !== 'select' || !question.dependsOn)
@@ -57,7 +57,7 @@ export const useSurveyFlow = (options) => {
         complete.value = false;
         errors.value = {};
     };
-    const validate = () => validateAnswers(toValue(options.definition), toValue(options.answers));
+    const validate = () => validateAnswers(toValue(options.definition), toValue(options.answers), 'submit', { today: toValue(options.today) });
     const next = () => {
         const allErrors = validate();
         errors.value = Object.fromEntries(Object.entries(allErrors).filter(([id]) => page.value?.activeQuestionIds.includes(id)));

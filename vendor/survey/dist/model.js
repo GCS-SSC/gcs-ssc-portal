@@ -1,3 +1,4 @@
+import { validateFieldRules, validateUniqueReferences } from './field-rules.js';
 import { budgetConfigSchema, activityConfigSchema } from './grants.js';
 import { z } from 'zod';
 export const questionTypes = ['text', 'email', 'number', 'date', 'select'];
@@ -89,6 +90,31 @@ const predicateSchema = z.discriminatedUnion('operator', [
 export const conditionSchema = z
     .object({ match: z.enum(['all', 'any']), conditions: z.array(predicateSchema).min(1).max(20) })
     .strict();
+export const comparisonOperators = ['equals', 'notEquals', 'greaterThan', 'greaterThanOrEqual', 'lessThan', 'lessThanOrEqual'];
+const bounds = { min: z.number().int().min(0).max(5000).optional(), max: z.number().int().min(0).max(5000).optional() };
+const boundRule = (kind) => z.object({ kind: z.literal(kind), ...bounds }).strict()
+    .refine(value => value.min !== undefined || value.max !== undefined, 'Set at least one bound')
+    .refine(value => value.min === undefined || value.max === undefined || value.min <= value.max, 'Minimum exceeds maximum');
+export const fieldRuleSchema = z.discriminatedUnion('kind', [
+    z.object({ kind: z.literal('compare'), operator: z.enum(comparisonOperators), target: z.discriminatedUnion('kind', [
+            z.object({ kind: z.literal('question'), questionId: identifier, offsetDays: z.number().int().min(-36500).max(36500).optional() }).strict(),
+            z.object({ kind: z.literal('today'), offsetDays: z.number().int().min(-36500).max(36500).optional() }).strict(),
+            z.object({ kind: z.literal('column'), columnId: identifier }).strict(),
+            z.object({ kind: z.literal('value'), value: z.string().min(1).max(5000) }).strict()
+        ]) }).strict(),
+    boundRule('length'), boundRule('count'),
+    z.object({ kind: z.literal('precision'), decimalPlaces: z.number().int().min(0).max(20) }).strict(),
+    z.object({ kind: z.literal('required'), when: conditionSchema }).strict(),
+    z.object({ kind: z.literal('format'), format: z.enum(['url', 'postalCode', 'phone', 'identifier']) }).strict(),
+    z.object({ kind: z.literal('choice'), value: identifier }).strict(),
+    z.object({ kind: z.literal('group'), mode: z.enum(['atLeastOne', 'exactlyOne', 'all', 'allOrNone']),
+        questionIds: z.array(identifier).min(2).max(20).refine(ids => new Set(ids).size === ids.length, 'Group references must be unique') }).strict(),
+    z.object({ kind: z.literal('unique'), columnIds: z.array(identifier).min(1).max(20).optional(),
+        questionIds: z.array(identifier).min(1).max(20).optional() }).strict(),
+    z.object({ kind: z.literal('total'), columnIds: z.array(identifier).min(1).max(20), operator: z.enum(['equals', 'lessThanOrEqual']),
+        target: z.discriminatedUnion('kind', [z.object({ kind: z.literal('question'), questionId: identifier }).strict(),
+            z.object({ kind: z.literal('value'), value: z.string().min(1).max(5000) }).strict()]) }).strict()
+]);
 const questionExtensions = {
     hint: z
         .object({ en: z.string().trim().min(1).max(500), fr: z.string().trim().min(1).max(500) })
@@ -243,6 +269,15 @@ export const grantQuestionSchema = z.discriminatedUnion('type', [
 export const tableTotalsModes = ['none', 'rows', 'columns', 'both'];
 const tableV4Schema = advancedQuestionSchema.options[7].extend({ totals: z.enum(tableTotalsModes).optional() });
 export const questionV4Schema = z.union([advancedQuestionSchema, tableV4Schema, advancedBase.extend({ type: z.literal('checkboxes'), options: choiceOptions }), advancedBase.extend({ type: z.literal('multiselect'), options: choiceOptions }), grantQuestionSchema, advancedBase.extend({ type: z.literal('textarea'), maxLength: z.number().int().min(1).max(5000).default(2000) })]);
+const ruleExtensions = { rules: z.array(fieldRuleSchema).min(1).max(20).optional() };
+export const questionV5Schema = z.union([
+    ...advancedQuestionSchema.options.filter(schema => schema !== advancedQuestionSchema.options[7] && schema !== advancedQuestionSchema.options[8]).map(schema => schema.extend(ruleExtensions)),
+    advancedQuestionSchema.options[8], tableV4Schema.extend({ ...ruleExtensions, columns: z.array(tableColumn.extend(ruleExtensions)).min(1).max(20) }),
+    advancedBase.extend({ type: z.literal('checkboxes'), options: choiceOptions, ...ruleExtensions }),
+    advancedBase.extend({ type: z.literal('multiselect'), options: choiceOptions, ...ruleExtensions }),
+    ...grantQuestionSchema.options.map(schema => schema.extend(ruleExtensions)),
+    advancedBase.extend({ type: z.literal('textarea'), maxLength: z.number().int().min(1).max(5000).default(2000), ...ruleExtensions })
+]);
 export const advancedGroupSchema = z.lazy(() => z.object({
     id: identifier, title: bilingualText, description: bilingualDescription.optional(),
     visibleWhen: conditionSchema.optional(), repeatFor: identifier.optional(),
@@ -261,7 +296,7 @@ const advancedSurveyBase = z.object({
     pages: z.array(advancedPageSchema).min(1).max(30)
 }).strict();
 const validateAdvancedDefinition = (value, context) => {
-    const fail = (message) => context.addIssue({ code: 'custom', message });
+    const fail = (message, path) => context.addIssue({ code: 'custom', message, path });
     if (new TextEncoder().encode(JSON.stringify(value)).byteLength > 240 * 1024)
         fail('Survey exceeds 240 KiB');
     const used = new Set();
@@ -307,6 +342,7 @@ const validateAdvancedDefinition = (value, context) => {
             const question = questions.get(id);
             if (question) {
                 checkCondition(question.visibleWhen, scope);
+                validateFieldRules(question, value.questions.indexOf(question), scope, questions, placed, accessible, checkCondition, fail);
                 if (question.type === 'select' && question.dependsOn) {
                     const source = questions.get(question.dependsOn.questionId);
                     if (!placed.has(question.dependsOn.questionId) || !accessible(question.dependsOn.questionId, scope)
@@ -364,16 +400,19 @@ const validateAdvancedDefinition = (value, context) => {
     });
     if (placed.size !== questions.size)
         fail('Every question must be placed exactly once');
+    validateUniqueReferences(value.questions, scopes, fail);
     for (const question of value.questions)
         if (question.type === 'table' &&
             new Set(question.columns.map((column) => column.id)).size !== question.columns.length)
             fail('Table column IDs must be unique');
 };
 const surveyV4Base = advancedSurveyBase.extend({ schemaVersion: z.literal(4), questions: z.array(questionV4Schema).min(1).max(200) });
+const surveyV5Base = advancedSurveyBase.extend({ schemaVersion: z.literal(5), questions: z.array(questionV5Schema).min(1).max(200) });
 export const surveyV3Schema = advancedSurveyBase.superRefine(validateAdvancedDefinition);
 export const surveyV4Schema = surveyV4Base.superRefine(validateAdvancedDefinition);
-export const designerSurveySchema = z.union([surveyV3Schema, surveyV4Schema]);
-export const surveySchema = z.union([surveyV1Schema, surveyV2Schema, surveyV3Schema, surveyV4Schema]);
+export const surveyV5Schema = surveyV5Base.superRefine(validateAdvancedDefinition);
+export const designerSurveySchema = z.union([surveyV3Schema, surveyV4Schema, surveyV5Schema]);
+export const surveySchema = z.union([surveyV1Schema, surveyV2Schema, surveyV3Schema, surveyV4Schema, surveyV5Schema]);
 /** Explicit editing upgrade; never mutates the archived source definition. */
 export const upgradeSurvey = (definition) => {
     const copy = JSON.parse(JSON.stringify(definition));
@@ -400,13 +439,13 @@ export const upgradeSurvey = (definition) => {
         }))
     };
 };
-/** Authoring upgrade to v3. Archived revisions remain unchanged. */
+/** Authoring upgrade to v5. Archived revisions remain unchanged. */
 export const upgradeToAdvancedSurvey = (definition) => {
-    if (definition.schemaVersion === 3 || definition.schemaVersion === 4)
-        return JSON.parse(JSON.stringify(definition));
+    if (definition.schemaVersion === 3 || definition.schemaVersion === 4 || definition.schemaVersion === 5)
+        return { ...JSON.parse(JSON.stringify(definition)), schemaVersion: 5 };
     const current = upgradeSurvey(definition);
     return {
-        schemaVersion: 3, attachments: current.attachments, title: current.title,
+        schemaVersion: 5, attachments: current.attachments, title: current.title,
         description: current.description, questions: current.questions,
         pages: current.pages.map((page) => ({
             id: page.id, title: page.title, description: page.description,

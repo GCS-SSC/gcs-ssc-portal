@@ -8,6 +8,7 @@ import { createAgency, createProgram, createStream } from '../../server/utils/go
 import { createOrganization, updatePermissions } from '../../server/utils/portal'
 import { decodePublicId } from '../../server/utils/public-identifiers'
 import type { GovernmentActor } from '../../server/utils/government-access'
+import { fieldRuleForm, validRuleAnswers } from '../fixtures/field-rule-form'
 import { createSurvey } from '../../server/utils/surveys'
 import {
   saveAgreement,
@@ -1103,5 +1104,45 @@ describe('agreement submissions and reconciliation', () => {
     })
     const orgSet = await saveSet(db, root, { ...value, agreementId: null, foreignSystemId: null })
     expect(orgSet.set.agreementId).toBeNull()
+  })
+  it('enforces field rules through the agreement form response workflow', async () => {
+    const agreement = await newAgreement()
+    const survey = (await createSurvey(db, root, { agencyId, definition: fieldRuleForm() })).survey
+    const configured = (
+      await saveSet(db, root, {
+        ...names('Rule-controlled report'),
+        organizationId,
+        agencyId,
+        agreementId: agreement.id,
+        items: [{ id: 'report', kind: 'survey', surveyId: survey.id, surveyRevision: 1 }]
+      })
+    ).set
+    const published = (
+      await publishSet(db, root, configured.id, { expectedRevision: configured.revision }, true)
+    ).set
+    const draft = (
+      await startResponse(db, organizationId, contributor, published.id, { locale: 'en' })
+    ).response
+    const items = (answers: Record<string, string>) => [{ id: 'report', kind: 'survey', answers }]
+    await expect(
+      mutateResponse(db, organizationId, contributor, draft.id, 'save', {
+        expectedRevision: draft.revision,
+        items: items({ ...validRuleAnswers, end: '2026-12-31' })
+      })
+    ).rejects.toMatchObject({ statusCode: 400 })
+    const saved = await mutateResponse(db, organizationId, contributor, draft.id, 'save', {
+      expectedRevision: draft.revision,
+      items: items(validRuleAnswers)
+    })
+    await checkResponse(db, organizationId, manager, draft.id, {
+      expectedRevision: saved.response.revision
+    })
+    const submitted = await mutateResponse(db, organizationId, manager, draft.id, 'submit', {
+      expectedRevision: saved.response.revision,
+      balanceRevision: null,
+      warningsAcknowledged: true
+    })
+    expect(submitted.response.status).toBe('submitted')
+    expect(submitted.response.items[0]).toMatchObject({ answers: validRuleAnswers })
   })
 })

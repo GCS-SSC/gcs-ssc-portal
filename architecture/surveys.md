@@ -1,10 +1,10 @@
 # Headless survey provider and portal integration
 
-The shared provider is `@gcs-ssc/survey`, maintained separately in the public `GCS-SSC/survey` repository. The portal installs a pinned Git revision through `package.json`; it does not keep a second copy of the provider's source. The GCS–SSC application has not been modified. It can adopt the same package later with its own UI and server-side extension.
+The shared provider is `@gcs-ssc/survey`, maintained separately in the public `GCS-SSC/survey` repository. The portal installs its captured compiled provider through `vendor/survey`; provider source remains in its owning repository. The GCS–SSC application has not been modified. It can adopt the same package later with its own UI and server-side extension.
 
 ## Package boundary
 
-The core entrypoint exports the versioned JSON schemas (v1 and v2), inferred TypeScript types, answer schema and answer validator. The `/vue` entrypoint exports a renderless `HeadlessSurvey` component and `useSurveyDesigner`. The optional `/client` entrypoint exports the server-side portal import helper. Neither core nor client loads Vue; Vue is an optional peer required by `/vue`.
+The core entrypoint exports the versioned JSON schemas (v1–v5), inferred TypeScript types, answer schema and answer validator. The `/vue` entrypoint exports a renderless `HeadlessSurvey` component and `useSurveyDesigner`. The optional `/client` entrypoint exports the server-side portal import helper. Neither core nor client loads Vue; Vue is an optional peer required by `/vue`.
 
 The provider has no Nuxt, theme, CSS, database or authentication dependency. Renderless slots expose localized questions, values, errors, required/disabled state, options and setter actions. Hosts choose every element and control, and own accessible DOM IDs/labels, focus behavior, validation messages, layout and persistence. The portal implements these with its existing `PortalInput`, `PortalSelect` and `PortalButton` adapters, so the application uses the shared model and behavior.
 
@@ -14,7 +14,7 @@ Answers are string values keyed by stable question IDs. Numbers intentionally re
 
 ## Structured forms and flow (version 2)
 
-The designer explicitly upgrades a v1 definition into a separate v2 editing copy, preserving archived and call-pinned revisions. New saves use v2; imports accept either supported version. No database reset or schema migration is needed because immutable definitions already live in JSONB.
+The provider preserves archived and call-pinned definitions under their original version. The GCS connector upgrades a separate editing copy for current authoring; imports accept every supported version. No database reset or schema migration is needed because immutable definitions already live in JSONB.
 
 Version 2 adds pages, sections and subsections with bilingual headings and optional descriptions. Every supplied description/help text requires both nonblank English and French; otherwise omit the field. Each question is assigned exactly once. Rendering follows page questions, then section questions, then subsection questions in order. The provider validates unique IDs, placements, limits and references.
 
@@ -60,3 +60,49 @@ The package owns model, headless Vue, designer and transport tests. The portal o
 See [private attachments](attachments.md) for app-wide S3 configuration, per-form opt-in and download/cleanup contracts.
 
 Budget and Activities questions use schema version 4 of the public headless provider. Their strict versioned row payloads remain answer-map strings; portable configs snapshot catalogs and optional GCS references. They collect applicant information and do not create GCS Agreement records. Custom catalogs and unresolved responsible parties require later reconciliation. Single-language activity responses require agency translations before GCS creation. Publication checks reject missing Budget years/cost items or required Activity catalogs; saved drafts and old revisions remain readable. The same provider validates and normalizes draft/submitted money; submitted views render structured labels and amounts, including original activity text when the interface language changes.
+
+## Designer field rules (version 5)
+
+Imported version 5 forms add typed field rules for compatible answer comparisons,
+constant bounds, relative calendar dates, text lengths, decimal precision, selection/row
+counts, conditional required responses, URL/postal-code/phone/identifier formats,
+acknowledgement choices, group completeness, row uniqueness and table-total reconciliation.
+Table columns may also carry compatible scalar rules; row and column context appears
+in the table error. GCDS table inputs expose that group message through `aria-description`,
+which the installed Input observes and forwards to the actual shadow control; an external
+`aria-describedby` reference alone does not establish that association. The shared provider validates the authored definition, selects
+active repeated instances, evaluates the rules, and supplies localized English/French
+inline errors and dynamic required descriptors. `SurveyFields` uses those messages
+through the existing GCDS control error props; both local Preview and application or
+agreement entry share that renderer. Computed readback includes version 5 forms.
+
+Draft saves allow unanswered required fields, including conditionally required fields.
+Drafts defer minimum text lengths, selection/row counts, unfinished groups and exact
+total reconciliation so unfinished entry can be saved. Upper bounds, uniqueness,
+formats and populated comparisons are checked on both draft and final validation; comparisons wait
+until both active values are populated and valid. Zero is a value, never a missing answer. Version 5 numeric rules and conditional-required
+predicates compare the original decimal strings exactly, including values above the
+JavaScript safe integer range; existing visibility and navigation conditions retain
+their versioned evaluation contract.
+Hidden and skipped fields retain provider pruning and do not demand entry. Rules compare
+compatible fields in the same repeated entry or an accessible ancestor scope; they do
+not aggregate across unrelated entries or separate forms.
+
+The existing response persistence boundary validates against the captured published
+survey definition in Save, Check and Submit, for applications and agreement forms.
+Updating a survey creates a separate immutable revision: existing pinned calls, drafts
+and submissions retain their original rules, and versions 1–4 keep their prior contract.
+The Portal provides applicant rendering and agency integration APIs; the GCS connector
+owns the form designer. No new Portal authoring screen or database migration is needed.
+
+`tests/integration/applications.test.ts` covers incomplete drafts, populated invalid
+values, conditional requirements (including exact large-number thresholds), recovery,
+final submission and pinned revisions.
+`tests/integration/agreements.test.ts` covers rule enforcement through an agreement form.
+`tests/integration/field-rules.test.ts` exercises relative dates, format presets,
+acknowledgements, groups, counts, repeated-child uniqueness, table totals and column
+comparisons through both published workflows. Rejected saves, checks and submissions
+retain the stored answers and revision; corrected answers reach final submission.
+`tests/e2e/field-rules.spec.ts` exercises Preview and entry, bilingual relational/limit
+errors through real GCDS controls, conditional required semantics, table uniqueness and
+error association, draft save, server rejection and successful submission through the UI.

@@ -47,7 +47,7 @@ export declare const computedValue: (question: Extract<AdvancedQuestion, {
     type: "computed";
 }>, path: string[], answers: SurveyAnswers, active: ReadonlySet<string>, questions: Map<string, AdvancedQuestion>) => string;
 /** Conditions in a repeated group resolve against the nearest repeated instance. */
-export declare const matchesAdvancedCondition: (condition: SurveyCondition, path: string[], answers: SurveyAnswers, active: ReadonlySet<string>, questions: Map<string, AdvancedQuestion>) => boolean;
+export declare const matchesAdvancedCondition: (condition: SurveyCondition, path: string[], answers: SurveyAnswers, active: ReadonlySet<string>, questions: Map<string, AdvancedQuestion>, exactNumbers?: boolean) => boolean;
 export declare const resolveAdvancedSurvey: (definition: AdvancedSurvey, answers: SurveyAnswers) => {
     pages: ResolvedAdvancedPage[];
     questionIds: string[];

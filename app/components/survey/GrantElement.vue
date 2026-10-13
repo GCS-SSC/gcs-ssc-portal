@@ -6,6 +6,7 @@ import { grantMessages } from '~/locales/grants'
 import GrantInput from './GrantInput.vue'
 const props = defineProps<{ field: SurveyField; prefix: string; legendSize?: 'h3' | 'h4' | 'h5' | 'h6'; readonly?: boolean }>()
 const { locale } = useLocale()
+const { s, surveyError } = useSurveyLocale()
 const t = (key: string, values?: Record<string, string | number>) => {
   let message: string = grantMessages[locale.value][key as keyof typeof grantMessages.en]
   for (const [name, value] of Object.entries(values ?? {})) message = message.replaceAll(`{${name}}`, String(value))
@@ -33,8 +34,9 @@ const configured = computed(() => question.value.type === 'budget'
     && (!question.value.config.requireResponsibleParties || question.value.config.responsibleParties.length > 0))
 </script>
 <template>
-  <PortalFieldset :legend="field.label" :legend-size="legendSize ?? 'h4'" :hint="field.hint">
+  <PortalFieldset :legend="`${field.label}${field.required ? ` (${s('required')})` : ''}`" :legend-size="legendSize ?? 'h4'" :hint="field.hint">
     <PortalText v-if="!readonly">{{ t(question.type === 'budget' ? 'grantSummaryHelp' : 'grantActivityHelp') }}</PortalText>
+    <PortalNotice v-if="field.errorMessage || (field.error === 'required' && !editor.issues.value.some(issue => !issue.path))" variant="error">{{ field.errorMessage ?? surveyError(field.error) }}</PortalNotice>
     <PortalNotice v-if="!configured" variant="info">{{ t('grantNotConfigured') }}</PortalNotice>
     <PortalNotice v-if="editor.issues.value.find(issue => !issue.path)" variant="error">{{ t(`grantError_${editor.issues.value.find(issue => !issue.path)!.code}`) }}</PortalNotice>
     <PortalText v-if="!editor.rows.value.length">{{ t('grantEmpty') }}</PortalText>

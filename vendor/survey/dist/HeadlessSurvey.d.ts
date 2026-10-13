@@ -10,6 +10,7 @@ export interface SurveyField {
     disabled: boolean;
     value: string;
     error: SurveyError | undefined;
+    errorMessage?: string;
     options: {
         value: string;
         label: string;
@@ -53,6 +54,10 @@ export declare const HeadlessSurvey: import("vue").DefineComponent<import("vue")
         type: BooleanConstructor;
         default: boolean;
     };
+    today: {
+        type: StringConstructor;
+        default: undefined;
+    };
 }>, () => import("vue").VNode<import("vue").RendererNode, import("vue").RendererElement, {
     [key: string]: any;
 }>[], {}, {}, {}, import("vue").ComponentOptionsMixin, import("vue").ComponentOptionsMixin, {
@@ -78,10 +83,15 @@ export declare const HeadlessSurvey: import("vue").DefineComponent<import("vue")
         type: BooleanConstructor;
         default: boolean;
     };
+    today: {
+        type: StringConstructor;
+        default: undefined;
+    };
 }>> & Readonly<{
     "onUpdate:modelValue"?: ((value: SurveyAnswers) => any) | undefined;
 }>, {
     errors: Record<string, SurveyError>;
+    today: string;
     locale: "en" | "fr";
     disabled: boolean;
 }, SlotsType<{

@@ -1,3 +1,4 @@
+import { compareDecimal } from './values.js';
 export const instanceKey = (id, path) => [id, ...path].join('@');
 export const baseQuestionId = (key) => key.split('@', 1)[0];
 export const parseList = (raw, max = 50) => {
@@ -102,7 +103,7 @@ export const computedValue = (question, path, answers, active, questions) => que
     return key && source ? valueFor(source, key, answers) : '';
 });
 /** Conditions in a repeated group resolve against the nearest repeated instance. */
-export const matchesAdvancedCondition = (condition, path, answers, active, questions) => {
+export const matchesAdvancedCondition = (condition, path, answers, active, questions, exactNumbers = false) => {
     const results = condition.conditions.map((predicate) => {
         const key = sourceKey(predicate.questionId, path, active);
         if (!key)
@@ -121,8 +122,16 @@ export const matchesAdvancedCondition = (condition, path, answers, active, quest
             case 'equals': return value === predicate.value;
             case 'notEquals': return value !== predicate.value;
             case 'contains': return question?.type === 'checkboxes' || question?.type === 'multiselect' ? parseChoices(answers[key]).includes(predicate.value) : value.includes(predicate.value);
-            case 'greaterThan': return Number.isFinite(Number(value)) && Number(value) > Number(predicate.value);
-            case 'lessThan': return Number.isFinite(Number(value)) && Number(value) < Number(predicate.value);
+            case 'greaterThan':
+            case 'lessThan': {
+                if (exactNumbers) {
+                    if (![value, predicate.value].every(decimal => /^-?(?:\d+(?:\.\d+)?|\.\d+)$/.test(decimal) && Number.isFinite(Number(decimal))))
+                        return false;
+                    const order = compareDecimal(value, predicate.value);
+                    return predicate.operator === 'greaterThan' ? order > 0 : order < 0;
+                }
+                return Number.isFinite(Number(value)) && (predicate.operator === 'greaterThan' ? Number(value) > Number(predicate.value) : Number(value) < Number(predicate.value));
+            }
         }
     });
     return condition.match === 'all' ? results.every(Boolean) : results.some(Boolean);

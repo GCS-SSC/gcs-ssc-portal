@@ -1,18 +1,16 @@
+import { isCalendarDate } from './values.js';
+import { isConditionallyRequired, evaluateFieldRules, ruleMessage } from './field-rules.js';
+export { isFieldRequired } from './field-rules.js';
 import { grantIssues, normalizeBudgetAnswer, readBudgetAnswer } from './grants.js';
 import { z } from 'zod';
 import { resolveSurvey } from './flow.js';
 import { baseQuestionId, parseChoices, parseList, parseTable, sourceKey } from './advanced.js';
 export const answersSchema = z.record(z.string().regex(/^[a-zA-Z][a-zA-Z0-9_-]{0,63}(?:@r_[a-zA-Z0-9_-]{1,40})*$/).max(2048), z.string().max(240 * 1024)).refine((value) => new TextEncoder().encode(JSON.stringify(value)).byteLength <= 1024 * 1024, 'Answers exceed 1 MiB');
-export const isCalendarDate = (value) => {
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(value) || value.startsWith('0000-'))
-        return false;
-    const date = new Date(`${value}T00:00:00.000Z`);
-    return Number.isFinite(date.getTime()) && date.toISOString().slice(0, 10) === value;
-};
+export { isCalendarDate } from './values.js';
 /** Same validator runs in any host renderer and at the API boundary. No coercion of blanks to zero. */
-export const validateAnswers = (definition, answers, mode = 'submit') => {
-    if ((definition.schemaVersion === 3 || definition.schemaVersion === 4))
-        return validateAdvancedAnswers(definition, answers, mode);
+export const validateAnswers = (definition, answers, mode = 'submit', options = {}) => {
+    if ((definition.schemaVersion === 3 || definition.schemaVersion === 4 || definition.schemaVersion === 5))
+        return validateAdvancedAnswers(definition, answers, mode, options);
     const errors = Object.create(null);
     const ids = new Set(definition.questions.map((question) => question.id));
     for (const key of Object.keys(answers))
@@ -42,7 +40,7 @@ export const validateAnswers = (definition, answers, mode = 'submit') => {
     }
     return errors;
 };
-const validateAdvancedAnswers = (definition, answers, mode) => {
+const validateAdvancedAnswers = (definition, answers, mode, options = {}, applyRules = true) => {
     const errors = Object.create(null);
     const questions = new Map(definition.questions.map((question) => [question.id, question]));
     const route = resolveSurvey(definition, answers);
@@ -51,7 +49,8 @@ const validateAdvancedAnswers = (definition, answers, mode) => {
         if (!active.has(key) || !questions.has(baseQuestionId(key)))
             errors[key] = 'unknown';
     for (const key of active) {
-        const question = questions.get(baseQuestionId(key));
+        const original = questions.get(baseQuestionId(key));
+        const question = { ...original, required: isConditionallyRequired(original, key, answers, active, questions) };
         const path = key.split('@').slice(1);
         if (question.type === 'computed')
             continue;
@@ -126,12 +125,16 @@ const validateAdvancedAnswers = (definition, answers, mode) => {
                 errors[key] = 'choice';
         }
     }
+    if (applyRules && definition.schemaVersion === 5) {
+        for (const key of Object.keys(evaluateFieldRules(definition, answers, mode, errors, active, options)))
+            errors[key] = 'rule';
+    }
     return errors;
 };
 /** Use this result at persistence boundaries: answers excludes all hidden/skipped/unknown keys. */
-export const validateSurveyAnswers = (definition, answers, mode = 'submit') => {
+export const validateSurveyAnswers = (definition, answers, mode = 'submit', options = {}) => {
     const retained = resolveSurvey(definition, answers).answers;
-    const errors = validateAnswers(definition, answers, mode);
+    const errors = validateAnswers(definition, answers, mode, options);
     for (const [id, raw] of Object.entries(retained)) {
         const question = definition.questions.find(item => item.id === baseQuestionId(id));
         if (question?.type !== 'budget' || errors[id])
@@ -141,4 +144,13 @@ export const validateSurveyAnswers = (definition, answers, mode = 'submit') => {
             retained[id] = JSON.stringify(normalizeBudgetAnswer(question.config, answer));
     }
     return { answers: retained, errors };
+};
+/** Localized detail for the first failing rule per active answer; generic validation keeps stable codes. */
+export const fieldRuleErrors = (definition, answers, mode = 'submit', locale = 'en', options = {}) => {
+    if (definition.schemaVersion !== 5)
+        return {};
+    const baseErrors = validateAdvancedAnswers(definition, answers, mode, options, false);
+    const active = new Set(resolveSurvey(definition, answers).questionIds);
+    return Object.fromEntries(Object.entries(evaluateFieldRules(definition, answers, mode, baseErrors, active, options))
+        .map(([key, failure]) => [key, ruleMessage(failure, locale)]));
 };
