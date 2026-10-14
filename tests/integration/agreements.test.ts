@@ -514,6 +514,13 @@ describe('agreement submissions and reconciliation', () => {
       warningsAcknowledged: true
     })
     const immutableExport = (await exportSubmission(db, root, first.id)).submission
+    // Submitted evidence from the former line-version contract remains frozen.
+    for (const line of immutableExport.items[0].forecast.lineItems) line.egcs_fc_version = '0'
+    await db
+      .updateTable('set_response')
+      .set({ export: immutableExport })
+      .where('id', '=', first.id)
+      .execute()
     const updatedValue = agreementInput.parse({
       ...names('Agreement'),
       organizationId,
@@ -556,12 +563,11 @@ describe('agreement submissions and reconciliation', () => {
       balanceRevision: updated.revision,
       warningsAcknowledged: true
     })
-    expect((await exportSubmission(db, root, second.id)).submission.items[0]).toMatchObject({
-      portalIteration: 2,
-      forecast: {
-        lineItems: expect.arrayContaining([expect.objectContaining({ egcs_fc_version: '0' })])
-      }
-    })
+    const secondExport = (await exportSubmission(db, root, second.id)).submission.items[0]
+    expect(secondExport).toMatchObject({ portalIteration: 2 })
+    expect(secondExport.forecast.header).not.toHaveProperty('egcs_fc_version')
+    for (const line of secondExport.forecast.lineItems)
+      expect(line).not.toHaveProperty('egcs_fc_version')
   })
   it('gives contributors drafts, reserves final actions for managers, and allows acknowledged balance warnings', async () => {
     const fundingAgreement = await newAgreement(),
@@ -932,15 +938,13 @@ describe('agreement submissions and reconciliation', () => {
                 egcs_fc_fundingagreementbudgetlineitem: '9007199254740993',
                 egcs_fc_month: 0,
                 egcs_fc_amount: '-5.25',
-                egcs_fc_currency: 'cad',
-                egcs_fc_version: '0'
+                egcs_fc_currency: 'cad'
               },
               {
                 egcs_fc_fundingagreementbudgetlineitem: '9007199254740993',
                 egcs_fc_month: 11,
                 egcs_fc_amount: '0.00',
-                egcs_fc_currency: 'cad',
-                egcs_fc_version: '0'
+                egcs_fc_currency: 'cad'
               }
             ])
           }

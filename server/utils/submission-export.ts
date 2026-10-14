@@ -103,8 +103,7 @@ export const buildSubmissionExport = (options: {
           egcs_fc_fundingagreementbudgetlineitem: line.foreignSystemId,
           egcs_fc_month: 'month' in line ? line.month : 0,
           egcs_fc_amount: line.amount,
-          egcs_fc_currency: line.currency,
-          egcs_fc_version: '0'
+          egcs_fc_currency: line.currency
         }))
       }
     }
