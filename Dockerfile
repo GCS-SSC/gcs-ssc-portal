@@ -6,6 +6,7 @@ RUN case "$PORTAL_ENVIRONMENT" in demo|production) ;; *) exit 1 ;; esac
 RUN apt-get update && apt-get install --no-install-recommends -y ca-certificates git && rm -rf /var/lib/apt/lists/*
 COPY package.json bun.lock ./
 COPY vendor/survey ./vendor/survey
+COPY patches ./patches
 RUN bun install --frozen-lockfile --ignore-scripts
 COPY . .
 ENV NITRO_PRESET=node-server
